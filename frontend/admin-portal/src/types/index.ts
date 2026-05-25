@@ -186,7 +186,7 @@ export interface Review {
 // ---------------------------------------------------------------------------
 export interface Category {
   name: string;
-  category_name: string;
+  category: string;
   description: string | null;
   image: string | null;
   course_count: number;
