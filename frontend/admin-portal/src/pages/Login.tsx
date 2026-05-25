@@ -66,16 +66,17 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Email or Username
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-dark focus:border-transparent"
-                placeholder="admin@deltaspmu.com"
+                placeholder="admin@deltaspmu.com or Administrator"
               />
             </div>
 
