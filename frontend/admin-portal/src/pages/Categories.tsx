@@ -13,13 +13,13 @@ export default function Categories() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => getCategories({ limit_page_length: 100, order_by: 'category_name asc' }),
+    queryFn: () => getCategories({ limit_page_length: 100, order_by: 'category asc' }),
   });
 
   const categories: Category[] = data ?? [];
 
   const createMut = useMutation({
-    mutationFn: (catName: string) => createCategory({ category_name: catName }),
+    mutationFn: (catName: string) => createCategory({ category: catName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       closeModal();
@@ -28,7 +28,7 @@ export default function Categories() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, catName }: { id: string; catName: string }) =>
-      updateCategory(id, { category_name: catName }),
+      updateCategory(id, { category: catName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       closeModal();
@@ -51,7 +51,7 @@ export default function Categories() {
 
   const openEdit = (cat: Category) => {
     setEditing(cat);
-    setName(cat.category_name);
+    setName(cat.category);
     setModalOpen(true);
   };
 
@@ -104,7 +104,7 @@ export default function Categories() {
             <tbody className="divide-y divide-gray-200">
               {categories.map((cat) => (
                 <tr key={cat.name} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{cat.category_name}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{cat.category}</td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{cat.course_count}</td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <div className="inline-flex items-center gap-2">
@@ -159,7 +159,7 @@ export default function Categories() {
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-gray-900">Delete Category</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Are you sure you want to delete <span className="font-medium">{deleteTarget.category_name}</span>? This cannot be undone.
+              Are you sure you want to delete <span className="font-medium">{deleteTarget.category}</span>? This cannot be undone.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setDeleteTarget(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>

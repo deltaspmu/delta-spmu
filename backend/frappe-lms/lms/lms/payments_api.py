@@ -291,7 +291,7 @@ def get_course_price(course, currency="ETB"):
 # ---------------------------------------------------------------------------
 # 2. initiate_payment  [auth, GET]
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     """Create a Payment Transaction and route to the chosen provider.
 
@@ -490,7 +490,7 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
 # ---------------------------------------------------------------------------
 # 3. check_payment_status  [auth, GET]
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def check_payment_status(transaction_id):
     """Poll the payment provider for the current status of a transaction.
 
@@ -619,7 +619,7 @@ def check_payment_status(transaction_id):
 # ---------------------------------------------------------------------------
 # 4. verify_payment  [auth, GET]  — manual verification (CBE bank transfer)
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def verify_payment(transaction_id, reference=None):
     """Submit a bank-transfer reference for manual admin verification.
 
@@ -687,7 +687,7 @@ def verify_payment(transaction_id, reference=None):
 # ---------------------------------------------------------------------------
 # 5. get_user_transactions  [auth, GET]
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def get_user_transactions(limit=20, offset=0):
     """Return the current user's payment history (paginated).
 
@@ -1265,7 +1265,7 @@ def admin_verify_payment(transaction_id):
 # ---------------------------------------------------------------------------
 # 12. admin_get_revenue_stats  [auth, admin only]
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def admin_get_revenue_stats():
     """Return revenue dashboard statistics (admin only).
 
@@ -1410,7 +1410,7 @@ def admin_get_revenue_stats():
 # ---------------------------------------------------------------------------
 # 13. admin_export_payments_csv  [auth, admin only]
 # ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def admin_export_payments_csv(status=None, payment_method=None, from_date=None, to_date=None):
     """Stream a CSV of Payment Transaction rows for admin export.
 

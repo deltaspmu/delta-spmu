@@ -1938,7 +1938,7 @@ def get_certificates():
 # 17b. get_certificate_pdf  (authenticated)
 # ---------------------------------------------------------------------------
 
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def get_certificate_pdf(certificate=None):
     """Render a certificate as a downloadable PDF.
 
@@ -3410,6 +3410,33 @@ def custom_reset_password(user=None, email=None):
 
 
 # ---------------------------------------------------------------------------
+# DEBUG: who_am_i  (guest)
+# Temporary endpoint to diagnose cross-origin cookie issues. Returns what
+# Frappe sees as the current session — cookies received, user resolved,
+# roles. Hit from the browser to see what your real session looks like.
+# Remove after debugging is complete.
+# ---------------------------------------------------------------------------
+@frappe.whitelist(allow_guest=True, methods=["GET"])
+def who_am_i():
+    cookies = {}
+    if hasattr(frappe, 'request') and frappe.request:
+        cookies = dict(frappe.request.cookies)
+    return {
+        "session_user": frappe.session.user,
+        "session_sid": (frappe.session.sid or "")[:16] + "...",
+        "is_authenticated": frappe.session.user != "Guest",
+        "roles": frappe.get_roles(frappe.session.user)[:10],
+        "cookies_received_names": list(cookies.keys()),
+        "has_sid_cookie": "sid" in cookies,
+        "sid_cookie_value_prefix": (cookies.get("sid", "")[:16] + "...") if cookies.get("sid") else None,
+        "request_host": frappe.request.host if hasattr(frappe, 'request') and frappe.request else None,
+        "x_forwarded_for": frappe.request.headers.get("X-Forwarded-For") if hasattr(frappe, 'request') and frappe.request else None,
+        "x_forwarded_host": frappe.request.headers.get("X-Forwarded-Host") if hasattr(frappe, 'request') and frappe.request else None,
+        "origin": frappe.request.headers.get("Origin") if hasattr(frappe, 'request') and frappe.request else None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 34. admin_get_enrollments  (admin only)
 # ---------------------------------------------------------------------------
 # Joins LMS Enrollment with LMS Course to return course_title alongside the
@@ -3419,7 +3446,7 @@ def custom_reset_password(user=None, email=None):
 #
 # Used by admin Dashboard (recent enrollments widget) and Enrollments page.
 
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def admin_get_enrollments(limit=50, offset=0, search=None, course=None):
     """Return enrollment rows enriched with course_title + derived status."""
     user = frappe.session.user
@@ -3520,7 +3547,7 @@ def admin_get_enrollments(limit=50, offset=0, search=None, course=None):
 # Single-shot dashboard stats — replaces N+1 client-side aggregation.
 # Returns counts + most-recent rows for users / courses / enrollments / payments.
 
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist()
 def admin_get_dashboard_summary():
     """Return one consolidated dashboard payload."""
     user = frappe.session.user
