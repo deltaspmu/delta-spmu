@@ -10,7 +10,7 @@ import {
   deleteQuizQuestion,
   getCourses,
 } from '@/api/client';
-import type { Quiz, QuizQuestion, QuizOption } from '@/types';
+import type { Quiz, QuizQuestion } from '@/types';
 import {
   Plus,
   Search,
@@ -414,7 +414,7 @@ export default function Quizzes() {
                 </button>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-dark">{quiz.title}</h3>
-                  <p className="text-xs text-gray-400">{courseMap.get(quiz.course) || quiz.course || 'No course'}</p>
+                  <p className="text-xs text-gray-400">{String(courseMap.get(quiz.course) || quiz.course || 'No course')}</p>
                 </div>
                 <div className="hidden sm:flex items-center gap-4 text-xs text-gray-500">
                   <span>Pass: {quiz.passing_percentage}%</span>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getEnrollments, getCourses, createEnrollment } from '@/api/client';
 import type { Enrollment } from '@/types';
@@ -7,7 +7,6 @@ import {
   Loader2,
   Plus,
   X,
-  Filter,
 } from 'lucide-react';
 import { format } from 'date-fns';
 

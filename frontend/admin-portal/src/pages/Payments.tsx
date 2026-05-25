@@ -11,7 +11,6 @@ import {
   Loader2,
   ShieldCheck,
   Download,
-  Filter,
 } from 'lucide-react';
 import { format } from 'date-fns';
 

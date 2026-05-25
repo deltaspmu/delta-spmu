@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -333,7 +333,7 @@ export async function addQuizQuestion(quiz: string, data: Record<string, any>) {
   return call('lms.lms.custom_api.add_quiz_question', { quiz, ...data });
 }
 
-export async function deleteQuizQuestion(quiz: string, question: string) {
+export async function deleteQuizQuestion(_quiz: string, question: string) {
   return call('lms.lms.custom_api.delete_quiz_question', { question_name: question });
 }
 

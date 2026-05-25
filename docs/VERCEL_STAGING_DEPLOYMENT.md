@@ -1,240 +1,268 @@
-# Vercel Staging Deployment
+# Vercel Deployment — Delta SPMU
 
-This guide walks through getting the marketing site, student portal, and admin
-portal live on Vercel **before** the production `deltaspmu.com` domain is fully
-configured. The Frappe backend stays on EC2; only the three frontends move to
-Vercel.
+Step-by-step plan for putting the student and admin portals on Vercel,
+reachable at `learn.deltaspmu.com` and `admin.deltaspmu.com`, while the
+Frappe backend stays on EC2 and is exposed at `api.deltaspmu.com`.
 
-> **TL;DR**  Three Vercel projects from one GitHub repo, each pointing at a
-> different root directory. You still need the `deltaspmu.com` apex domain
-> registered so `api.deltaspmu.com` can serve HTTPS to the Vercel frontends.
-
----
-
-## 1. Why you can't skip the API domain
-
-Vercel will hand you URLs like `https://delta-student-xyz.vercel.app`. The
-frontends running there will try to call the Frappe backend on EC2. Three
-problems happen if you point them at a raw IP or AWS hostname:
-
-1. **Mixed-content blocking.** Vercel serves HTTPS. If the API is HTTP-only
-   (raw EC2 IP), browsers block every request.
-2. **No SSL cert on an IP.** You cannot issue a valid TLS cert for an EC2
-   public IP or `ec2-*.compute.amazonaws.com` hostname unless you own the
-   parent domain.
-3. **Cookie domain mismatch.** The Frappe session cookie can't be scoped to a
-   wandering EC2 hostname; any DNS or IP change invalidates everyone's
-   session.
-
-**Minimum to make Vercel staging work:** register `deltaspmu.com`, then point
-`api.deltaspmu.com` at EC2 with a real TLS cert. Cost: ~$10/year for the
-domain, free for Let's Encrypt or Cloudflare origin cert. You do **not** need
-`learn.deltaspmu.com` or `admin.deltaspmu.com` to be configured yet — those
-can stay on the Vercel-issued URLs.
+Last checked DNS state (before deploy): no `api`, `learn`, or `admin`
+records exist yet at GoDaddy. EC2 nginx has only the default site. No
+Let's Encrypt cert installed.
 
 ---
 
-## 2. One-time setup (do this before Vercel)
+## Current state
 
-### 2.1 Register the apex domain
+| Piece | Status | Location |
+|---|---|---|
+| Domain | Owned, DNS at GoDaddy | `deltaspmu.com` |
+| GitHub repo | Pushed | `github.com/deltaspmu/delta-spmu` |
+| Marketing site | Already deployed (separate Vercel account) | n/a |
+| Backend (Frappe LMS) | Running, IP-only (no HTTPS yet) | EC2 `18.194.169.111`, port 8000 |
+| Student portal code | Built, ready | `frontend/student-portal/` |
+| Admin portal code | Built, ready | `frontend/admin-portal/` |
 
-Buy `deltaspmu.com` from any registrar (Namecheap, Cloudflare Registrar,
-Porkbun). Cloudflare Registrar is the cheapest and integrates cleanly with
-Cloudflare DNS, which is what the [DEPLOYMENT_GUIDE](DEPLOYMENT_GUIDE.md)
-already expects.
+---
 
-### 2.2 Point `api.deltaspmu.com` at EC2
+## The fixed dependency order
 
-In Cloudflare DNS:
+There's a chicken-and-egg with Let's Encrypt: certbot needs `api.deltaspmu.com`
+to resolve to the EC2 IP *before* it can issue a cert (it validates via HTTP
+challenge on port 80). So:
 
-| Type | Name | Content                          | Proxy |
-|------|------|----------------------------------|-------|
-| A    | api  | `<EC2 Elastic IP>`               | On    |
+1. DNS records first
+2. Wait for propagation (5–15 min on GoDaddy)
+3. Install nginx site + Let's Encrypt cert on EC2
+4. Update Frappe CORS / cookie config
+5. Create Vercel projects (can be done in parallel with steps 2–4)
+6. Attach custom domains in Vercel (needs DNS already propagated)
+7. Final CORS update + smoke test
 
-Set SSL/TLS mode to **Full (strict)** in Cloudflare's dashboard. Install the
-Cloudflare origin cert on EC2 (Nginx site config), or use Let's Encrypt with
-certbot if you prefer a non-Cloudflare cert.
+---
 
-### 2.3 Configure Frappe for cross-origin Vercel traffic
+## Step 1 — Add DNS records at GoDaddy
 
-SSH into EC2 and edit `/home/frappe/deltaspmu/sites/common_site_config.json`
-(or use `bench set-config`):
+GoDaddy → My Products → DNS → **Manage Zone** for `deltaspmu.com`. Add:
+
+| Type      | Name    | Value                  | TTL |
+|-----------|---------|------------------------|-----|
+| **A**     | `api`   | `18.194.169.111`       | 600 |
+| **CNAME** | `learn` | `cname.vercel-dns.com` | 600 |
+| **CNAME** | `admin` | `cname.vercel-dns.com` | 600 |
+
+Notes:
+- In the "Name" field type just `api` / `learn` / `admin` (GoDaddy appends the
+  apex domain automatically).
+- For CNAME values, no trailing dot needed on GoDaddy.
+- TTL 600 (10 min) keeps things responsive; raise to 3600 once stable.
+
+Check propagation:
+```bash
+nslookup api.deltaspmu.com 8.8.8.8
+nslookup learn.deltaspmu.com 8.8.8.8
+nslookup admin.deltaspmu.com 8.8.8.8
+```
+
+---
+
+## Step 2 — Install HTTPS on the backend (Claude does this)
+
+Once `api.deltaspmu.com` resolves to `18.194.169.111`, run from the project
+root:
+
+```bash
+ssh ubuntu@18.194.169.111 'sudo apt-get update && sudo apt-get install -y certbot python3-certbot-nginx'
+```
+
+Add the nginx site config at `/etc/nginx/conf.d/api.deltaspmu.com.conf`:
+
+```nginx
+server {
+    listen 80;
+    server_name api.deltaspmu.com;
+
+    # Let's Encrypt webroot challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        client_max_body_size 100M;
+    }
+}
+```
+
+Reload nginx, then issue the cert:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d api.deltaspmu.com \
+  --non-interactive --agree-tos -m admin@deltaspmu.com --redirect
+```
+
+Certbot will rewrite the nginx config to add the SSL block + 301 from
+HTTP→HTTPS, and set up auto-renewal via systemd timer.
+
+---
+
+## Step 3 — Update Frappe CORS + cookies (Claude does this)
+
+Edit `/home/frappe/deltaspmu/sites/common_site_config.json` to add the new
+portal origins so cross-origin requests from Vercel work:
 
 ```json
 {
   "allow_cors": [
-    "https://deltaspmu.com",
-    "https://www.deltaspmu.com",
     "https://learn.deltaspmu.com",
-    "https://admin.deltaspmu.com",
-    "https://delta-marketing.vercel.app",
-    "https://delta-student.vercel.app",
-    "https://delta-admin.vercel.app"
+    "https://admin.deltaspmu.com"
   ],
   "cookie_samesite": "None"
 }
 ```
 
-Notes:
+`cookie_samesite: None` is required for the Frappe session cookie to be sent
+on cross-origin XHR. Browsers reject `SameSite=None` without `Secure`, so
+this only works once the backend is on HTTPS (Step 2 above).
 
-- Replace the `*.vercel.app` URLs with the actual project URLs Vercel issues
-  you after the first deploy (you'll come back and update this).
-- `cookie_samesite: None` is what allows the Frappe session cookie to be sent
-  on cross-origin requests from `*.vercel.app` to `api.deltaspmu.com`. It
-  requires the cookie to also be `Secure`, which is automatic once Nginx
-  serves HTTPS.
-
-Restart bench: `sudo -u frappe /home/frappe/.local/bin/bench restart`.
-
----
-
-## 3. GitHub setup
-
-Single repo, three Vercel projects.
+Restart bench using the existing deploy script logic:
 
 ```bash
-cd c:\Users\ASUS\Desktop\Delta_SPMU
-git init -b main   # if not already initialised
-git add .
-git commit -m "Initial Delta SPMU monorepo"
-gh repo create deltaspmu --private --source=. --remote=origin --push
+ssh ubuntu@18.194.169.111 "sudo pkill -u frappe -f 'honcho start' || true"
+ssh -n ubuntu@18.194.169.111 "sudo -u frappe bash -c 'cd /home/frappe/deltaspmu && nohup setsid /usr/local/bin/bench start </dev/null >/tmp/bench-start.log 2>&1 &' </dev/null >/dev/null 2>&1"
 ```
 
-(Use `--public` if you're comfortable with that; the repo currently contains
-no secrets thanks to `.gitignore`.)
-
----
-
-## 4. Three Vercel projects
-
-For each of the three frontends, do this once in the Vercel dashboard:
-
-1. **Add New → Project → Import** the GitHub repo.
-2. **Framework Preset:** Vite.
-3. **Root Directory:** see table below.
-4. **Build Command:** `npm run build` (default).
-5. **Output Directory:** `dist` (default).
-6. **Install Command:** `npm install` (default).
-7. **Environment Variables:** see table below.
-
-| Project name      | Root directory               | Required env vars                                                                                                                                                       |
-|-------------------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| delta-marketing   | `.`                          | (none for v1)                                                                                                                                                           |
-| delta-student     | `frontend/student-portal`    | `VITE_API_URL=https://api.deltaspmu.com` &nbsp;&nbsp; `VITE_GA_MEASUREMENT_ID=` (optional)                                                                               |
-| delta-admin       | `frontend/admin-portal`      | `VITE_API_URL=https://api.deltaspmu.com` &nbsp;&nbsp; `VITE_USE_VIMEO_PROXY=true` &nbsp;&nbsp; `VITE_EMAIL_API_URL=<API Gateway URL>` &nbsp;&nbsp; `VITE_EMAIL_API_KEY=<key>` |
-
-After the first deploy of each project, Vercel will give you a URL like
-`https://delta-student-abc123.vercel.app`. Copy those URLs into the Frappe
-`allow_cors` list (Section 2.3) and restart bench.
-
----
-
-## 5. Marketing site needs a `vercel.json`
-
-The student and admin portals already have `vercel.json` files. The marketing
-site does not (it was originally configured for S3+CloudFront). For Vercel
-hosting, add:
-
-```json
-{
-  "rewrites": [
-    { "source": "/((?!api|files|assets).*)", "destination": "/" }
-  ],
-  "headers": [
-    { "source": "/(.*)", "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "X-Frame-Options", "value": "DENY" },
-      { "key": "X-XSS-Protection", "value": "1; mode=block" }
-    ]},
-    { "source": "/assets/(.*)", "headers": [
-      { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-    ]}
-  ]
-}
+Verify:
+```bash
+curl -fsS https://api.deltaspmu.com/api/method/ping
+# expect: {"message":"pong"}
 ```
 
-Save as `vercel.json` at the repo root.
+---
+
+## Step 4 — Create the two Vercel projects
+
+Vercel dashboard → **Add New → Project → Import** `deltaspmu/delta-spmu`.
+Repeat **twice** — once per portal.
+
+### Project 1: `delta-student`
+
+| Setting | Value |
+|---------|-------|
+| Framework Preset | Vite (auto-detected) |
+| **Root Directory** | `frontend/student-portal` |
+| Build Command | `npm run build` (default) |
+| Output Directory | `dist` (default) |
+| Install Command | `npm install` (default) |
+| Node.js Version | **20.x** (Settings → General) |
+
+Environment Variables (Settings → Environment Variables → all environments):
+| Name | Value |
+|------|-------|
+| `VITE_API_URL` | `https://api.deltaspmu.com` |
+| `VITE_FRAPPE_DESK_URL` | `https://api.deltaspmu.com` |
+
+### Project 2: `delta-admin`
+
+| Setting | Value |
+|---------|-------|
+| Framework Preset | Vite |
+| **Root Directory** | `frontend/admin-portal` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Node.js Version | **20.x** |
+
+Environment Variables:
+| Name | Value |
+|------|-------|
+| `VITE_API_URL` | `https://api.deltaspmu.com` |
+| `VITE_USE_VIMEO_PROXY` | `true` |
+
+Hit **Deploy** on both. Each gets a `*.vercel.app` URL (work immediately,
+useful for testing before the custom domain is attached).
 
 ---
 
-## 6. Wiring the marketing site's "Login" button
+## Step 5 — Attach custom domains in Vercel
 
-Currently the marketing site's footer / CTAs link to `learn.deltaspmu.com`
-(see `src/config.js`). While that subdomain isn't configured, point those
-links at the Vercel-issued student-portal URL temporarily:
+For `delta-student`:
+- Settings → Domains → **Add** → enter `learn.deltaspmu.com`
+- Vercel verifies the CNAME (already pointed at `cname.vercel-dns.com`) and
+  issues an SSL cert in ~30 seconds.
 
-```js
-// src/config.js
-export const STUDENT_PORTAL_URL =
-  import.meta.env.VITE_STUDENT_PORTAL_URL ||
-  'https://delta-student-abc123.vercel.app';
-```
+For `delta-admin`:
+- Same, but `admin.deltaspmu.com`.
 
-Then set `VITE_STUDENT_PORTAL_URL` on the marketing Vercel project. Once
-DNS is in place for `learn.deltaspmu.com`, update the env var (no code
-change) and redeploy.
+If Vercel says "Invalid Configuration", re-check the CNAME at GoDaddy is
+exactly `cname.vercel-dns.com` and DNS has propagated.
 
 ---
 
-## 7. End-to-end smoke test (after first deploy)
+## Step 6 — Smoke test end-to-end
 
-1. Open `https://delta-marketing-xyz.vercel.app` → click any course CTA.
-2. Should land on `https://delta-student-xyz.vercel.app/courses` showing the
-   four seeded courses.
-3. Click **Register**, create an account. Confirm the email arrives.
-4. Log in. Buy a course (use the Chapa test environment).
-5. After payment success, the course should appear under My Courses with a
-   30-day access window.
-6. Open a lesson. Confirm both video and text auto-completion work.
-7. Hit `https://delta-admin-xyz.vercel.app`, log in as the instructor user.
-   Confirm Dashboard shows non-zero numbers (this is the fix from Sprint 2
-   — old code showed `0` for every stat card).
-
-Any 403 or "Invalid CSRF Token" errors mean Section 2.3 is misconfigured —
-the most common cause is `cookie_samesite` not set or a Vercel URL missing
-from `allow_cors`.
+1. `https://learn.deltaspmu.com/courses` — should show the four seeded courses.
+2. Register a new account → email verification arrives (requires SMTP configured
+   on the Frappe backend, see "Outstanding manual setup" below).
+3. Log in → browse course → buy via Chapa test mode → access appears under
+   "My Courses".
+4. `https://admin.deltaspmu.com` → log in as System Manager → Dashboard shows
+   non-zero numbers.
 
 ---
 
-## 8. Cutover to real subdomains (later)
+## Troubleshooting
 
-When you're ready to flip from `*.vercel.app` to `learn.deltaspmu.com` /
-`admin.deltaspmu.com`:
-
-1. In Cloudflare DNS, add CNAME records pointing those subdomains at the
-   Vercel projects (Vercel UI will tell you the exact target).
-2. In each Vercel project, **Settings → Domains → Add** the custom domain.
-3. Add the new domains to `allow_cors` in `common_site_config.json` and
-   restart bench.
-4. Update `VITE_STUDENT_PORTAL_URL` on the marketing project (Section 6).
-5. The Vercel-issued URLs continue to work as aliases — Vercel doesn't
-   retire them. Safe to keep both for testing.
-
----
-
-## 9. Things that will go wrong (and how to debug them)
-
-| Symptom                                          | Cause                                                            | Fix                                                                                            |
-|--------------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| All API calls fail with CORS error               | Vercel URL missing from `allow_cors`                             | Add it, restart bench                                                                          |
-| Login appears to succeed but immediately bounces | `cookie_samesite` not set to `None`, or backend not HTTPS         | Set both, restart bench                                                                        |
-| "Invalid CSRF Token" on every POST               | Cross-origin cookie unreadable AND old client code               | Confirm student portal is on the post-Sprint-2 code with `ensureCSRFToken` cache fallback      |
-| Stats dashboard shows zeros                      | Old admin portal code (pre-Sprint-2 fix)                         | Pull latest; the `getDashboardStats` shape was normalised                                      |
-| Email tab is blank / "under construction"        | Old admin portal code (pre-Sprint-2 fix)                         | `EmailList.tsx` now re-exports `EmailInbox.tsx`; redeploy                                      |
-| Vercel build fails on Tailwind 4                 | Tailwind 4 needs Node 18+                                        | In Vercel project settings, set Node version to 20                                             |
-| 404 on a deep URL like `/course/foundation`      | Missing SPA rewrite                                              | Confirm `vercel.json` `rewrites` entry exists in that project's root                           |
+| Symptom | Cause | Fix |
+|---|---|---|
+| All API calls fail with CORS error | Vercel domain missing from `allow_cors` | Add it to `common_site_config.json`, restart bench |
+| Login succeeds but immediately bounces | `cookie_samesite` not set to `None`, or backend still HTTP | Set both, restart bench |
+| `Invalid CSRF Token` on every POST | Old client code without `ensureCSRFToken` cache fallback | Already fixed in this branch; if seen, redeploy frontend |
+| 404 on deep URL like `/course/foundation` | Missing SPA rewrite | `frontend/*/vercel.json` already has the rewrite; confirm it shipped |
+| Vercel build fails on Tailwind 4 | Node < 18 | Set Node version to 20 in Vercel project settings |
+| Vercel custom-domain says "Invalid Configuration" | CNAME hasn't propagated | Wait 5-15 min, recheck `nslookup learn.deltaspmu.com 8.8.8.8` |
+| `https://api.deltaspmu.com` returns 502 | bench not running | SSH in, `sudo -u frappe ps -ef \| grep bench`; restart via deploy script |
+| Mixed-content errors in browser console | Frontend code hard-codes `http://...` | grep `frontend/` for `http://18.194.169.111` and remove |
 
 ---
 
-## 10. Cost summary
+## Outstanding manual setup (separate from Vercel)
 
-| Item                                     | Cost                |
-|------------------------------------------|---------------------|
-| `deltaspmu.com` apex domain              | ~$10/year           |
-| Cloudflare DNS + SSL                     | Free                |
-| Three Vercel Hobby projects              | Free up to 100 GB/mo bandwidth and unlimited deployments |
-| EC2 + RDS (existing)                     | ~$25-35/month       |
-| **Total to launch Vercel staging**       | **~$10 one-time + existing infra** |
+These aren't blocking the Vercel deploy but are needed for full launch:
 
-Vercel's Hobby plan is fine for staging and early launch. Move to Pro
-($20/user/month) only if you need team seats or commercial-use clauses.
+1. **SMTP / Email Account in Frappe.** Email Account doctype → set up
+   outgoing SMTP credentials. Without this, email verification, password
+   reset, payment-confirmation, and certificate-ready emails won't send.
+2. **Brand fonts.** Currently shipping Playfair Display + Inter as
+   substitutes for licensed Wensley + Visia Pro. Drop license files into
+   `frontend/student-portal/public/fonts/` and `frontend/admin-portal/public/fonts/`,
+   then update `index.css` `@font-face` blocks.
+3. **Real course imagery.** Current thumbnails (`/images/course-foundation.jpg`,
+   etc.) are placeholders from the marketing image set. Replace at the same
+   filenames in `frontend/student-portal/public/images/` and they'll show
+   without code changes.
+
+---
+
+## Cost
+
+| Item | Cost |
+|---|---|
+| `deltaspmu.com` (already owned) | one-time |
+| GoDaddy DNS | free with domain |
+| Let's Encrypt SSL | free |
+| Two Vercel Hobby projects | free up to 100 GB/mo bandwidth |
+| EC2 t3.small + RDS (existing) | ~$25-35/mo |
+
+---
+
+## Reference
+
+- Backend deploy script: [scripts/deploy-backend.sh](../scripts/deploy-backend.sh)
+- Seed script: [scripts/seed_delta_spmu.py](../scripts/seed_delta_spmu.py)
+- Backend API source: [backend/frappe-lms/lms/lms/](../backend/frappe-lms/lms/lms/)
+- Marketing site portal-URL config: [src/config.js](../src/config.js)

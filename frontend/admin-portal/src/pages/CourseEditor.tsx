@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -33,7 +33,6 @@ import {
   Video,
   X,
   Search,
-  Upload,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -60,7 +59,7 @@ function RichTextEditor({
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 

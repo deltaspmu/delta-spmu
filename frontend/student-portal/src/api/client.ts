@@ -91,17 +91,16 @@ export const logout = () =>
 
 export const signUp = (email: string, fullName: string, password: string) =>
   api
-    .post('/api/method/frappe.core.doctype.user.user.sign_up', {
+    .post('/api/method/lms.lms.api.custom_sign_up', {
       email,
       full_name: fullName,
       password,
-      redirect_to: '/verify',
     })
     .then(unwrap);
 
 export const forgotPassword = (email: string) =>
   api
-    .post('/api/method/frappe.core.doctype.user.user.reset_password', { user: email })
+    .post('/api/method/lms.lms.api.custom_reset_password', { email })
     .then(unwrap);
 
 export const resetPassword = (key: string, password: string) =>
@@ -115,7 +114,7 @@ export const resetPassword = (key: string, password: string) =>
 
 export const verifyEmail = (key: string) =>
   api
-    .get('/api/method/frappe.core.doctype.user.user.verify_email', { params: { key } })
+    .get('/api/method/lms.lms.api.custom_verify_email', { params: { key } })
     .then(unwrap);
 
 // ===========================================================================

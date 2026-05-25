@@ -3199,3 +3199,200 @@ def submit_contact_form(name=None, email=None, subject=None, message=None):
         frappe.throw(_("Unable to deliver your message. Please try again later."))
 
     return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# 31. custom_sign_up  (guest)
+# ---------------------------------------------------------------------------
+# Replacement for frappe.core.doctype.user.user.sign_up that:
+#   - accepts (and stores) the password the user typed in the form
+#   - sends OUR branded verification email
+#   - generates a verification link pointing at the SPA verify page
+#     (learn.deltaspmu.com/verify?key=...) instead of the Frappe Desk
+# Returns the same [code, message] tuple as Frappe's sign_up so the existing
+# frontend doesn't need a contract change beyond the URL.
+
+SIGNUP_PORTAL_URL = "https://learn.deltaspmu.com"
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
+    """Create a disabled user, set their password, and email a verification link.
+
+    Returns:
+        [code, message]
+          code=0  → email already registered
+          code=1  → account created, verification email queued
+    """
+    from frappe.utils import validate_email_address, escape_html
+    from frappe.utils.password import update_password as set_password
+    from lms.lms.email_templates import email_verification
+
+    email = (email or "").strip().lower()
+    full_name = (full_name or "").strip()
+    password = (password or "").strip()
+
+    if not email or not full_name or not password:
+        frappe.throw(_("Email, full name, and password are required."), frappe.MandatoryError)
+    if not validate_email_address(email):
+        frappe.throw(_("Please enter a valid email address."), frappe.ValidationError)
+    if len(password) < 8:
+        frappe.throw(_("Password must be at least 8 characters."), frappe.ValidationError)
+
+    # Already registered?
+    if frappe.db.exists("User", email):
+        existing_enabled = frappe.db.get_value("User", email, "enabled")
+        if existing_enabled:
+            return [0, _("Already Registered")]
+        # User exists but isn't verified yet — re-send the verification email
+        user = frappe.get_doc("User", email)
+    else:
+        # Split full name into first/last for Frappe
+        parts = full_name.split(" ", 1)
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ""
+
+        user = frappe.get_doc({
+            "doctype": "User",
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "enabled": 0,                # disabled until they verify
+            "user_type": "Website User",
+            "send_welcome_email": 0,     # we send our own branded email
+        })
+        user.flags.ignore_permissions = True
+        user.flags.no_welcome_mail = True
+        user.insert(ignore_permissions=True)
+
+        # Set the password they typed in the form
+        set_password(email, password)
+
+    # Generate a verification key (uses Frappe's reset_password_key column —
+    # repurposed for first-time verification since we treat them the same
+    # mechanism: prove control of the email, then activate).
+    key = frappe.generate_hash(length=32)
+    frappe.db.set_value("User", email, "reset_password_key", key)
+    frappe.db.commit()
+
+    verify_url = f"{SIGNUP_PORTAL_URL}/verify?key={key}"
+
+    try:
+        frappe.sendmail(
+            recipients=[email],
+            subject=_("Verify your email — Delta SPMU Academy"),
+            message=email_verification(student_name=full_name, verify_url=verify_url),
+            now=True,
+            retry=3,
+        )
+    except Exception:
+        # Don't leak SMTP errors to the user — log + still return success
+        # so the Register page progresses; they can use "Resend" if it
+        # turns out the email never arrived.
+        frappe.log_error(frappe.get_traceback(), "custom_sign_up sendmail failed")
+
+    return [1, _("Please check your email for verification.")]
+
+
+# ---------------------------------------------------------------------------
+# 32. custom_verify_email  (guest)
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist(allow_guest=True, methods=["GET"])
+def custom_verify_email(key=None):
+    """Activate a previously-created account using the key emailed to the user.
+
+    On success: enables the user, clears the reset_password_key, sends a
+    welcome email, and returns {"verified": True, "email": ...}.
+    """
+    from lms.lms.email_templates import welcome
+
+    if not key:
+        frappe.throw(_("Verification key is required."), frappe.ValidationError)
+
+    key = (key or "").strip()
+    email = frappe.db.get_value("User", {"reset_password_key": key}, "name")
+    if not email:
+        frappe.throw(
+            _("This verification link is invalid or has already been used."),
+            frappe.ValidationError,
+        )
+
+    user = frappe.get_doc("User", email)
+    user.enabled = 1
+    user.reset_password_key = ""
+    user.flags.ignore_permissions = True
+    user.flags.no_welcome_mail = True
+    user.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    # Welcome email — fire-and-forget; failure shouldn't block verification.
+    try:
+        frappe.sendmail(
+            recipients=[email],
+            subject=_("Welcome to Delta SPMU Academy"),
+            message=welcome(student_name=user.full_name or email),
+            now=True,
+            retry=3,
+        )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "custom_verify_email welcome failed")
+
+    return {"verified": True, "email": email}
+
+
+# ---------------------------------------------------------------------------
+# 33. custom_reset_password  (guest)
+# ---------------------------------------------------------------------------
+# Replacement for frappe.core.doctype.user.user.reset_password that:
+#   - sends OUR branded password-reset email
+#   - generates a link pointing at the SPA reset-password page
+#     (learn.deltaspmu.com/reset-password?key=...) instead of Frappe Desk
+# Always returns a generic success to avoid leaking which emails are
+# registered (enumeration prevention) — matches the frontend's existing
+# "we always show success" behavior.
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def custom_reset_password(user=None, email=None):
+    """Email a password-reset link to the user (if they exist).
+
+    Accepts either `user` or `email` for compatibility with stock Frappe
+    callers. Always returns success — does not reveal whether the email
+    is registered.
+    """
+    from lms.lms.email_templates import password_reset
+
+    target = (email or user or "").strip().lower()
+    if not target:
+        # Don't 400 — still pretend success to avoid distinguishing
+        # "valid request with no email" from "valid request with bad email".
+        return {"sent": True}
+
+    if not frappe.db.exists("User", target):
+        return {"sent": True}
+
+    # Don't send reset links to disabled-but-not-yet-verified accounts —
+    # they should re-trigger signup instead. This also blocks reset spam
+    # against half-created accounts.
+    enabled = frappe.db.get_value("User", target, "enabled")
+    if not enabled:
+        return {"sent": True}
+
+    key = frappe.generate_hash(length=32)
+    frappe.db.set_value("User", target, "reset_password_key", key)
+    frappe.db.commit()
+
+    student_name = frappe.db.get_value("User", target, "full_name") or target
+    reset_url = f"{SIGNUP_PORTAL_URL}/reset-password?key={key}"
+
+    try:
+        frappe.sendmail(
+            recipients=[target],
+            subject=_("Reset your password — Delta SPMU Academy"),
+            message=password_reset(student_name=student_name, reset_url=reset_url),
+            now=True,
+            retry=3,
+        )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "custom_reset_password sendmail failed")
+
+    return {"sent": True}

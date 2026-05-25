@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getUsers, getUserDetail, updateUser, banUser, unbanUser, deleteUser } from '@/api/client';
+import { getUsers, getUserDetail, banUser, unbanUser, deleteUser } from '@/api/client';
 import type { User } from '@/types';
 import {
   Search,
