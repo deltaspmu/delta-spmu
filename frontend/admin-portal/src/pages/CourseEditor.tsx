@@ -33,6 +33,7 @@ import {
   Video,
   X,
   Search,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -340,6 +341,9 @@ export default function CourseEditor() {
   // Chapters & lessons state
   const [chapters, setChapters] = useState<ChapterState[]>([]);
 
+  // Tab state — matches Afritutors admin layout: Details vs Content & Videos
+  const [activeTab, setActiveTab] = useState<'details' | 'content'>('details');
+
   // Load course data — React Query v5 dropped `onSuccess`, so we react via useEffect
   const { data: courseData, isLoading: courseLoading } = useQuery({
     queryKey: ['course-detail', id],
@@ -548,7 +552,42 @@ export default function CourseEditor() {
         </div>
       )}
 
-      {/* Basic Info */}
+      {/* Tab switcher — only available once the course exists.
+          New courses jump straight to the Details tab; you must save
+          before chapters/lessons can be added. */}
+      {!isNew && (
+        <div className="bg-white rounded-xl border border-gray-200 p-1.5 inline-flex gap-1 w-full sm:w-auto">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex-1 sm:flex-none px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'details'
+                ? 'bg-dark text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Course Details
+          </button>
+          <button
+            onClick={() => setActiveTab('content')}
+            className={`flex-1 sm:flex-none px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'content'
+                ? 'bg-dark text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Content & Videos
+            {chapters.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                {chapters.reduce((acc, c) => acc + c._lessons.length, 0)}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Basic Info — Course Details tab */}
+      {(isNew || activeTab === 'details') && (
+      <>
       <div className="admin-card space-y-4">
         <h2 className="font-heading text-lg font-semibold text-dark">Basic Information</h2>
 
@@ -610,8 +649,68 @@ export default function CourseEditor() {
           <span className="text-sm text-gray-700">Published</span>
         </div>
       </div>
+      </>
+      )}
 
-      {/* Chapters & Lessons */}
+      {/* Content & Videos tab — only available for saved courses */}
+      {!isNew && activeTab === 'content' && (
+      <>
+      {/* Stat cards */}
+      {(() => {
+        const totalLessons = chapters.reduce((acc, c) => acc + c._lessons.length, 0);
+        const lessonsWithVideo = chapters.reduce(
+          (acc, c) => acc + c._lessons.filter((l) => l.youtube).length, 0,
+        );
+        const lessonsWithoutVideo = totalLessons - lessonsWithVideo;
+        const totalDurationMin = chapters.reduce(
+          (acc, c) => acc + c._lessons.reduce((a, l) => a + (l.duration || 0), 0), 0,
+        );
+        const formatDuration = (mins: number) => {
+          if (mins <= 0) return '0m';
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          return h > 0 ? `${h}h ${m}m` : `${m}m`;
+        };
+        return (
+          <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="rounded-2xl p-4 shadow-sm bg-gradient-to-br from-dark to-dark-light text-white">
+              <p className="text-white/70 text-xs font-medium mb-1">Chapters</p>
+              <p className="text-2xl font-bold">{chapters.length}</p>
+            </div>
+            <div className="rounded-2xl p-4 shadow-sm bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+              <p className="text-white/80 text-xs font-medium mb-1">Total Lessons</p>
+              <p className="text-2xl font-bold">{totalLessons}</p>
+            </div>
+            <div className="rounded-2xl p-4 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+              <p className="text-white/80 text-xs font-medium mb-1">With Videos</p>
+              <p className="text-2xl font-bold">{lessonsWithVideo}</p>
+            </div>
+            <div className="rounded-2xl p-4 shadow-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+              <p className="text-white/80 text-xs font-medium mb-1">Duration</p>
+              <p className="text-2xl font-bold">{formatDuration(totalDurationMin)}</p>
+            </div>
+          </div>
+
+          {lessonsWithoutVideo > 0 && (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800">
+                  {lessonsWithoutVideo} lesson{lessonsWithoutVideo > 1 ? 's' : ''} without video
+                </p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  Add videos to all lessons before publishing — lessons without videos
+                  are highlighted in amber below.
+                </p>
+              </div>
+            </div>
+          )}
+          </>
+        );
+      })()}
+
+      {/* Chapters list */}
       <div className="admin-card space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold text-dark">Chapters & Lessons</h2>
@@ -621,7 +720,23 @@ export default function CourseEditor() {
         </div>
 
         {chapters.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 text-sm">No chapters yet. Click "Add Chapter" to get started.</div>
+          <div className="text-center py-12 px-4">
+            <div className="w-16 h-16 bg-primary-light/40 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Video className="w-7 h-7 text-primary-dark" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold text-dark mb-1">Build Your Course</h3>
+            <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+              Start by adding a chapter — each chapter holds multiple lessons.
+              Videos can be uploaded directly from the lesson editor.
+            </p>
+            <button
+              type="button"
+              onClick={addChapter}
+              className="inline-flex items-center gap-2 bg-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-dark-light transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add First Chapter
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {chapters.map((ch) => (
@@ -639,6 +754,8 @@ export default function CourseEditor() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
