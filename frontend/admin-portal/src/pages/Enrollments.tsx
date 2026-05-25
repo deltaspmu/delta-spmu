@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getEnrollments, getCourses, createEnrollment } from '@/api/client';
-import type { Enrollment } from '@/types';
 import {
   Search,
   Loader2,
@@ -45,16 +44,18 @@ export default function Enrollments() {
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [newCourse, setNewCourse] = useState('');
 
+  // Custom endpoint joins LMS Enrollment with LMS Course + Course Access
+  // and derives a status field. Real columns on LMS Enrollment in this
+  // fork are member/member_name/course/progress (no student_name, no
+  // status field), so the server does the enrichment.
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-enrollments'],
+    queryKey: ['admin-enrollments', search, courseFilter],
     queryFn: () =>
       getEnrollments({
-        fields: JSON.stringify([
-          'name', 'student', 'student_name', 'student_email', 'course', 'course_title',
-          'enrollment_date', 'progress', 'access_start', 'access_end', 'status', 'creation',
-        ]),
-        limit_page_length: 0,
-        order_by: 'creation desc',
+        limit: 200,
+        offset: 0,
+        search: search || undefined,
+        course: courseFilter || undefined,
       }),
   });
 
@@ -73,18 +74,14 @@ export default function Enrollments() {
     },
   });
 
-  const enrollments: Enrollment[] = Array.isArray(data) ? data : data?.data || [];
+  const enrollments: any[] = data?.data || [];
   const courses = Array.isArray(coursesData) ? coursesData : coursesData?.data || [];
 
+  // Server already filters by search + course; status filter happens
+  // client-side since it's a derived field.
   const filtered = enrollments.filter((e) => {
-    const matchesSearch =
-      !search ||
-      (e.student_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (e.student_email || '').toLowerCase().includes(search.toLowerCase()) ||
-      (e.course_title || '').toLowerCase().includes(search.toLowerCase());
-    const matchesCourse = !courseFilter || e.course === courseFilter;
     const matchesStatus = !statusFilter || e.status === statusFilter;
-    return matchesSearch && matchesCourse && matchesStatus;
+    return matchesStatus;
   });
 
   return (
@@ -161,12 +158,12 @@ export default function Enrollments() {
                   <td colSpan={6} className="text-center text-gray-400 py-8">No enrollments found</td>
                 </tr>
               ) : (
-                filtered.map((e) => (
+                filtered.map((e: any) => (
                   <tr key={e.name}>
                     <td>
                       <div>
-                        <p className="font-medium text-sm">{e.student_name || e.student}</p>
-                        <p className="text-xs text-gray-400">{e.student_email}</p>
+                        <p className="font-medium text-sm">{e.member_name || e.member}</p>
+                        <p className="text-xs text-gray-400">{e.member}</p>
                       </div>
                     </td>
                     <td className="text-sm">{e.course_title || e.course}</td>

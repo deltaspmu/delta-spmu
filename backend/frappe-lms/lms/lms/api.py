@@ -3404,3 +3404,182 @@ def custom_reset_password(user=None, email=None):
         frappe.log_error(frappe.get_traceback(), "custom_reset_password sendmail failed")
 
     return {"sent": True}
+
+
+# ---------------------------------------------------------------------------
+# 34. admin_get_enrollments  (admin only)
+# ---------------------------------------------------------------------------
+# Joins LMS Enrollment with LMS Course to return course_title alongside the
+# enrollment row, plus formats progress as a percentage and provides a
+# derived status (Active / Completed / Expired) since LMS Enrollment has no
+# native status column on this fork.
+#
+# Used by admin Dashboard (recent enrollments widget) and Enrollments page.
+
+@frappe.whitelist(methods=["GET"])
+def admin_get_enrollments(limit=50, offset=0, search=None, course=None):
+    """Return enrollment rows enriched with course_title + derived status."""
+    user = frappe.session.user
+    if "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("Only administrators can list enrollments."), frappe.PermissionError)
+
+    try:
+        limit = int(limit)
+        offset = int(offset)
+    except (TypeError, ValueError):
+        limit, offset = 50, 0
+
+    where = ["1=1"]
+    params = {}
+
+    if course:
+        where.append("e.course = %(course)s")
+        params["course"] = _sanitize(course, 200)
+
+    if search:
+        search = f"%{_sanitize(search, 200)}%"
+        where.append("(e.member_name LIKE %(search)s OR e.member LIKE %(search)s OR c.title LIKE %(search)s)")
+        params["search"] = search
+
+    params["limit"] = limit
+    params["offset"] = offset
+
+    where_clause = " AND ".join(where)
+
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            e.name,
+            e.member,
+            e.member_name,
+            e.course,
+            c.title AS course_title,
+            e.progress,
+            e.current_lesson,
+            e.enrollment_date,
+            e.creation,
+            ca.access_end,
+            ca.is_active
+        FROM `tabLMS Enrollment` e
+        LEFT JOIN `tabLMS Course` c ON c.name = e.course
+        LEFT JOIN `tabCourse Access` ca ON ca.user = e.member AND ca.course = e.course
+        WHERE {where_clause}
+        ORDER BY e.creation DESC
+        LIMIT %(limit)s OFFSET %(offset)s
+        """,
+        params,
+        as_dict=True,
+    )
+
+    # Derive a friendly status string the frontend can render directly
+    from datetime import date
+    today = date.today()
+    for r in rows:
+        progress = float(r.get("progress") or 0)
+        access_end = r.get("access_end")
+        is_active = r.get("is_active")
+        if progress >= 100:
+            r["status"] = "Completed"
+        elif access_end and access_end < today:
+            r["status"] = "Expired"
+        elif is_active == 0:
+            r["status"] = "Inactive"
+        else:
+            r["status"] = "Active"
+        # Stringify dates for JSON
+        for fld in ("enrollment_date", "creation", "access_end"):
+            if r.get(fld):
+                r[fld] = str(r[fld])
+
+    # Total count for pagination
+    total_row = frappe.db.sql(
+        f"""
+        SELECT COUNT(*) AS total
+        FROM `tabLMS Enrollment` e
+        LEFT JOIN `tabLMS Course` c ON c.name = e.course
+        WHERE {where_clause}
+        """,
+        {k: v for k, v in params.items() if k not in ("limit", "offset")},
+        as_dict=True,
+    )
+
+    return {
+        "data": rows,
+        "total": int(total_row[0].total) if total_row else len(rows),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 35. admin_get_dashboard_summary  (admin only)
+# ---------------------------------------------------------------------------
+# Single-shot dashboard stats — replaces N+1 client-side aggregation.
+# Returns counts + most-recent rows for users / courses / enrollments / payments.
+
+@frappe.whitelist(methods=["GET"])
+def admin_get_dashboard_summary():
+    """Return one consolidated dashboard payload."""
+    user = frappe.session.user
+    if "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("Only administrators can view the dashboard."), frappe.PermissionError)
+
+    # Counts
+    users_total = frappe.db.count("User", {"enabled": 1, "user_type": "Website User"})
+    courses_total = frappe.db.count("LMS Course", {"published": 1})
+    enrollments_total = frappe.db.count("LMS Enrollment")
+
+    # Revenue (this month + lifetime)
+    revenue_lifetime = frappe.db.sql(
+        """SELECT COALESCE(SUM(final_amount), 0) AS t
+           FROM `tabPayment Transaction`
+           WHERE status = 'Completed' AND currency = 'ETB'""",
+        as_dict=True,
+    )[0].t
+
+    revenue_month = frappe.db.sql(
+        """SELECT COALESCE(SUM(final_amount), 0) AS t
+           FROM `tabPayment Transaction`
+           WHERE status = 'Completed' AND currency = 'ETB'
+             AND completed_at >= DATE_FORMAT(NOW(), '%%Y-%%m-01')""",
+        as_dict=True,
+    )[0].t
+
+    # Recent enrollments (joined with course title)
+    recent_enrollments = frappe.db.sql(
+        """SELECT e.name, e.member, e.member_name, e.course, c.title AS course_title,
+                  e.progress, e.creation
+           FROM `tabLMS Enrollment` e
+           LEFT JOIN `tabLMS Course` c ON c.name = e.course
+           ORDER BY e.creation DESC
+           LIMIT 5""",
+        as_dict=True,
+    )
+    for r in recent_enrollments:
+        r["creation"] = str(r["creation"]) if r.get("creation") else None
+
+    # Recent payments
+    recent_payments = frappe.db.get_all(
+        "Payment Transaction",
+        fields=["name", "user", "course", "course_title", "final_amount", "currency",
+                "payment_method", "status", "creation"],
+        order_by="creation desc",
+        page_length=5,
+    )
+    for p in recent_payments:
+        if p.get("creation"):
+            p["creation"] = str(p["creation"])
+
+    return {
+        "counts": {
+            "users": users_total,
+            "courses": courses_total,
+            "enrollments": enrollments_total,
+        },
+        "revenue": {
+            "lifetime_etb": float(revenue_lifetime or 0),
+            "this_month_etb": float(revenue_month or 0),
+        },
+        "recent_enrollments": recent_enrollments,
+        "recent_payments": recent_payments,
+    }

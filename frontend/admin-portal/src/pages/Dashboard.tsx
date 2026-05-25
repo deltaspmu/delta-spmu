@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardStats, getEnrollments, getPaymentTransactions } from '@/api/client';
+import { getDashboardStats } from '@/api/client';
 import {
   Users,
   BookOpen,
@@ -54,24 +54,10 @@ function StatusBadge({ status }: { status: string }) {
 export default function Dashboard() {
   const navigate = useNavigate();
 
+  // Single call returns counts + recent enrollments + recent payments
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-summary'],
     queryFn: getDashboardStats,
-  });
-
-  const { data: recentEnrollments } = useQuery({
-    queryKey: ['recent-enrollments'],
-    queryFn: () =>
-      getEnrollments({
-        limit_page_length: 5,
-        order_by: 'creation desc',
-        fields: JSON.stringify(['name', 'student_name', 'course_title', 'creation', 'status']),
-      }),
-  });
-
-  const { data: recentPayments } = useQuery({
-    queryKey: ['recent-payments'],
-    queryFn: () => getPaymentTransactions({ limit: 5 }),
   });
 
   if (statsLoading) {
@@ -82,8 +68,8 @@ export default function Dashboard() {
     );
   }
 
-  const enrollments = Array.isArray(recentEnrollments) ? recentEnrollments : recentEnrollments?.data || [];
-  const payments = Array.isArray(recentPayments) ? recentPayments : recentPayments?.data || [];
+  const enrollments: any[] = stats?.recent_enrollments || [];
+  const payments: any[] = stats?.recent_payments || [];
 
   return (
     <div className="space-y-8">
@@ -95,26 +81,26 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Users"
-          value={stats?.users?.total ?? 0}
+          title="Total Students"
+          value={stats?.counts?.users ?? 0}
           icon={<Users className="w-6 h-6 text-blue-600" />}
           color="bg-blue-50"
         />
         <StatCard
-          title="Active Courses"
-          value={stats?.courses?.total ?? 0}
+          title="Published Courses"
+          value={stats?.counts?.courses ?? 0}
           icon={<BookOpen className="w-6 h-6 text-emerald-600" />}
           color="bg-emerald-50"
         />
         <StatCard
           title="Total Enrollments"
-          value={stats?.enrollments?.total ?? 0}
+          value={stats?.counts?.enrollments ?? 0}
           icon={<GraduationCap className="w-6 h-6 text-purple-600" />}
           color="bg-purple-50"
         />
         <StatCard
           title="Revenue (ETB)"
-          value={stats?.revenue?.total_revenue ? Number(stats.revenue.total_revenue).toLocaleString() : '0'}
+          value={Number(stats?.revenue?.lifetime_etb || 0).toLocaleString()}
           icon={<DollarSign className="w-6 h-6 text-amber-600" />}
           color="bg-amber-50"
         />
@@ -140,12 +126,12 @@ export default function Dashboard() {
             ) : (
               enrollments.slice(0, 5).map((e: any) => (
                 <tr key={e.name}>
-                  <td className="font-medium">{e.student_name || e.student}</td>
+                  <td className="font-medium">{e.member_name || e.member}</td>
                   <td>{e.course_title || e.course}</td>
                   <td className="text-gray-500">
                     {e.creation ? format(new Date(e.creation), 'MMM d, yyyy') : '-'}
                   </td>
-                  <td><StatusBadge status={e.status || 'Active'} /></td>
+                  <td><StatusBadge status={(e.progress || 0) >= 100 ? 'Completed' : 'Active'} /></td>
                 </tr>
               ))
             )}

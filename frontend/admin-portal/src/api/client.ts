@@ -123,24 +123,10 @@ export async function getUserInfo() {
 // ---------------------------------------------------------------------------
 
 export async function getDashboardStats() {
-  // Aggregate from multiple sources — no single backend endpoint.
-  // Frappe get_list returns an array; pick the first row's total.
-  const firstTotal = (rows: any) => {
-    if (Array.isArray(rows)) return Number(rows[0]?.total) || 0;
-    return Number(rows?.total) || 0;
-  };
-  const [users, courses, enrollments, revenue] = await Promise.all([
-    api.get(resource('User'), { params: { limit_page_length: 0, filters: [['enabled', '=', 1]], fields: ['count(name) as total'] } }).then(unwrap).then(firstTotal).catch(() => 0),
-    api.get(resource('LMS Course'), { params: { limit_page_length: 0, fields: ['count(name) as total'] } }).then(unwrap).then(firstTotal).catch(() => 0),
-    api.get(resource('LMS Enrollment'), { params: { limit_page_length: 0, fields: ['count(name) as total'] } }).then(unwrap).then(firstTotal).catch(() => 0),
-    call('lms.lms.payments_api.admin_get_revenue_stats').catch(() => ({ total_revenue: 0 })),
-  ]);
-  return {
-    users: { total: users },
-    courses: { total: courses },
-    enrollments: { total: enrollments },
-    revenue: revenue || { total_revenue: 0 },
-  };
+  // Single-shot dashboard endpoint returns counts + recent rows in one trip.
+  // Shape: { counts: {users,courses,enrollments}, revenue: {...},
+  //          recent_enrollments: [...], recent_payments: [...] }
+  return call('lms.lms.api.admin_get_dashboard_summary');
 }
 
 // ---------------------------------------------------------------------------
@@ -285,9 +271,10 @@ export async function getBannedUsers(params?: Record<string, any>) {
 // Enrollments
 // ---------------------------------------------------------------------------
 
-export async function getEnrollments(params?: Record<string, any>) {
-  const res = await api.get(resource('LMS Enrollment'), { params });
-  return unwrap(res);
+export async function getEnrollments(params?: { limit?: number; offset?: number; search?: string; course?: string }) {
+  // Hits a custom endpoint that joins LMS Enrollment with LMS Course so
+  // the frontend gets course_title + a derived status without N+1 queries.
+  return call('lms.lms.api.admin_get_enrollments', params);
 }
 
 export async function createEnrollment(data: Record<string, any>) {
