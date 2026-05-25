@@ -110,19 +110,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Admin redirect
+  // Admin redirect — System Managers belong on the admin portal, not the
+  // student portal. We send them to admin.deltaspmu.com (overridable via
+  // VITE_ADMIN_PORTAL_URL).
+  //
+  // Previous bug: redirected to "/app" assuming we were on the same origin
+  // as Frappe Desk, but on Vercel that path 404s and the SPA catch-all sent
+  // them back to /courses, which then triggered this redirect again →
+  // infinite glitch loop.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user) return;
     const skipRedirect = import.meta.env.VITE_SKIP_ADMIN_REDIRECT === 'true';
-    if (
-      !skipRedirect &&
-      (ADMIN_USERS.includes(user.name) ||
-        ADMIN_USERS.includes(user.email) ||
-        user.roles.includes('System Manager'))
-    ) {
-      window.location.href = '/app';
-    }
+    if (skipRedirect) return;
+
+    const isAdmin =
+      ADMIN_USERS.includes(user.name) ||
+      ADMIN_USERS.includes(user.email) ||
+      user.roles.includes('System Manager');
+    if (!isAdmin) return;
+
+    const adminUrl =
+      import.meta.env.VITE_ADMIN_PORTAL_URL || 'https://admin.deltaspmu.com';
+
+    // Don't redirect if we're already on the admin portal (which would
+    // re-trigger when the user navigates back here on purpose).
+    if (window.location.origin === adminUrl) return;
+
+    window.location.href = adminUrl;
   }, [user]);
 
   // ---------------------------------------------------------------------------

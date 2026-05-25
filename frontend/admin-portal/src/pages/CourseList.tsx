@@ -35,13 +35,18 @@ export default function CourseList() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
 
+  // Field names match the real LMS Course columns. instructor_name lives on
+  // a child table (Course Instructor → User) so we don't query it here —
+  // the list view just shows the course title + status; instructor names
+  // are shown on the edit page where we already fetch the chapter/instructor
+  // tree. enrollment_count is actually `enrollments` (Int) on LMS Course.
   const { data, isLoading } = useQuery({
     queryKey: ['admin-courses'],
     queryFn: () =>
       getCourses({
         fields: JSON.stringify([
-          'name', 'title', 'image', 'instructor_name', 'published',
-          'enrollment_count', 'course_price', 'currency', 'creation',
+          'name', 'title', 'image', 'published',
+          'enrollments', 'course_price', 'currency', 'creation',
         ]),
         limit_page_length: 0,
         order_by: 'creation desc',
