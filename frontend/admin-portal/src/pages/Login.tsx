@@ -26,7 +26,11 @@ export default function Login() {
     },
     onSuccess: (user) => {
       localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(user));
-      navigate('/');
+      // Full reload so AuthContext re-runs against the new session cookie.
+      // Avoids the React-Router race where navigate() fires before the
+      // new auth state has committed and the route guard sees us as
+      // still-logged-out.
+      window.location.replace('/');
     },
     onError: (err: any) => {
       const msg =

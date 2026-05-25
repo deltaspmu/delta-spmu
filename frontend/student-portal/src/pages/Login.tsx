@@ -52,7 +52,11 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(email, password);
-      navigate(redirectTo, { replace: true });
+      // Full reload — guarantees AuthContext re-runs verify() on mount and
+      // the new session cookie is honored. Avoids a stale React state
+      // race where navigate() fires before refreshUser's setState has
+      // committed, leaving us stuck on /login.
+      window.location.replace(redirectTo);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Login failed. Please try again.';
