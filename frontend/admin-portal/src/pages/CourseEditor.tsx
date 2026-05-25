@@ -37,6 +37,8 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   UploadCloud,
+  Pencil,
+  CheckCircle,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -323,77 +325,276 @@ function LessonRow({
   onUpdate,
   onDelete,
   quizzes,
+  index,
 }: {
   lesson: Partial<Lesson> & { _key: string };
   onUpdate: (data: Partial<Lesson>) => void;
   onDelete: () => void;
   quizzes: any[];
+  index: number;
 }) {
-  const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const hasVideo = !!lesson.youtube;
+  const isUnsaved = !lesson.name && (lesson.title || '').trim() === '';
 
   return (
-    <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
-      <div className="flex items-center gap-2">
-        <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
-        <input
-          type="text"
-          value={lesson.title || ''}
-          onChange={(e) => onUpdate({ title: e.target.value })}
-          placeholder="Lesson title"
-          className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
-        />
-        <input
-          type="number"
-          value={lesson.duration || 0}
-          onChange={(e) => onUpdate({ duration: Number(e.target.value) })}
-          placeholder="Duration (min)"
-          className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-        />
-        <button onClick={onDelete} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+    <>
+      <div
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+          hasVideo
+            ? 'border-gray-200 bg-white hover:bg-gray-50'
+            : 'border-amber-200 bg-amber-50/50 hover:bg-amber-50'
+        }`}
+      >
+        {/* Lesson index */}
+        <span className="text-xs font-mono text-gray-400 w-6 shrink-0">{index}</span>
+
+        {/* Video status icon */}
+        <div
+          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+            hasVideo ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+          }`}
+          title={hasVideo ? 'Has video' : 'No video yet'}
+        >
+          <Video className="w-4 h-4" />
+        </div>
+
+        {/* Title + meta */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium truncate ${isUnsaved ? 'text-gray-400 italic' : 'text-dark'}`}>
+            {lesson.title || 'Untitled lesson'}
+          </p>
+          {(lesson.duration || hasVideo) && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {lesson.duration ? `${lesson.duration} min` : ''}
+              {lesson.duration && hasVideo ? ' · ' : ''}
+              {hasVideo ? `Video ID: ${(lesson.youtube || '').split('/')[0]}` : ''}
+            </p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <button
+          type="button"
+          onClick={() => setShowEdit(true)}
+          className="p-1.5 text-gray-500 hover:text-dark hover:bg-gray-100 rounded transition-colors"
+          aria-label="Edit lesson"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+          aria-label="Delete lesson"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Video</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={lesson.youtube || ''}
-              onChange={(e) => onUpdate({ youtube: e.target.value })}
-              placeholder='Vimeo "id/hash"'
-              className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm font-mono"
-            />
-            <button
-              type="button"
-              onClick={() => setShowVideoPicker(true)}
-              className="p-1.5 border border-gray-300 rounded hover:bg-gray-100"
+
+      <EditLessonModal
+        open={showEdit}
+        lesson={lesson}
+        quizzes={quizzes}
+        onClose={() => setShowEdit(false)}
+        onSave={(data) => {
+          onUpdate(data);
+          setShowEdit(false);
+        }}
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edit Lesson Modal
+// ---------------------------------------------------------------------------
+function EditLessonModal({
+  open,
+  lesson,
+  quizzes,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  lesson: Partial<Lesson> & { _key: string };
+  quizzes: any[];
+  onClose: () => void;
+  onSave: (data: Partial<Lesson>) => void;
+}) {
+  const [title, setTitle] = useState(lesson.title || '');
+  const [content, setContent] = useState(lesson.content || '');
+  const [youtube, setYoutube] = useState(lesson.youtube || '');
+  const [quizId, setQuizId] = useState(lesson.quiz_id || '');
+  const [duration, setDuration] = useState(lesson.duration || 0);
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
+
+  // Reset local state when modal opens with a different lesson
+  useEffect(() => {
+    if (open) {
+      setTitle(lesson.title || '');
+      setContent(lesson.content || '');
+      setYoutube(lesson.youtube || '');
+      setQuizId(lesson.quiz_id || '');
+      setDuration(lesson.duration || 0);
+    }
+  }, [open, lesson._key]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-gray-100">
+          <div>
+            <h3 className="font-heading text-lg font-semibold text-dark">Edit Lesson</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Update lesson details and content</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Video card */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Video</label>
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+              <div
+                className={`w-12 h-12 rounded-md flex items-center justify-center shrink-0 ${
+                  youtube ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                <Video className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                {youtube ? (
+                  <>
+                    <p className="text-xs text-gray-500">Video ID</p>
+                    <p className="text-sm font-mono text-dark truncate">{youtube.split('/')[0]}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">No video attached</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVideoPicker(true)}
+                className="text-sm font-medium text-primary-dark hover:underline shrink-0"
+              >
+                {youtube ? 'Change' : 'Add video'}
+              </button>
+              {youtube && (
+                <button
+                  type="button"
+                  onClick={() => setYoutube('')}
+                  className="text-sm text-red-600 hover:text-red-700 shrink-0"
+                  title="Remove video"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Title + Duration */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Lesson Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="e.g. Skin Anatomy Basics"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
+              <input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                min={0}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Quiz */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Linked Quiz</label>
+            <select
+              value={quizId}
+              onChange={(e) => setQuizId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
             >
-              <Video className="w-4 h-4 text-gray-500" />
-            </button>
+              <option value="">No quiz</option>
+              {quizzes.map((q: any) => (
+                <option key={q.name} value={q.name}>
+                  {q.title}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Students take this quiz at the end of the lesson.
+            </p>
+          </div>
+
+          {/* Description / Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description / Notes</label>
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              placeholder="What will students learn in this lesson..."
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Shown to students below the video.
+            </p>
           </div>
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Quiz</label>
-          <select
-            value={lesson.quiz_id || ''}
-            onChange={(e) => onUpdate({ quiz_id: e.target.value || null })}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white"
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100"
           >
-            <option value="">No quiz</option>
-            {quizzes.map((q: any) => (
-              <option key={q.name} value={q.name}>{q.title}</option>
-            ))}
-          </select>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({
+                title: title.trim(),
+                content,
+                youtube: youtube || undefined,
+                quiz_id: quizId || undefined,
+                duration,
+              })
+            }
+            disabled={!title.trim()}
+            className="px-5 py-2 text-sm bg-dark text-white rounded-lg hover:bg-dark-light disabled:opacity-50"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Content</label>
-        <RichTextEditor
-          content={lesson.content || ''}
-          onChange={(html) => onUpdate({ content: html })}
-          placeholder="Lesson content..."
-        />
-      </div>
-      <VideoPickerModal open={showVideoPicker} onClose={() => setShowVideoPicker(false)} onSelect={(ref) => onUpdate({ youtube: ref })} />
+
+      <VideoPickerModal
+        open={showVideoPicker}
+        onClose={() => setShowVideoPicker(false)}
+        onSelect={(ref) => {
+          setYoutube(ref);
+          setShowVideoPicker(false);
+        }}
+      />
     </div>
   );
 }
@@ -442,11 +643,12 @@ function ChapterSection({
         <button type="button" onClick={onDelete} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
       </div>
       {chapter._expanded && (
-        <div className="p-3 space-y-3 bg-gray-50/50 border-t">
-          {chapter._lessons.map((lesson) => (
+        <div className="p-3 space-y-2 bg-gray-50/50 border-t">
+          {chapter._lessons.map((lesson, idx) => (
             <LessonRow
               key={lesson._key}
               lesson={lesson}
+              index={idx + 1}
               onUpdate={(d) => onUpdateLesson(lesson._key, d)}
               onDelete={() => onDeleteLesson(lesson._key)}
               quizzes={quizzes}
@@ -486,6 +688,9 @@ export default function CourseEditor() {
   const [price, setPrice] = useState(0);
   const [currency, setCurrency] = useState('ETB');
   const [published, setPublished] = useState(false);
+  // Learning outcomes (newline-separated, stored in Custom Field on LMS Course)
+  const [learningOutcomes, setLearningOutcomes] = useState<string[]>([]);
+  const [newOutcome, setNewOutcome] = useState('');
 
   // Chapters & lessons state
   const [chapters, setChapters] = useState<ChapterState[]>([]);
@@ -511,6 +716,14 @@ export default function CourseEditor() {
     setPrice(d.course_price || 0);
     setCurrency(d.currency || 'ETB');
     setPublished(!!d.published);
+    // Split outcomes by newline, trim, drop blanks
+    const outcomesRaw: string = d.learning_outcomes || '';
+    setLearningOutcomes(
+      outcomesRaw
+        .split('\n')
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+    );
   }, [courseData]);
 
   // Load chapters
@@ -557,6 +770,7 @@ export default function CourseEditor() {
         course_price: price,
         currency,
         published: published ? 1 : 0,
+        learning_outcomes: learningOutcomes.join('\n'),
       };
 
       let courseName = id;
@@ -769,6 +983,68 @@ export default function CourseEditor() {
         <p className="text-xs text-gray-400 -mt-2">
           Recommended: 16:9 aspect ratio, at least 1280&times;720 px, under 2&nbsp;MB. PNG / JPG.
         </p>
+
+        {/* Learning Outcomes — bullet list shown on the course detail page */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            What You&apos;ll Learn
+          </label>
+          <p className="text-xs text-gray-400 mb-3">
+            These appear on the course page as learning outcomes for students.
+          </p>
+
+          {learningOutcomes.length > 0 && (
+            <ul className="space-y-2 mb-3">
+              {learningOutcomes.map((outcome, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-lg"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <span className="text-sm text-dark flex-1">{outcome}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLearningOutcomes((prev) => prev.filter((_, idx) => idx !== i))
+                    }
+                    className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newOutcome}
+              onChange={(e) => setNewOutcome(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newOutcome.trim()) {
+                  e.preventDefault();
+                  setLearningOutcomes((prev) => [...prev, newOutcome.trim()]);
+                  setNewOutcome('');
+                }
+              }}
+              placeholder="e.g. Map brows using the golden ratio"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (!newOutcome.trim()) return;
+                setLearningOutcomes((prev) => [...prev, newOutcome.trim()]);
+                setNewOutcome('');
+              }}
+              className="px-4 py-2 text-sm bg-dark text-white rounded-lg hover:bg-dark-light disabled:opacity-50"
+              disabled={!newOutcome.trim()}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>

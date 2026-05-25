@@ -854,6 +854,8 @@ def get_course_detail(course_name=None):
         course_name = _sanitize(course_name, 200)
 
         # Fetch core course fields — only real LMS Course columns
+        # (learning_outcomes is a Custom Field added via Frappe Custom Field
+        #  doctype; safe to include since the DB column exists).
         course = frappe.db.get_value(
             "LMS Course",
             course_name,
@@ -862,6 +864,7 @@ def get_course_detail(course_name=None):
                 "title",
                 "short_introduction",
                 "description",
+                "learning_outcomes",
                 "image",
                 "video_link",
                 "course_price",

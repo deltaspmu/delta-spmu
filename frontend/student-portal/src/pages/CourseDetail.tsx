@@ -565,18 +565,57 @@ export default function CourseDetail() {
             <div className="min-h-[200px]">
               {/* Description */}
               {activeTab === 'description' && (
-                <div className="prose prose-sm max-w-none text-gray-600">
-                  {course.description ? (
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: DOMPurify.sanitize(course.description),
-                      }}
-                    />
-                  ) : (
-                    <p className="text-gray-400">
-                      No description available for this course yet.
-                    </p>
-                  )}
+                <div className="space-y-6">
+                  {/* What You'll Learn — populated from the LMS Course
+                      learning_outcomes Custom Field set in the admin. */}
+                  {(() => {
+                    const outcomes: string[] = ((course as any).learning_outcomes || '')
+                      .split('\n')
+                      .map((s: string) => s.trim())
+                      .filter(Boolean);
+                    if (outcomes.length === 0) return null;
+                    return (
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-5">
+                        <h3 className="font-heading text-lg font-semibold text-dark mb-3">
+                          What You&apos;ll Learn
+                        </h3>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                          {outcomes.map((outcome, i) => (
+                            <li key={i} className="flex items-start gap-2.5">
+                              <svg
+                                className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              <span className="text-sm text-dark">{outcome}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="prose prose-sm max-w-none text-gray-600">
+                    {course.description ? (
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(course.description),
+                        }}
+                      />
+                    ) : (
+                      <p className="text-gray-400">
+                        No description available for this course yet.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
