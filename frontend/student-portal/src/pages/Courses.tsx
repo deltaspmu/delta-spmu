@@ -12,6 +12,8 @@ import {
   cn,
 } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
+import HeroBannerCarousel from '@/components/HeroBannerCarousel';
+import SPMUTopics from '@/components/SPMUTopics';
 import {
   Search,
   Star,
@@ -20,6 +22,11 @@ import {
   ChevronDown,
   Heart,
   ChevronRight,
+  GraduationCap,
+  Users,
+  Award,
+  ShieldCheck,
+  ArrowRight,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -274,29 +281,83 @@ export default function Courses() {
 
   return (
     <div className="min-h-screen bg-alabaster">
-      {/* Header (marketing image as backdrop — replace public/images/hero.jpg
-          when the final brand photography arrives) */}
-      <div
-        className="relative bg-dark text-white py-16 sm:py-20 overflow-hidden"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(26,47,35,0.78), rgba(26,47,35,0.88)), url('/images/hero.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold mb-3">
-            {t('common:courses', 'Courses')}
-          </h1>
-          <p className="text-primary-light text-lg max-w-2xl">
-            Professional permanent makeup training programs — from foundation
-            to instructor licensing.
-          </p>
+      {/* Hero rotator — featured course banners.
+          Falls back to a static hero block when the catalog is empty
+          (won't render anything for an empty courses array). */}
+      {courses.length > 0 ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <HeroBannerCarousel courses={courses} />
+        </div>
+      ) : (
+        <div
+          className="relative bg-dark text-white py-16 sm:py-20 overflow-hidden"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(26,47,35,0.78), rgba(26,47,35,0.88)), url('/images/hero.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold mb-3">
+              {t('common:courses', 'Courses')}
+            </h1>
+            <p className="text-primary-light text-lg max-w-2xl">
+              Professional permanent makeup training programs &mdash; from
+              foundation to instructor licensing.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Trust strip — academy credentials at a glance */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary-light/60 flex items-center justify-center text-primary-dark shrink-0">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs text-dark-light">Programs</p>
+              <p className="text-base font-semibold text-dark">4 tiers</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary-light/60 flex items-center justify-center text-primary-dark shrink-0">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs text-dark-light">Curriculum</p>
+              <p className="text-base font-semibold text-dark">16 chapters</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary-light/60 flex items-center justify-center text-primary-dark shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs text-dark-light">Certified</p>
+              <p className="text-base font-semibold text-dark">On completion</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary-light/60 flex items-center justify-center text-primary-dark shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs text-dark-light">Blended</p>
+              <p className="text-base font-semibold text-dark">Online + Studio</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* SPMU Skill Topics */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <SPMUTopics />
+      </div>
+
+      <div id="courses-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           {/* Search */}
@@ -443,6 +504,66 @@ export default function Courses() {
             )}
           </>
         )}
+      </div>
+
+      {/* Meet Your Instructor — anchored to Dr. Meron Tadesse, the
+          academy lead. Static for now; later pull from a real
+          instructor profile when we expose one. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-[280px_1fr]">
+          <div
+            className="aspect-square md:aspect-auto md:min-h-[260px] bg-cover bg-center"
+            style={{ backgroundImage: "url('/images/instructor.jpg')" }}
+          />
+          <div className="p-6 sm:p-8 flex flex-col justify-center">
+            <div className="flex items-center gap-2 text-primary-dark text-xs uppercase tracking-[0.2em] font-medium mb-2">
+              <Award className="w-3.5 h-3.5" />
+              <span>Meet Your Instructor</span>
+            </div>
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-dark mb-2">
+              Dr. Meron Tadesse
+            </h2>
+            <p className="text-sm text-dark-light mb-4">
+              Founder &amp; Lead Educator, Delta SPMU Academy
+            </p>
+            <p className="text-sm text-dark-light leading-relaxed">
+              With deep expertise in cosmetic dermatology and a passion for the
+              craft of permanent makeup, Dr. Meron has trained hundreds of
+              practitioners across East Africa in the signature techniques
+              taught here — from foundational hygiene through advanced
+              brow artistry and instructor-level pedagogy.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Final CTA banner */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-dark to-dark-light p-8 sm:p-10">
+          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-primary/10" />
+          <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-primary/5" />
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white mb-2">
+                Ready to begin your journey?
+              </h2>
+              <p className="text-primary-light text-base max-w-xl">
+                Whether you're starting from scratch or refining a craft —
+                there's a program ready for the next step.
+              </p>
+            </div>
+            <Link
+              to="#courses-grid"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('courses-grid')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-dark font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap"
+            >
+              Browse Programs <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
