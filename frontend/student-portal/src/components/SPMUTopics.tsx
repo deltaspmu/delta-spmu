@@ -1,13 +1,11 @@
 /**
  * SPMU Knowledge Topics — clickable tiles representing the core
- * subject areas covered across the 4 certification programs. Each tile
- * deep-links into the relevant course (when one is uniquely matched) or
- * scrolls to the filter at the bottom of the page.
+ * subject areas covered across the 4 certification programs.
  *
- * Content mirrors the chapter breakdown in the academy's 16-chapter
- * training manual: skin anatomy & healing, hygiene, color theory, brow
- * mapping, plus the four signature brow techniques (Ombré / Powder /
- * Nano / Combo) and the business / instructor track for Master + Licensing.
+ * Brand-aligned redesign: dark cards with gold accents, large
+ * topic numbers, restrained typography. Mirrors the marketing
+ * site's palette (forest green + champagne gold) rather than the
+ * pastel rainbow we had originally.
  */
 
 import { Link } from 'react-router-dom';
@@ -21,7 +19,7 @@ import {
   Briefcase,
   Stethoscope,
   Heart,
-  TrendingUp,
+  ArrowUpRight,
 } from 'lucide-react';
 
 interface TopicTile {
@@ -29,10 +27,7 @@ interface TopicTile {
   title: string;
   description: string;
   icon: typeof Brain;
-  // Course slug to filter / scroll to. When matching multiple courses we
-  // just navigate to the grid + let the filter narrow.
   courseHint?: string;
-  accent: string;
 }
 
 const TOPICS: TopicTile[] = [
@@ -42,7 +37,6 @@ const TOPICS: TopicTile[] = [
     description: 'Layers, Fitzpatrick scale, contraindications',
     icon: Stethoscope,
     courseHint: 'foundation-certification',
-    accent: 'from-rose-100 to-rose-50 text-rose-700',
   },
   {
     key: 'hygiene-safety',
@@ -50,7 +44,6 @@ const TOPICS: TopicTile[] = [
     description: 'Cross-contamination, sterilization, station setup',
     icon: Droplets,
     courseHint: 'foundation-certification',
-    accent: 'from-sky-100 to-sky-50 text-sky-700',
   },
   {
     key: 'color-theory',
@@ -58,7 +51,6 @@ const TOPICS: TopicTile[] = [
     description: 'Undertones, pigment selection, neutralization',
     icon: Palette,
     courseHint: 'foundation-certification',
-    accent: 'from-amber-100 to-amber-50 text-amber-700',
   },
   {
     key: 'brow-mapping',
@@ -66,7 +58,6 @@ const TOPICS: TopicTile[] = [
     description: 'Golden ratio, facial symmetry, design',
     icon: Ruler,
     courseHint: 'foundation-certification',
-    accent: 'from-emerald-100 to-emerald-50 text-emerald-700',
   },
   {
     key: 'signature-techniques',
@@ -74,15 +65,13 @@ const TOPICS: TopicTile[] = [
     description: 'Ombré · Powder · Nano · Combo brows',
     icon: Sparkles,
     courseHint: 'advanced-certification',
-    accent: 'from-fuchsia-100 to-fuchsia-50 text-fuchsia-700',
   },
   {
     key: 'aftercare',
     title: 'Aftercare & Healing',
-    description: 'Day-by-day recovery, client guidance',
+    description: 'Day-by-day recovery and client guidance',
     icon: Heart,
     courseHint: 'foundation-certification',
-    accent: 'from-pink-100 to-pink-50 text-pink-700',
   },
   {
     key: 'studio-business',
@@ -90,7 +79,6 @@ const TOPICS: TopicTile[] = [
     description: 'Pricing, client retention, brand building',
     icon: Briefcase,
     courseHint: 'master-artist-program',
-    accent: 'from-indigo-100 to-indigo-50 text-indigo-700',
   },
   {
     key: 'teach-train',
@@ -98,49 +86,65 @@ const TOPICS: TopicTile[] = [
     description: 'Open your own academy and license students',
     icon: Award,
     courseHint: 'instructor-licensing',
-    accent: 'from-primary-light/60 to-primary-light/30 text-primary-dark',
   },
 ];
 
 interface Props {
-  /** Called when a tile is clicked. If not provided, tile navigates by href. */
   onTopicClick?: (courseHint: string | undefined) => void;
 }
 
 export default function SPMUTopics({ onTopicClick }: Props) {
   return (
-    <section className="py-8">
-      <div className="mb-6">
-        <div className="flex items-center gap-2 text-primary-dark text-xs uppercase tracking-[0.2em] font-medium mb-2">
-          <TrendingUp className="w-3.5 h-3.5" />
-          <span>Browse by Skill</span>
+    <section className="py-12 sm:py-14">
+      {/* Section header */}
+      <div className="mb-10 max-w-2xl">
+        <div className="flex items-center gap-3 text-primary-dark text-[11px] uppercase tracking-[0.25em] font-medium mb-3">
+          <span className="h-px w-8 bg-primary-dark/40" />
+          <span>Curriculum</span>
         </div>
-        <h2 className="font-heading text-2xl sm:text-3xl font-bold text-dark">
-          Master the Craft, Step by Step
+        <h2 className="font-heading text-3xl sm:text-4xl font-bold text-dark leading-tight">
+          The eight pillars of the practice
         </h2>
-        <p className="text-dark-light text-sm sm:text-base mt-2 max-w-2xl">
-          Every program is built from the same eight foundational skill areas —
-          dig deeper into the topic that interests you most.
+        <p className="text-dark-light text-base mt-3 leading-relaxed">
+          Every program at Delta SPMU is built from these foundational skill
+          areas, drawn directly from our 16-chapter training manual. Dig
+          deeper into the topic that's calling you next.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        {TOPICS.map((topic) => {
+      {/* Topic grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {TOPICS.map((topic, idx) => {
           const Icon = topic.icon;
-          const tile = (
-            <div
-              className={`group relative overflow-hidden rounded-2xl border border-dark/5 bg-gradient-to-br ${topic.accent} p-4 sm:p-5 h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer`}
-            >
-              <div className="flex flex-col h-full">
-                <div className="mb-3 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/70 backdrop-blur shadow-sm">
-                  <Icon className="w-4.5 h-4.5" strokeWidth={1.8} />
-                </div>
-                <h3 className="font-heading text-sm sm:text-base font-semibold leading-tight">
-                  {topic.title}
-                </h3>
-                <p className="text-xs sm:text-[13px] text-current/75 mt-1 leading-snug line-clamp-2">
-                  {topic.description}
-                </p>
+          const number = String(idx + 1).padStart(2, '0');
+
+          const tileInner = (
+            <div className="group relative overflow-hidden rounded-2xl bg-dark text-white p-6 sm:p-7 h-full transition-all duration-500 hover:shadow-xl hover:shadow-dark/20 cursor-pointer flex flex-col">
+              {/* Decorative ambient gold glow */}
+              <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-primary/10 blur-2xl transition-all duration-500 group-hover:bg-primary/25 group-hover:scale-125" />
+
+              {/* Number badge in corner */}
+              <span className="absolute top-5 right-5 text-[10px] font-mono tracking-[0.15em] text-primary/60">
+                {number}
+              </span>
+
+              {/* Icon */}
+              <div className="relative z-10 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 backdrop-blur ring-1 ring-primary/20 mb-5 transition-all duration-300 group-hover:bg-primary/30 group-hover:ring-primary/40">
+                <Icon className="w-5 h-5 text-primary-light" strokeWidth={1.6} />
+              </div>
+
+              {/* Text */}
+              <h3 className="relative z-10 font-heading text-lg sm:text-xl font-semibold leading-tight mb-2">
+                {topic.title}
+              </h3>
+              <p className="relative z-10 text-[13px] text-white/60 leading-relaxed flex-1">
+                {topic.description}
+              </p>
+
+              {/* Hover arrow */}
+              <div className="relative z-10 mt-4 flex items-center gap-1.5 text-[12px] text-primary opacity-60 group-hover:opacity-100 transition-opacity">
+                <span className="uppercase tracking-wider">Explore</span>
+                <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </div>
             </div>
           );
@@ -152,7 +156,7 @@ export default function SPMUTopics({ onTopicClick }: Props) {
                 onClick={() => onTopicClick(topic.courseHint)}
                 className="text-left h-full"
               >
-                {tile}
+                {tileInner}
               </button>
             );
           }
@@ -163,7 +167,7 @@ export default function SPMUTopics({ onTopicClick }: Props) {
               to={topic.courseHint ? `/course/${topic.courseHint}` : '#courses-grid'}
               className="block h-full"
             >
-              {tile}
+              {tileInner}
             </Link>
           );
         })}
