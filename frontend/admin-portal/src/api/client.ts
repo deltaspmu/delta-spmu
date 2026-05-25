@@ -154,7 +154,11 @@ export async function getCourses(params?: Record<string, any>) {
 
 export async function getCourseDetail(name: string) {
   const res = await api.get(`${resource('LMS Course')}/${name}`);
-  return unwrap(res);
+  // Frappe REST wraps a single doc as { data: { ...doc } }. unwrap()
+  // returns res.data (the outer envelope) — we need to peel one more
+  // layer to get the actual doc fields.
+  const wrapped: any = unwrap(res);
+  return wrapped?.data ?? wrapped;
 }
 
 export async function createCourse(data: Record<string, any>) {

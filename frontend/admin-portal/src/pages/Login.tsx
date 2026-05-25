@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { login, getUserInfo } from '@/api/client';
 import { LogIn, AlertCircle } from 'lucide-react';
 
 const ADMIN_STORAGE_KEY = 'deltaspmu_admin_user';
 
 export default function Login() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
