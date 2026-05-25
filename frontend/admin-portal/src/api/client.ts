@@ -79,7 +79,19 @@ api.interceptors.response.use(
 // Helpers
 // ---------------------------------------------------------------------------
 
-const unwrap = (res: any) => res.data?.message ?? res.data;
+// Frappe returns responses in three shapes:
+//   RPC (/api/method/...):       { message: ... }
+//   Resource list (GET .../Doctype):     { data: [...] }
+//   Resource single (GET/POST/PUT one):  { data: { ...doc } }
+// Try message first (RPC), then .data (REST), then the raw body.
+// List pages already check `Array.isArray(data) ? data : data?.data`
+// so peeling .data here doesn't break them.
+const unwrap = (res: any) =>
+  res.data?.message !== undefined
+    ? res.data.message
+    : res.data?.data !== undefined
+      ? res.data.data
+      : res.data;
 
 function call(method: string, params?: Record<string, any>) {
   return api.post('/api/method/' + method, params).then(unwrap);
@@ -140,11 +152,7 @@ export async function getCourses(params?: Record<string, any>) {
 
 export async function getCourseDetail(name: string) {
   const res = await api.get(`${resource('LMS Course')}/${name}`);
-  // Frappe REST wraps a single doc as { data: { ...doc } }. unwrap()
-  // returns res.data (the outer envelope) — we need to peel one more
-  // layer to get the actual doc fields.
-  const wrapped: any = unwrap(res);
-  return wrapped?.data ?? wrapped;
+  return unwrap(res);
 }
 
 export async function createCourse(data: Record<string, any>) {
@@ -384,6 +392,47 @@ export async function exportPaymentsCsv(params?: {
     responseType: 'blob',
   });
   return res.data as Blob;
+}
+
+// ---------------------------------------------------------------------------
+// File upload (Frappe `/api/method/upload_file`)
+// ---------------------------------------------------------------------------
+
+export interface UploadedFile {
+  file_url: string;        // e.g. "/files/my-image.jpg"
+  file_name: string;
+  is_private: number;
+}
+
+/**
+ * Upload a file to Frappe and (optionally) attach it to a doctype.
+ *
+ * Returns the public file_url (starts with /files/...). Combine with
+ * the API base when displaying in <img> if cross-origin.
+ */
+export async function uploadFile(
+  file: File,
+  options?: { doctype?: string; docname?: string; isPrivate?: boolean; folder?: string },
+): Promise<UploadedFile> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('is_private', options?.isPrivate ? '1' : '0');
+  fd.append('folder', options?.folder || 'Home');
+  if (options?.doctype) fd.append('doctype', options.doctype);
+  if (options?.docname) fd.append('docname', options.docname);
+
+  const res = await api.post('/api/method/upload_file', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  const message = res.data?.message;
+  if (!message?.file_url) {
+    throw new Error('Upload succeeded but no file_url was returned');
+  }
+  return {
+    file_url: message.file_url,
+    file_name: message.file_name || file.name,
+    is_private: message.is_private || 0,
+  };
 }
 
 // ---------------------------------------------------------------------------

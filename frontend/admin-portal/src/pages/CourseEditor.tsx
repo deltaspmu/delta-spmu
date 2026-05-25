@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +14,7 @@ import {
   deleteLesson,
   getCategories,
   getQuizzes,
+  uploadFile,
 } from '@/api/client';
 import { vimeoService } from '@/api/vimeo';
 import type { Chapter, Lesson } from '@/types';
@@ -34,6 +35,8 @@ import {
   X,
   Search,
   AlertTriangle,
+  Image as ImageIcon,
+  UploadCloud,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -77,6 +80,152 @@ function RichTextEditor({
         <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-1.5 rounded text-xs ${editor.isActive('orderedList') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>OL</button>
       </div>
       <EditorContent editor={editor} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Course Image Upload
+//
+// Drag-and-drop OR click-to-pick. Posts via Frappe's upload_file endpoint
+// and stores the returned file_url (e.g. /files/img.jpg) on the course.
+// ---------------------------------------------------------------------------
+
+const FRAPPE_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined) || 'https://api.deltaspmu.com';
+
+function CourseImageUpload({
+  image,
+  onUpload,
+  docname,
+}: {
+  image: string;
+  onUpload: (fileUrl: string) => void;
+  docname?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file (PNG, JPG, WEBP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large (max 5 MB).');
+      return;
+    }
+    setError(null);
+    setUploading(true);
+    try {
+      const result = await uploadFile(file, {
+        doctype: docname ? 'LMS Course' : undefined,
+        docname,
+        folder: 'Home',
+      });
+      onUpload(result.file_url);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?._server_messages ||
+        err?.response?.data?.exception ||
+        err?.message ||
+        'Upload failed.';
+      setError(String(msg));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const displayUrl = image
+    ? image.startsWith('http') || image.startsWith('/images/') || image.startsWith('/assets/')
+      ? image
+      : `${FRAPPE_BASE}${image.startsWith('/') ? '' : '/'}${image}`
+    : '';
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">Course Image</label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+          e.target.value = '';
+        }}
+      />
+
+      {image ? (
+        <div className="flex items-stretch gap-3">
+          <div className="w-32 h-20 rounded-lg border border-gray-200 overflow-hidden shrink-0 bg-gray-50">
+            <img src={displayUrl} alt="Course" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 flex flex-col justify-between min-w-0">
+            <p className="text-xs text-gray-500 truncate">{image}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                {uploading ? 'Uploading...' : 'Change'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpload('')}
+                disabled={uploading}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" />
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          className={`flex flex-col items-center justify-center px-6 py-8 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+            dragOver
+              ? 'border-primary bg-primary-light/30'
+              : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+          } ${uploading ? 'opacity-60 cursor-wait' : ''}`}
+        >
+          {uploading ? (
+            <>
+              <UploadCloud className="w-8 h-8 text-primary-dark animate-pulse mb-2" />
+              <p className="text-sm text-gray-600">Uploading...</p>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+              <p className="text-sm text-dark font-medium">
+                Click to upload or drag &amp; drop
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">PNG, JPG, or WEBP up to 5&nbsp;MB</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-2 text-xs text-red-600">{error}</p>
+      )}
     </div>
   );
 }
@@ -418,10 +567,13 @@ export default function CourseEditor() {
         await updateCourse(id!, courseData);
       }
 
-      // Save chapters & lessons
+      // Save chapters & lessons. NOTE: Course Chapter and Course Lesson
+      // doctypes on this Frappe install don't have explicit
+      // chapter_number / lesson_number columns — Frappe auto-manages
+      // ordering via `idx`. We pass idx instead.
       for (let ci = 0; ci < chapters.length; ci++) {
         const ch = chapters[ci];
-        const chapterData = { title: ch.title, course: courseName, chapter_number: ci + 1 };
+        const chapterData = { title: ch.title, course: courseName, idx: ci + 1 };
         let chName = ch.name;
         if (chName) {
           await updateChapter(chName, chapterData);
@@ -431,15 +583,18 @@ export default function CourseEditor() {
         }
         for (let li = 0; li < ch._lessons.length; li++) {
           const ls = ch._lessons[li];
-          const lessonData = {
+          const lessonData: Record<string, any> = {
             title: ls.title,
-            content: ls.content,
+            content: ls.content || '',
             chapter: chName,
-            lesson_number: li + 1,
-            youtube: ls.youtube || null,
-            quiz_id: ls.quiz_id || null,
+            course: courseName,
+            idx: li + 1,
             duration: ls.duration || 0,
           };
+          // Optional fields — only include when set, to avoid Frappe
+          // rejecting empty strings on Link fields.
+          if (ls.youtube) lessonData.youtube = ls.youtube;
+          if (ls.quiz_id) lessonData.quiz_id = ls.quiz_id;
           if (ls.name) {
             await updateLesson(ls.name, lessonData);
           } else {
@@ -606,17 +761,14 @@ export default function CourseEditor() {
           <RichTextEditor content={description} onChange={setDescription} placeholder="Full course description..." />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-          <div className="flex gap-2">
-            <input type="text" value={image} onChange={(e) => setImage(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="/files/course-image.jpg" />
-            {image && (
-              <div className="w-16 h-16 rounded border overflow-hidden shrink-0">
-                <img src={image} alt="" className="w-full h-full object-cover" />
-              </div>
-            )}
-          </div>
-        </div>
+        <CourseImageUpload
+          image={image}
+          onUpload={setImage}
+          docname={isNew ? undefined : id}
+        />
+        <p className="text-xs text-gray-400 -mt-2">
+          Recommended: 16:9 aspect ratio, at least 1280&times;720 px, under 2&nbsp;MB. PNG / JPG.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
