@@ -301,7 +301,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-6">
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
@@ -403,7 +403,7 @@ function AdminLayout({ children }: { children: ReactNode }) {
         }`}
       >
         <TopBar onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
-        <main className="p-6">{children}</main>
+        <main className="p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

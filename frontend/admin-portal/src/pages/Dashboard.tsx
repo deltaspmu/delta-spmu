@@ -23,13 +23,13 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, color }: StatCardProps) {
   return (
-    <div className="admin-card flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+    <div className="admin-card flex items-center gap-3 sm:gap-4">
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
         {icon}
       </div>
-      <div>
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-dark">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs sm:text-sm text-gray-500 truncate">{title}</p>
+        <p className="text-xl sm:text-2xl font-bold text-dark truncate">{value}</p>
       </div>
     </div>
   );

@@ -98,14 +98,39 @@ h1, h2, h3, h4, h5, h6 {
   transition: box-shadow 150ms ease;
 }
 
+@media (max-width: 640px) {
+  .admin-card {
+    padding: 16px;
+  }
+}
+
 .admin-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-/* Admin table */
+/* Admin table — has a min-width so it scrolls horizontally on small
+   screens instead of squishing into unreadable ellipses. Wrap any
+   standalone .admin-table in an .overflow-x-auto div, or let the
+   :has() rule below handle it inside an .admin-card. */
 .admin-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
+}
+
+/* Auto horizontal-scroll for any .admin-card whose direct child is an
+   admin-table. Saves hand-wrapping every table in the codebase. */
+.admin-card:has(> .admin-table),
+.admin-card:has(> table.admin-table) {
+  overflow-x: auto;
+}
+
+/* Modal sizing — anything matching this pattern (the universal modal
+   shell used across admin pages) gets a max-height and inner scroll
+   so it doesn't get cut off on short phones. */
+.fixed.inset-0 > .bg-white.rounded-xl.shadow-xl {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .admin-table th {
@@ -117,6 +142,11 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.05em;
   color: #6B7280;
   border-bottom: 1px solid #E5E7EB;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .admin-table th, .admin-table td { padding: 10px 12px; }
 }
 
 .admin-table td {
