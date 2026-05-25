@@ -1,0 +1,60 @@
+{
+  "privacy": {
+    "title": "Privacy Policy",
+    "last_updated": "Last updated: April 2026",
+    "intro": "Delta SPMU Academy ('we', 'us', 'our') is committed to protecting your privacy. This policy explains how we collect, use, and safeguard your personal information.",
+    "collection_title": "Information We Collect",
+    "collection_text": "We collect information you provide when registering, enrolling in courses, or making payments. This includes your name, email address, phone number, and payment details.",
+    "usage_title": "How We Use Your Information",
+    "usage_text": "We use your information to provide educational services, process payments, issue certificates, communicate course updates, and improve our platform.",
+    "sharing_title": "Information Sharing",
+    "sharing_text": "We do not sell your personal information. We may share data with payment processors (telebirr, Chapa, EthSwitch) to complete transactions and with email providers to send notifications.",
+    "security_title": "Data Security",
+    "security_text": "We implement industry-standard security measures to protect your data, including encrypted connections, secure server infrastructure, and restricted access to personal information.",
+    "rights_title": "Your Rights",
+    "rights_text": "You may request access to, correction of, or deletion of your personal data at any time by contacting us or through your account settings.",
+    "contact_title": "Contact Us",
+    "contact_text": "For privacy inquiries, contact us at privacy@deltaspmu.com."
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "last_updated": "Last updated: April 2026",
+    "intro": "These Terms of Service govern your use of the Delta SPMU Academy e-learning platform.",
+    "accounts_title": "User Accounts",
+    "accounts_text": "You must be at least 18 years old to create an account. You are responsible for maintaining the security of your account credentials.",
+    "courses_title": "Course Access",
+    "courses_text": "Course access is granted for 30 days from the date of purchase. Access may be extended through additional purchases. Course content is for personal educational use only.",
+    "payments_title": "Payments",
+    "payments_text": "All prices are listed in Ethiopian Birr (ETB) unless otherwise stated. Payments are processed through our authorized payment providers.",
+    "ip_title": "Intellectual Property",
+    "ip_text": "All course content, materials, videos, and resources are the intellectual property of Delta SPMU Academy. Unauthorized reproduction, distribution, or sharing of materials is prohibited.",
+    "conduct_title": "Code of Conduct",
+    "conduct_text": "Students are expected to maintain professional behavior and respect towards instructors, fellow students, and staff. Violations may result in account suspension.",
+    "termination_title": "Termination",
+    "termination_text": "We reserve the right to suspend or terminate accounts that violate these terms."
+  },
+  "refund": {
+    "title": "Refund Policy",
+    "last_updated": "Last updated: April 2026",
+    "intro": "Delta SPMU Academy strives to ensure student satisfaction with our training programs.",
+    "eligibility_title": "Refund Eligibility",
+    "eligibility_text": "Refund requests must be made within 7 days of purchase. Refunds are not available after course content has been substantially accessed (more than 25% of lessons viewed).",
+    "process_title": "Refund Process",
+    "process_text": "To request a refund, contact us at support@deltaspmu.com with your transaction ID and reason for the request. Refunds are processed within 5-10 business days.",
+    "exceptions_title": "Exceptions",
+    "exceptions_text": "Bundle purchases, promotional offers, and courses where a certificate has been issued are not eligible for refund."
+  },
+  "cookies": {
+    "title": "Cookie Policy",
+    "last_updated": "Last updated: April 2026",
+    "intro": "Delta SPMU Academy uses cookies to enhance your learning experience.",
+    "what_title": "What Are Cookies",
+    "what_text": "Cookies are small files stored on your device that help us remember your preferences and provide a better experience.",
+    "types_title": "Types of Cookies We Use",
+    "essential": "Essential Cookies: Required for platform functionality, authentication, and security.",
+    "functional": "Functional Cookies: Remember your language preference and learning progress.",
+    "analytics": "Analytics Cookies: Help us understand how you use the platform to improve our services.",
+    "manage_title": "Managing Cookies",
+    "manage_text": "You can manage cookie preferences through your browser settings. Disabling essential cookies may affect platform functionality."
+  }
+}

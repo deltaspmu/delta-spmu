@@ -1,0 +1,25 @@
+{
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://api.deltaspmu.com",
+      "VITE_USE_VIMEO_PROXY": "true"
+    }
+  },
+  "rewrites": [{ "source": "/((?!api|files).*)", "destination": "/" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

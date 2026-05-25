@@ -1,16 +1,58 @@
-# React + Vite
+# Delta SPMU Academy
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+E-learning platform for permanent makeup (SPMU) training. Based in Addis Ababa, Ethiopia.
 
-Currently, two official plugins are available:
+## Platform Components
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Component | Location | Hosting |
+|-----------|----------|---------|
+| Marketing Site | `./` (root) | S3 + CloudFront |
+| Student Portal | `frontend/student-portal/` | Vercel |
+| Admin Portal | `frontend/admin-portal/` | Vercel |
+| Backend API | `backend/frappe-lms/` | EC2 (Frappe) |
+| Infrastructure | `infrastructure/` | Terraform (AWS) |
 
-## React Compiler
+## Courses
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Foundation Certification** — Core basics: infection control, brow mapping, safe machine handling
+2. **Advanced Certification** — Nano hairstrokes, shading gradients, complex case management
+3. **Master Artist Program** — Precision, corrective work, industry leadership
+4. **Instructor Licensing** — Train to become an educator
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS 4
+- **Backend**: Frappe v15 + LMS app (Python)
+- **Database**: MariaDB 10.11 (AWS RDS)
+- **Video**: Vimeo
+- **Payments**: telebirr, Chapa, EthSwitch, CBE
+- **Infrastructure**: AWS (EC2, RDS, S3, CloudFront, Lambda)
+
+## Getting Started
+
+### Marketing Site (already built)
+```bash
+npm install
+npm run dev
+```
+
+### Student Portal
+```bash
+cd frontend/student-portal
+npm install
+npm run dev
+```
+
+### Admin Portal
+```bash
+cd frontend/admin-portal
+npm install
+npm run dev
+```
+
+## Documentation
+
+- [Build Guide](DELTA_SPMU_BUILD_GUIDE.md) — Complete architecture and build reference
+- [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [Payment Integration](docs/PAYMENT_INTEGRATION.md)

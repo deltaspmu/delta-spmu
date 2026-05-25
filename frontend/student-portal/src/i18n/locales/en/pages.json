@@ -1,0 +1,170 @@
+{
+  "login": {
+    "title": "Welcome Back",
+    "subtitle": "Log in to continue your learning journey",
+    "welcome": "Welcome to Delta SPMU Academy",
+    "welcome_description": "Master the art of permanent makeup with professional training from Addis Ababa, Ethiopia."
+  },
+  "register": {
+    "title": "Create Your Account",
+    "subtitle": "Start your journey in permanent makeup education",
+    "success_title": "Account Created!",
+    "success_message": "We've sent a verification email to {{email}}. Please check your inbox and click the verification link."
+  },
+  "forgot_password": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your email and we'll send you a reset link",
+    "success": "If an account exists with that email, a reset link has been sent."
+  },
+  "reset_password": {
+    "title": "Set New Password",
+    "subtitle": "Enter your new password below"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back, {{name}}!",
+    "enrolled_courses": "Enrolled Courses",
+    "completed_courses": "Completed",
+    "certificates_earned": "Certificates",
+    "hours_learned": "Hours Learned",
+    "continue_learning": "Continue Learning",
+    "recommendations": "Recommended for You",
+    "no_courses": "You haven't enrolled in any courses yet.",
+    "explore_courses": "Explore Courses"
+  },
+  "courses": {
+    "title": "Courses",
+    "subtitle": "Professional permanent makeup training programs",
+    "search_placeholder": "Search courses...",
+    "all_categories": "All Categories",
+    "sort_by": "Sort by",
+    "sort_newest": "Newest",
+    "sort_popular": "Most Popular",
+    "sort_price_low": "Price: Low to High",
+    "sort_price_high": "Price: High to Low",
+    "sort_rating": "Highest Rated"
+  },
+  "course_detail": {
+    "what_youll_learn": "What You'll Learn",
+    "course_content": "Course Content",
+    "about_instructor": "About the Instructor",
+    "student_reviews": "Student Reviews",
+    "write_review": "Write a Review",
+    "your_rating": "Your Rating",
+    "your_review": "Your Review",
+    "submit_review": "Submit Review",
+    "no_reviews": "No reviews yet. Be the first to review!",
+    "access_expires": "Access expires in {{days}} days",
+    "access_expired": "Your access to this course has expired."
+  },
+  "learn": {
+    "lesson_complete": "Lesson Complete",
+    "mark_complete": "Mark as Complete",
+    "next_lesson": "Next Lesson",
+    "previous_lesson": "Previous Lesson",
+    "take_quiz": "Take Quiz",
+    "course_complete": "Course Complete!",
+    "course_complete_message": "Congratulations! You've completed all lessons.",
+    "view_certificate": "View Your Certificate",
+    "locked_lesson": "Complete the previous lesson to unlock this one.",
+    "video_progress": "Video Progress"
+  },
+  "quiz": {
+    "title": "Quiz",
+    "question_of": "Question {{current}} of {{total}}",
+    "select_answer": "Select your answer",
+    "select_answers": "Select all that apply",
+    "submit_quiz": "Submit Quiz",
+    "submitting": "Submitting...",
+    "result_pass": "Congratulations! You passed!",
+    "result_fail": "You didn't pass this time.",
+    "your_score": "Your Score: {{score}}%",
+    "passing_score": "Passing Score: {{score}}%",
+    "attempts_remaining": "Attempts remaining: {{count}}",
+    "no_attempts": "No attempts remaining.",
+    "retry_quiz": "Retry Quiz"
+  },
+  "profile": {
+    "title": "Profile",
+    "edit_profile": "Edit Profile",
+    "change_password": "Change Password",
+    "current_password": "Current Password",
+    "new_password": "New Password",
+    "notification_preferences": "Notification Preferences",
+    "email_notifications": "Email Notifications",
+    "course_updates": "Course Updates",
+    "promotional": "Promotional Emails",
+    "delete_account": "Delete Account",
+    "delete_warning": "This action cannot be undone. All your data will be permanently deleted.",
+    "confirm_delete": "Type DELETE to confirm"
+  },
+  "certificates": {
+    "title": "My Certificates",
+    "no_certificates": "You haven't earned any certificates yet.",
+    "earn_certificate": "Complete a course to earn your certificate.",
+    "issued_on": "Issued on {{date}}",
+    "certificate_id": "Certificate ID: {{id}}"
+  },
+  "my_courses": {
+    "title": "My Courses",
+    "all": "All",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "no_courses": "No courses found in this category."
+  },
+  "wishlist": {
+    "title": "My Wishlist",
+    "empty": "Your wishlist is empty.",
+    "browse_courses": "Browse courses to add to your wishlist."
+  },
+  "transactions": {
+    "title": "Transaction History",
+    "no_transactions": "No transactions found.",
+    "transaction_id": "Transaction ID",
+    "date": "Date",
+    "course": "Course",
+    "amount": "Amount",
+    "method": "Method",
+    "status": "Status"
+  },
+  "payment": {
+    "title": "Purchase Course",
+    "bundle_title": "Purchase All Courses",
+    "order_summary": "Order Summary",
+    "payment_instructions": "Payment Instructions",
+    "cbe_instructions": "Transfer the exact amount to CBE Account: {{account}}. Use your Transaction ID as reference.",
+    "verifying": "Verifying your payment...",
+    "success_title": "Payment Successful!",
+    "success_message": "You now have 30-day access to {{course}}.",
+    "go_to_course": "Go to Course",
+    "go_to_dashboard": "Go to Dashboard"
+  },
+  "about": {
+    "title": "About Delta SPMU Academy",
+    "description": "Delta SPMU is a professional training academy specializing in permanent makeup and cosmetic tattooing education, based in Addis Ababa, Ethiopia.",
+    "mission": "Our Mission",
+    "mission_text": "To develop skilled permanent makeup artists through hands-on training, live model practice, and rigorous assessment, maintaining high academic and professional standards."
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Have questions? We're here to help.",
+    "name": "Your Name",
+    "email": "Your Email",
+    "message": "Your Message",
+    "send": "Send Message",
+    "location": "Addis Ababa, Ethiopia"
+  },
+  "help": {
+    "title": "Help Center",
+    "faq": "Frequently Asked Questions",
+    "getting_started": "Getting Started",
+    "account": "Account & Billing",
+    "courses_help": "Courses & Learning",
+    "technical": "Technical Support"
+  },
+  "not_found": {
+    "title": "Page Not Found",
+    "message": "The page you're looking for doesn't exist.",
+    "go_home": "Go to Homepage"
+  }
+}

@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand: gold accent on a deep forest-green base (canonical palette
+   * matches the marketing site at deltaspmu.com). The variable names
+   * "primary" and "dark" are kept for backward compatibility; the actual
+   * hues are gold and forest green, not nude and charcoal. */
+  --color-primary: #C9A96E;        /* gold */
+  --color-primary-dark: #A8893E;   /* darker gold */
+  --color-primary-light: #E5D2A9;  /* champagne / light gold */
+  --color-dark: #1A2F23;           /* forest green */
+  --color-dark-light: #2D4A38;     /* lighter forest green */
+  --color-alabaster: #F5F2EC;      /* warm off-white */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  /* Brand fonts (substitutes for licensed Wensley + Visia Pro — see index.html). */
+  --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-alabaster);
+  color: var(--color-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-primary-dark); border-radius: 3px; }
+
+/* Focus */
+*:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}

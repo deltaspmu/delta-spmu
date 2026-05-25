@@ -1,0 +1,170 @@
+{
+  "login": {
+    "title": "እንኳን ደህና መጡ",
+    "subtitle": "የመማሪያ ጉዞዎን ለመቀጠል ይግቡ",
+    "welcome": "ወደ ዴልታ SPMU አካዳሚ እንኳን በደህና መጡ",
+    "welcome_description": "ከአዲስ አበባ፣ ኢትዮጵያ በሙያዊ ስልጠና የቋሚ ማስዋቢያ ጥበብን ይማሩ።"
+  },
+  "register": {
+    "title": "መለያዎን ይፍጠሩ",
+    "subtitle": "በቋሚ ማስዋቢያ ትምህርት ጉዞዎን ይጀምሩ",
+    "success_title": "መለያ ተፈጥሯል!",
+    "success_message": "የማረጋገጫ ኢሜይል ወደ {{email}} ልከናል። እባክዎ የገቢ ሳጥንዎን ያረጋግጡ።"
+  },
+  "forgot_password": {
+    "title": "የይለፍ ቃል ረሱ",
+    "subtitle": "ኢሜይልዎን ያስገቡ፣ የዳግም ማስቀመጫ ማገናኛ እንልክልዎታለን",
+    "success": "መለያ ካለ ከዚያ ኢሜይል ጋር የዳግም ማስቀመጫ ማገናኛ ተልኳል።"
+  },
+  "reset_password": {
+    "title": "አዲስ የይለፍ ቃል ያስቀምጡ",
+    "subtitle": "አዲሱን የይለፍ ቃልዎን ከዚህ በታች ያስገቡ"
+  },
+  "dashboard": {
+    "title": "ዳሽቦርድ",
+    "welcome": "እንኳን ደህና መጡ፣ {{name}}!",
+    "enrolled_courses": "የተመዘገቡ ኮርሶች",
+    "completed_courses": "የተጠናቀቁ",
+    "certificates_earned": "ሰርቲፊኬቶች",
+    "hours_learned": "የተማሩ ሰዓቶች",
+    "continue_learning": "መማር ቀጥል",
+    "recommendations": "ለእርስዎ የሚመከሩ",
+    "no_courses": "ገና በምንም ኮርስ አልተመዘገቡም።",
+    "explore_courses": "ኮርሶችን ያስሱ"
+  },
+  "courses": {
+    "title": "ኮርሶች",
+    "subtitle": "ሙያዊ የቋሚ ማስዋቢያ ስልጠና ፕሮግራሞች",
+    "search_placeholder": "ኮርሶችን ይፈልጉ...",
+    "all_categories": "ሁሉም ምድቦች",
+    "sort_by": "ደርድር በ",
+    "sort_newest": "አዲስ",
+    "sort_popular": "ታዋቂ",
+    "sort_price_low": "ዋጋ: ዝቅተኛ ወደ ከፍተኛ",
+    "sort_price_high": "ዋጋ: ከፍተኛ ወደ ዝቅተኛ",
+    "sort_rating": "ከፍተኛ ደረጃ"
+  },
+  "course_detail": {
+    "what_youll_learn": "የሚማሩት",
+    "course_content": "የኮርስ ይዘት",
+    "about_instructor": "ስለ አስተማሪው",
+    "student_reviews": "የተማሪ ግምገማዎች",
+    "write_review": "ግምገማ ይጻፉ",
+    "your_rating": "የእርስዎ ደረጃ",
+    "your_review": "የእርስዎ ግምገማ",
+    "submit_review": "ግምገማ አስገባ",
+    "no_reviews": "ገና ግምገማ የለም።",
+    "access_expires": "መዳረሻ በ{{days}} ቀናት ያበቃል",
+    "access_expired": "ለዚህ ኮርስ መዳረሻዎ አልፏል።"
+  },
+  "learn": {
+    "lesson_complete": "ትምህርት ተጠናቋል",
+    "mark_complete": "እንደ ተጠናቀቀ ምልክት አድርግ",
+    "next_lesson": "ቀጣይ ትምህርት",
+    "previous_lesson": "ቀዳሚ ትምህርት",
+    "take_quiz": "ፈተና ውሰድ",
+    "course_complete": "ኮርስ ተጠናቋል!",
+    "course_complete_message": "እንኳን ደስ አለዎት! ሁሉንም ትምህርቶች አጠናቀዋል።",
+    "view_certificate": "ሰርቲፊኬትዎን ይመልከቱ",
+    "locked_lesson": "ይህንን ለመክፈት ቀዳሚውን ትምህርት ያጠናቅቁ።",
+    "video_progress": "የቪዲዮ ሂደት"
+  },
+  "quiz": {
+    "title": "ፈተና",
+    "question_of": "ጥያቄ {{current}} ከ {{total}}",
+    "select_answer": "መልስዎን ይምረጡ",
+    "select_answers": "ሁሉንም ተገቢ ያመልክቱ",
+    "submit_quiz": "ፈተና አስገባ",
+    "submitting": "በማስገባት ላይ...",
+    "result_pass": "እንኳን ደስ አለዎት! አልፈዋል!",
+    "result_fail": "በዚህ ጊዜ አላለፉም።",
+    "your_score": "ውጤትዎ: {{score}}%",
+    "passing_score": "ማለፊያ ውጤት: {{score}}%",
+    "attempts_remaining": "ቀሪ ሙከራዎች: {{count}}",
+    "no_attempts": "ቀሪ ሙከራ የለም።",
+    "retry_quiz": "ፈተና ዳግም ሞክር"
+  },
+  "profile": {
+    "title": "መገለጫ",
+    "edit_profile": "መገለጫ አርትዕ",
+    "change_password": "የይለፍ ቃል ቀይር",
+    "current_password": "የአሁኑ የይለፍ ቃል",
+    "new_password": "አዲስ የይለፍ ቃል",
+    "notification_preferences": "የማሳወቂያ ምርጫዎች",
+    "email_notifications": "የኢሜይል ማሳወቂያዎች",
+    "course_updates": "የኮርስ ዝመናዎች",
+    "promotional": "የማስተዋወቂያ ኢሜይሎች",
+    "delete_account": "መለያ ሰርዝ",
+    "delete_warning": "ይህ እርምጃ ሊቀለበስ አይችልም። ሁሉም መረጃዎ በቋሚነት ይሰረዛል።",
+    "confirm_delete": "ለማረጋገጥ DELETE ብለው ይጻፉ"
+  },
+  "certificates": {
+    "title": "ሰርቲፊኬቶቼ",
+    "no_certificates": "ገና ሰርቲፊኬት አልተገኘም።",
+    "earn_certificate": "ሰርቲፊኬት ለማግኘት ኮርስ ያጠናቅቁ።",
+    "issued_on": "የተሰጠበት {{date}}",
+    "certificate_id": "ሰርቲፊኬት ቁጥር: {{id}}"
+  },
+  "my_courses": {
+    "title": "ኮርሶቼ",
+    "all": "ሁሉም",
+    "in_progress": "በሂደት ላይ",
+    "completed": "የተጠናቀቁ",
+    "no_courses": "በዚህ ምድብ ኮርሶች አልተገኙም።"
+  },
+  "wishlist": {
+    "title": "የምኞት ዝርዝሬ",
+    "empty": "የምኞት ዝርዝርዎ ባዶ ነው።",
+    "browse_courses": "ወደ ምኞት ዝርዝርዎ ለመጨመር ኮርሶችን ያስሱ።"
+  },
+  "transactions": {
+    "title": "የግብይት ታሪክ",
+    "no_transactions": "ምንም ግብይቶች አልተገኙም።",
+    "transaction_id": "የግብይት ቁጥር",
+    "date": "ቀን",
+    "course": "ኮርስ",
+    "amount": "መጠን",
+    "method": "ዘዴ",
+    "status": "ሁኔታ"
+  },
+  "payment": {
+    "title": "ኮርስ ግዛ",
+    "bundle_title": "ሁሉንም ኮርሶች ግዛ",
+    "order_summary": "የትዕዛዝ ማጠቃለያ",
+    "payment_instructions": "የክፍያ መመሪያዎች",
+    "cbe_instructions": "ትክክለኛውን መጠን ወደ CBE ሂሳብ: {{account}} ያስተላልፉ። የግብይት ቁጥርዎን እንደ ማጣቀሻ ይጠቀሙ።",
+    "verifying": "ክፍያዎን በማረጋገጥ ላይ...",
+    "success_title": "ክፍያ ተሳክቷል!",
+    "success_message": "ለ{{course}} የ30 ቀናት መዳረሻ አላችሁ።",
+    "go_to_course": "ወደ ኮርስ ሂድ",
+    "go_to_dashboard": "ወደ ዳሽቦርድ ሂድ"
+  },
+  "about": {
+    "title": "ስለ ዴልታ SPMU አካዳሚ",
+    "description": "ዴልታ SPMU በአዲስ አበባ፣ ኢትዮጵያ የሚገኝ ሙያዊ የቋሚ ማስዋቢያ እና የኮስሜቲክ ታቱ ስልጠና አካዳሚ ነው።",
+    "mission": "ተልዕኳችን",
+    "mission_text": "በተግባራዊ ስልጠና፣ በቀጥታ ሞዴል ልምምድ እና በጥብቅ ግምገማ ብቃት ያላቸው የቋሚ ማስዋቢያ ባለሙያዎችን ማፍራት።"
+  },
+  "contact": {
+    "title": "ያግኙን",
+    "subtitle": "ጥያቄ አለዎት? ለመርዳት ዝግጁ ነን።",
+    "name": "ስምዎ",
+    "email": "ኢሜይልዎ",
+    "message": "መልዕክትዎ",
+    "send": "መልዕክት ላክ",
+    "location": "አዲስ አበባ፣ ኢትዮጵያ"
+  },
+  "help": {
+    "title": "የእገዛ ማዕከል",
+    "faq": "በብዛት የሚጠየቁ ጥያቄዎች",
+    "getting_started": "መጀመር",
+    "account": "መለያ እና ክፍያ",
+    "courses_help": "ኮርሶች እና መማር",
+    "technical": "ቴክኒካዊ ድጋፍ"
+  },
+  "not_found": {
+    "title": "ገጹ አልተገኘም",
+    "message": "የሚፈልጉት ገጽ የለም።",
+    "go_home": "ወደ መነሻ ገጽ ሂድ"
+  }
+}

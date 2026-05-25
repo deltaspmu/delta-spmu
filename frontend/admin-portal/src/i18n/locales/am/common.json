@@ -1,0 +1,64 @@
+{
+  "app_name": "ዴልታ SPMU አስተዳዳሪ",
+  "nav": {
+    "dashboard": "ዳሽቦርድ",
+    "courses": "ኮርሶች",
+    "users": "ተጠቃሚዎች",
+    "enrollments": "ምዝገባዎች",
+    "categories": "ምድቦች",
+    "certificates": "ሰርቲፊኬቶች",
+    "reviews": "ግምገማዎች",
+    "payments": "ክፍያዎች",
+    "analytics": "ትንታኔዎች",
+    "quizzes": "ፈተናዎች",
+    "videos": "ቪዲዮዎች",
+    "email": "ኢሜይል",
+    "email_compose": "ጻፍ",
+    "email_addresses": "የኢሜይል አድራሻዎች",
+    "settings": "ቅንብሮች"
+  },
+  "auth": {
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "email": "ኢሜይል",
+    "password": "የይለፍ ቃል"
+  },
+  "buttons": {
+    "save": "አስቀምጥ",
+    "cancel": "ሰርዝ",
+    "delete": "ሰርዝ",
+    "edit": "አርትዕ",
+    "create": "ፍጠር",
+    "add": "ጨምር",
+    "close": "ዝጋ",
+    "search": "ፈልግ",
+    "filter": "አጣራ",
+    "export": "ላክ",
+    "loading": "በመጫን ላይ...",
+    "saving": "በማስቀመጥ ላይ...",
+    "confirm": "አረጋግጥ",
+    "back": "ተመለስ",
+    "compose": "ጻፍ",
+    "send": "ላክ",
+    "archive": "ማህደር",
+    "view": "ይመልከቱ"
+  },
+  "status": {
+    "active": "ንቁ",
+    "inactive": "ንቁ ያልሆነ",
+    "pending": "በመጠበቅ ላይ",
+    "completed": "ተጠናቋል",
+    "failed": "አልተሳካም",
+    "verified": "ተረጋግጧል"
+  },
+  "errors": {
+    "generic": "የሆነ ችግር ተፈጥሯል። እባክዎ ዳግም ይሞክሩ።",
+    "network": "የኔትወርክ ስህተት። ግንኙነትዎን ያረጋግጡ።",
+    "unauthorized": "እባክዎ ለመቀጠል ይግቡ።",
+    "not_found": "ገጹ አልተገኘም።"
+  },
+  "language": {
+    "en": "English",
+    "am": "አማርኛ"
+  }
+}

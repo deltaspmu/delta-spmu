@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand: gold accent on a deep forest-green base (canonical palette
+   * matches the marketing site at deltaspmu.com). The variable names
+   * "primary" and "dark" are kept for backward compatibility; the actual
+   * hues are gold and forest green, not nude and charcoal. */
+  --color-primary: #C9A96E;        /* gold */
+  --color-primary-dark: #A8893E;   /* darker gold */
+  --color-primary-light: #E5D2A9;  /* champagne / light gold */
+  --color-dark: #1A2F23;           /* forest green */
+  --color-dark-light: #2D4A38;     /* lighter forest green */
+  --color-alabaster: #F5F2EC;      /* warm off-white */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  --color-sidebar-bg: #1A2F23;
+  --color-sidebar-hover: #234134;
+  --color-sidebar-active: #2D4A38;
+  --color-sidebar-text: #A0A0A0;
+  --color-sidebar-text-active: #C9A96E;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-alabaster);
+  color: var(--color-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-primary-dark); border-radius: 3px; }
+
+/* Focus */
+*:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
+/* Sidebar */
+.sidebar {
+  transition: width 200ms ease;
+}
+
+.sidebar-collapsed {
+  width: 64px;
+}
+
+.sidebar-expanded {
+  width: 256px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: var(--color-sidebar-text);
+  transition: all 150ms ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-nav-item:hover {
+  background-color: var(--color-sidebar-hover);
+  color: var(--color-alabaster);
+}
+
+.sidebar-nav-item.active {
+  background-color: var(--color-sidebar-active);
+  color: var(--color-sidebar-text-active);
+}
+
+/* Admin card */
+.admin-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  padding: 24px;
+  transition: box-shadow 150ms ease;
+}
+
+.admin-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Admin table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6B7280;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.admin-table tr:hover td {
+  background-color: #F9FAFB;
+}
+
+/* Tiptap editor */
+.tiptap-editor .ProseMirror {
+  min-height: 200px;
+  padding: 16px;
+  outline: none;
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9CA3AF;
+  pointer-events: none;
+  height: 0;
+}

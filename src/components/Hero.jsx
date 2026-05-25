@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import config from "../config";
 
 const NAV_LINKS = [
   { label: "Home", href: "#" },
@@ -75,6 +76,16 @@ export default function Hero() {
                 </a>
               </li>
             ))}
+            {config.studentPortalLive && (
+              <li>
+                <a
+                  href={config.loginUrl}
+                  className="rounded-sm border border-nude/40 px-4 py-2 font-body text-[12px] font-semibold uppercase tracking-wide text-nude transition-colors duration-300 hover:bg-nude hover:text-charcoal"
+                >
+                  Sign In
+                </a>
+              </li>
+            )}
           </ul>
 
           {/* Mobile Hamburger */}
@@ -119,6 +130,28 @@ export default function Hero() {
                 </a>
               </li>
             ))}
+            {config.studentPortalLive && (
+              <>
+                <li>
+                  <a
+                    href={config.loginUrl}
+                    onClick={() => setMenuOpen(false)}
+                    className="font-body text-sm uppercase tracking-wide text-nude transition-colors duration-300 hover:text-white"
+                  >
+                    Sign In
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={config.signupUrl}
+                    onClick={() => setMenuOpen(false)}
+                    className="font-body text-sm uppercase tracking-wide text-nude transition-colors duration-300 hover:text-white"
+                  >
+                    Sign Up
+                  </a>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       </nav>
@@ -171,9 +204,31 @@ export default function Hero() {
             custom={3}
             className="mt-10 flex flex-wrap gap-4"
           >
+            {config.studentPortalLive && (
+              <a
+                href={config.coursesUrl}
+                className="group inline-flex items-center gap-2 bg-nude px-8 py-3.5 font-body text-[13px] font-semibold uppercase tracking-wide text-charcoal transition-all duration-300 hover:bg-nude-dark hover:shadow-lg"
+              >
+                Start Learning
+                <svg
+                  className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </a>
+            )}
+
             <a
               href="#programs"
-              className="group inline-flex items-center gap-2 bg-nude px-8 py-3.5 font-body text-[13px] font-semibold uppercase tracking-wide text-charcoal transition-all duration-300 hover:bg-nude-dark hover:shadow-lg"
+              className={`group inline-flex items-center gap-2 px-8 py-3.5 font-body text-[13px] font-semibold uppercase tracking-wide transition-all duration-300 ${
+                config.studentPortalLive
+                  ? "border border-white/30 text-white hover:border-white hover:bg-white/10"
+                  : "bg-nude text-charcoal hover:bg-nude-dark hover:shadow-lg"
+              }`}
             >
               Explore Programs
               <svg

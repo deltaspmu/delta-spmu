@@ -1,0 +1,645 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getCourseDetail,
+  createCourse,
+  updateCourse,
+  getCourseChapters,
+  createChapter,
+  updateChapter,
+  deleteChapter,
+  createLesson,
+  updateLesson,
+  deleteLesson,
+  getCategories,
+  getQuizzes,
+} from '@/api/client';
+import { vimeoService } from '@/api/vimeo';
+import type { Chapter, Lesson } from '@/types';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import {
+  Save,
+  Eye,
+  Loader2,
+  Plus,
+  Trash2,
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
+  Video,
+  X,
+  Search,
+  Upload,
+} from 'lucide-react';
+
+// ---------------------------------------------------------------------------
+// Tiptap Rich Text Editor Component
+// ---------------------------------------------------------------------------
+function RichTextEditor({
+  content,
+  onChange,
+  placeholder,
+}: {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+}) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false }),
+      Placeholder.configure({ placeholder: placeholder || 'Start writing...' }),
+    ],
+    content,
+    onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
+  });
+
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content, false);
+    }
+  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!editor) return null;
+
+  return (
+    <div className="tiptap-editor border border-gray-300 rounded-lg overflow-hidden">
+      <div className="flex gap-1 p-2 border-b border-gray-200 bg-gray-50">
+        <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded text-xs font-bold ${editor.isActive('bold') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>B</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded text-xs italic ${editor.isActive('italic') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>I</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded text-xs ${editor.isActive('heading', { level: 2 }) ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>H2</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={`p-1.5 rounded text-xs ${editor.isActive('heading', { level: 3 }) ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>H3</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-1.5 rounded text-xs ${editor.isActive('bulletList') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>UL</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-1.5 rounded text-xs ${editor.isActive('orderedList') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>OL</button>
+      </div>
+      <EditorContent editor={editor} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Video Picker Modal
+// ---------------------------------------------------------------------------
+function VideoPickerModal({
+  open,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (videoRef: string) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['vimeo-videos', search, page],
+    queryFn: () => vimeoService.listVideos(page, 12, search || undefined),
+    enabled: open,
+  });
+
+  const videos = data?.data || [];
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-heading font-semibold text-dark">Select Video from Library</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 border-b">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search videos..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 animate-spin text-primary-dark" /></div>
+          ) : videos.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">No videos found</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {videos.map((v: any) => {
+                const videoId = v.uri ? v.uri.replace(/^\/videos\//, '') : '';
+                const thumb = v.pictures?.sizes?.slice(-1)[0]?.link || null;
+                return (
+                <button
+                  key={videoId}
+                  onClick={() => { onSelect(`${videoId}/${videoId}`); onClose(); }}
+                  className="text-left border rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-dark transition-all"
+                >
+                  <div className="aspect-video bg-gray-100">
+                    {thumb && <img src={thumb} alt={v.name} className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium text-dark line-clamp-1">{v.name}</p>
+                    <p className="text-xs text-gray-400">{v.duration ? `${Math.floor(v.duration / 60)}:${String(v.duration % 60).padStart(2, '0')}` : '-'}</p>
+                  </div>
+                </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {(data?.total || 0) > 12 && (
+          <div className="flex items-center justify-center gap-2 p-3 border-t">
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-40">Prev</button>
+            <span className="text-sm text-gray-500">Page {page}</span>
+            <button disabled={videos.length < 12} onClick={() => setPage(page + 1)} className="px-3 py-1 text-sm border rounded disabled:opacity-40">Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lesson Editor Row
+// ---------------------------------------------------------------------------
+function LessonRow({
+  lesson,
+  onUpdate,
+  onDelete,
+  quizzes,
+}: {
+  lesson: Partial<Lesson> & { _key: string };
+  onUpdate: (data: Partial<Lesson>) => void;
+  onDelete: () => void;
+  quizzes: any[];
+}) {
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
+      <div className="flex items-center gap-2">
+        <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
+        <input
+          type="text"
+          value={lesson.title || ''}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="Lesson title"
+          className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
+        />
+        <input
+          type="number"
+          value={lesson.duration || 0}
+          onChange={(e) => onUpdate({ duration: Number(e.target.value) })}
+          placeholder="Duration (min)"
+          className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+        />
+        <button onClick={onDelete} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Video</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={lesson.youtube || ''}
+              onChange={(e) => onUpdate({ youtube: e.target.value })}
+              placeholder='Vimeo "id/hash"'
+              className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowVideoPicker(true)}
+              className="p-1.5 border border-gray-300 rounded hover:bg-gray-100"
+            >
+              <Video className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Quiz</label>
+          <select
+            value={lesson.quiz_id || ''}
+            onChange={(e) => onUpdate({ quiz_id: e.target.value || null })}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white"
+          >
+            <option value="">No quiz</option>
+            {quizzes.map((q: any) => (
+              <option key={q.name} value={q.name}>{q.title}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Content</label>
+        <RichTextEditor
+          content={lesson.content || ''}
+          onChange={(html) => onUpdate({ content: html })}
+          placeholder="Lesson content..."
+        />
+      </div>
+      <VideoPickerModal open={showVideoPicker} onClose={() => setShowVideoPicker(false)} onSelect={(ref) => onUpdate({ youtube: ref })} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chapter Section
+// ---------------------------------------------------------------------------
+interface ChapterState extends Partial<Chapter> {
+  _key: string;
+  _expanded: boolean;
+  _lessons: (Partial<Lesson> & { _key: string })[];
+}
+
+function ChapterSection({
+  chapter,
+  onUpdate,
+  onDelete,
+  onUpdateLesson,
+  onAddLesson,
+  onDeleteLesson,
+  quizzes,
+}: {
+  chapter: ChapterState;
+  onUpdate: (data: Partial<Chapter> & { _expanded?: boolean }) => void;
+  onDelete: () => void;
+  onUpdateLesson: (lessonKey: string, data: Partial<Lesson>) => void;
+  onAddLesson: () => void;
+  onDeleteLesson: (lessonKey: string) => void;
+  quizzes: any[];
+}) {
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 p-3 bg-white">
+        <GripVertical className="w-4 h-4 text-gray-300" />
+        <button type="button" onClick={() => onUpdate({ _expanded: !chapter._expanded })} className="p-1">
+          {chapter._expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+        <input
+          type="text"
+          value={chapter.title || ''}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="Chapter title"
+          className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm font-medium"
+        />
+        <span className="text-xs text-gray-400">{chapter._lessons.length} lessons</span>
+        <button type="button" onClick={onDelete} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      {chapter._expanded && (
+        <div className="p-3 space-y-3 bg-gray-50/50 border-t">
+          {chapter._lessons.map((lesson) => (
+            <LessonRow
+              key={lesson._key}
+              lesson={lesson}
+              onUpdate={(d) => onUpdateLesson(lesson._key, d)}
+              onDelete={() => onDeleteLesson(lesson._key)}
+              quizzes={quizzes}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={onAddLesson}
+            className="flex items-center gap-1 text-xs text-primary-dark hover:text-dark"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Lesson
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main CourseEditor Page
+// ---------------------------------------------------------------------------
+let _keyCounter = 0;
+function nextKey() { return `_k${++_keyCounter}`; }
+
+export default function CourseEditor() {
+  const { id } = useParams<{ id: string }>();
+  const isNew = !id || id === 'new';
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Course fields
+  const [title, setTitle] = useState('');
+  const [shortIntro, setShortIntro] = useState('');
+  const [description, setDescription] = useState('');
+  const [image, setImage] = useState('');
+  const [category, setCategory] = useState('');
+  const [price, setPrice] = useState(0);
+  const [currency, setCurrency] = useState('ETB');
+  const [published, setPublished] = useState(false);
+
+  // Chapters & lessons state
+  const [chapters, setChapters] = useState<ChapterState[]>([]);
+
+  // Load course data — React Query v5 dropped `onSuccess`, so we react via useEffect
+  const { data: courseData, isLoading: courseLoading } = useQuery({
+    queryKey: ['course-detail', id],
+    queryFn: () => getCourseDetail(id!),
+    enabled: !isNew,
+  });
+
+  useEffect(() => {
+    if (!courseData) return;
+    const d: any = courseData;
+    setTitle(d.title || '');
+    setShortIntro(d.short_introduction || '');
+    setDescription(d.description || '');
+    setImage(d.image || '');
+    setCategory(d.category || '');
+    setPrice(d.course_price || 0);
+    setCurrency(d.currency || 'ETB');
+    setPublished(!!d.published);
+  }, [courseData]);
+
+  // Load chapters
+  const { data: chaptersData, isLoading: chaptersLoading } = useQuery({
+    queryKey: ['course-chapters', id],
+    queryFn: () => getCourseChapters(id!),
+    enabled: !isNew,
+  });
+
+  useEffect(() => {
+    if (!chaptersData) return;
+    const chaps = (Array.isArray(chaptersData) ? chaptersData : []).map((ch: Chapter) => ({
+      ...ch,
+      _key: nextKey(),
+      _expanded: false,
+      _lessons: (ch.lessons || []).map((l) => ({ ...l, _key: nextKey() })),
+    }));
+    setChapters(chaps);
+  }, [chaptersData]);
+
+  // Load categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => getCategories({ limit_page_length: 0 }),
+  });
+  const categories = Array.isArray(categoriesData) ? categoriesData : categoriesData?.data || [];
+
+  // Load quizzes for dropdown
+  const { data: quizzesData } = useQuery({
+    queryKey: ['quizzes-list'],
+    queryFn: () => getQuizzes({ fields: JSON.stringify(['name', 'title']), limit_page_length: 0 }),
+  });
+  const quizzes = Array.isArray(quizzesData) ? quizzesData : quizzesData?.data || [];
+
+  // Save course mutation
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const courseData = {
+        title,
+        short_introduction: shortIntro,
+        description,
+        image,
+        category,
+        course_price: price,
+        currency,
+        published: published ? 1 : 0,
+      };
+
+      let courseName = id;
+      if (isNew) {
+        const res = await createCourse(courseData);
+        courseName = res.name;
+      } else {
+        await updateCourse(id!, courseData);
+      }
+
+      // Save chapters & lessons
+      for (let ci = 0; ci < chapters.length; ci++) {
+        const ch = chapters[ci];
+        const chapterData = { title: ch.title, course: courseName, chapter_number: ci + 1 };
+        let chName = ch.name;
+        if (chName) {
+          await updateChapter(chName, chapterData);
+        } else {
+          const res = await createChapter(chapterData);
+          chName = res.name;
+        }
+        for (let li = 0; li < ch._lessons.length; li++) {
+          const ls = ch._lessons[li];
+          const lessonData = {
+            title: ls.title,
+            content: ls.content,
+            chapter: chName,
+            lesson_number: li + 1,
+            youtube: ls.youtube || null,
+            quiz_id: ls.quiz_id || null,
+            duration: ls.duration || 0,
+          };
+          if (ls.name) {
+            await updateLesson(ls.name, lessonData);
+          } else {
+            await createLesson(lessonData);
+          }
+        }
+      }
+
+      return courseName;
+    },
+    onSuccess: (courseName) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course-detail', courseName] });
+      if (isNew && courseName) navigate(`/courses/${courseName}`, { replace: true });
+    },
+  });
+
+  // Chapter helpers
+  const addChapter = () => {
+    setChapters((prev) => [...prev, { _key: nextKey(), _expanded: true, _lessons: [], title: '' }]);
+  };
+
+  const updateChapterState = (key: string, data: Partial<ChapterState>) => {
+    setChapters((prev) => prev.map((ch) => (ch._key === key ? { ...ch, ...data } : ch)));
+  };
+
+  const removeChapter = (key: string) => {
+    const ch = chapters.find((c) => c._key === key);
+    if (ch?.name) deleteChapter(ch.name);
+    setChapters((prev) => prev.filter((c) => c._key !== key));
+  };
+
+  const addLessonToChapter = (chapterKey: string) => {
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch._key === chapterKey
+          ? { ...ch, _lessons: [...ch._lessons, { _key: nextKey(), title: '', content: '' }] }
+          : ch,
+      ),
+    );
+  };
+
+  const updateLessonInChapter = (chapterKey: string, lessonKey: string, data: Partial<Lesson>) => {
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch._key === chapterKey
+          ? { ...ch, _lessons: ch._lessons.map((l) => (l._key === lessonKey ? { ...l, ...data } : l)) }
+          : ch,
+      ),
+    );
+  };
+
+  const removeLessonFromChapter = (chapterKey: string, lessonKey: string) => {
+    const ch = chapters.find((c) => c._key === chapterKey);
+    const ls = ch?._lessons.find((l) => l._key === lessonKey);
+    if (ls?.name) deleteLesson(ls.name);
+    setChapters((prev) =>
+      prev.map((c) =>
+        c._key === chapterKey
+          ? { ...c, _lessons: c._lessons.filter((l) => l._key !== lessonKey) }
+          : c,
+      ),
+    );
+  };
+
+  if (!isNew && (courseLoading || chaptersLoading)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-dark" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-dark">
+            {isNew ? 'Create Course' : 'Edit Course'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">{isNew ? 'Add a new course to the platform' : title}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setPublished(false); saveMutation.mutate(); }}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" /> Save Draft
+          </button>
+          <button
+            onClick={() => { setPublished(true); saveMutation.mutate(); }}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 bg-dark text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-dark-light disabled:opacity-50"
+          >
+            <Eye className="w-4 h-4" /> {saveMutation.isPending ? 'Saving...' : 'Publish'}
+          </button>
+        </div>
+      </div>
+
+      {saveMutation.isError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+          Failed to save course. Please try again.
+        </div>
+      )}
+      {saveMutation.isSuccess && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">
+          Course saved successfully.
+        </div>
+      )}
+
+      {/* Basic Info */}
+      <div className="admin-card space-y-4">
+        <h2 className="font-heading text-lg font-semibold text-dark">Basic Information</h2>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Course title" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Short Introduction</label>
+          <input type="text" value={shortIntro} onChange={(e) => setShortIntro(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Brief description for cards and previews" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <RichTextEditor content={description} onChange={setDescription} placeholder="Full course description..." />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+          <div className="flex gap-2">
+            <input type="text" value={image} onChange={(e) => setImage(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="/files/course-image.jpg" />
+            {image && (
+              <div className="w-16 h-16 rounded border overflow-hidden shrink-0">
+                <img src={image} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="">Select category</option>
+              {categories.map((c: any) => (
+                <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+            <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" min={0} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="ETB">ETB</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="sr-only peer" />
+            <div className="w-9 h-5 bg-gray-200 peer-checked:bg-dark rounded-full peer-focus:ring-2 peer-focus:ring-primary-dark after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+          </label>
+          <span className="text-sm text-gray-700">Published</span>
+        </div>
+      </div>
+
+      {/* Chapters & Lessons */}
+      <div className="admin-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-lg font-semibold text-dark">Chapters & Lessons</h2>
+          <button type="button" onClick={addChapter} className="flex items-center gap-1 text-sm bg-primary text-dark px-3 py-1.5 rounded-lg hover:bg-primary-dark transition-colors">
+            <Plus className="w-4 h-4" /> Add Chapter
+          </button>
+        </div>
+
+        {chapters.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">No chapters yet. Click "Add Chapter" to get started.</div>
+        ) : (
+          <div className="space-y-3">
+            {chapters.map((ch) => (
+              <ChapterSection
+                key={ch._key}
+                chapter={ch}
+                onUpdate={(d) => updateChapterState(ch._key, d)}
+                onDelete={() => removeChapter(ch._key)}
+                onUpdateLesson={(lk, d) => updateLessonInChapter(ch._key, lk, d)}
+                onAddLesson={() => addLessonToChapter(ch._key)}
+                onDeleteLesson={(lk) => removeLessonFromChapter(ch._key, lk)}
+                quizzes={quizzes}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

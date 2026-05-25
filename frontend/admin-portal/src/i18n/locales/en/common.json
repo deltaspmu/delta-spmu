@@ -1,0 +1,64 @@
+{
+  "app_name": "Delta SPMU Admin",
+  "nav": {
+    "dashboard": "Dashboard",
+    "courses": "Courses",
+    "users": "Users",
+    "enrollments": "Enrollments",
+    "categories": "Categories",
+    "certificates": "Certificates",
+    "reviews": "Reviews",
+    "payments": "Payments",
+    "analytics": "Analytics",
+    "quizzes": "Quizzes",
+    "videos": "Videos",
+    "email": "Email",
+    "email_compose": "Compose",
+    "email_addresses": "Email Addresses",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Log In",
+    "logout": "Log Out",
+    "email": "Email Address",
+    "password": "Password"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "confirm": "Confirm",
+    "back": "Back",
+    "compose": "Compose",
+    "send": "Send",
+    "archive": "Archive",
+    "view": "View"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "failed": "Failed",
+    "verified": "Verified"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "unauthorized": "Please log in to continue.",
+    "not_found": "Page not found."
+  },
+  "language": {
+    "en": "English",
+    "am": "አማርኛ"
+  }
+}

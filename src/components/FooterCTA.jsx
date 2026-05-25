@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import config from "../config";
 
 export default function FooterCTA() {
   const sectionRef = useRef(null);
@@ -115,8 +116,8 @@ export default function FooterCTA() {
           {/* Top border */}
           <div className="h-[1px] w-full bg-white/[0.06]" />
 
-          <div className="flex flex-col items-center justify-between gap-10 py-14 md:flex-row md:gap-0">
-            {/* Left — Brand + Copyright */}
+          <div className="grid gap-12 py-16 md:grid-cols-3">
+            {/* Brand */}
             <div>
               <a href="#" className="block">
                 <img
@@ -125,12 +126,99 @@ export default function FooterCTA() {
                   className="h-12 w-auto brightness-0 invert"
                 />
               </a>
-              <p className="mt-2 font-body text-[12px] font-light text-white/25">
-                &copy; 2026 Delta SPMU Academy. Addis Ababa, Ethiopia.
+              <p className="mt-3 font-body text-[13px] font-light leading-relaxed text-white/40">
+                Professional permanent makeup training academy. Master the art
+                of cosmetic tattooing with certified courses.
               </p>
             </div>
 
-            {/* Right — Back to top */}
+            {/* Quick Links */}
+            <div>
+              <h4 className="font-body text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                Quick Links
+              </h4>
+              <ul className="mt-4 space-y-2.5">
+                {config.studentPortalLive && (
+                  <>
+                    <li>
+                      <a href={config.coursesUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Browse Courses
+                      </a>
+                    </li>
+                    <li>
+                      <a href={config.signupUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Create Account
+                      </a>
+                    </li>
+                    <li>
+                      <a href={config.loginUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Student Login
+                      </a>
+                    </li>
+                  </>
+                )}
+                <li>
+                  <a href="#about" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#faq" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                    FAQ
+                  </a>
+                </li>
+                <li>
+                  <a href="#contact" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                    Contact
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="font-body text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                Legal
+              </h4>
+              <ul className="mt-4 space-y-2.5">
+                {config.studentPortalLive ? (
+                  <>
+                    <li>
+                      <a href={`${config.studentPortalUrl}/privacy`} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Privacy Policy
+                      </a>
+                    </li>
+                    <li>
+                      <a href={`${config.studentPortalUrl}/terms`} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Terms of Service
+                      </a>
+                    </li>
+                    <li>
+                      <a href={`${config.studentPortalUrl}/refund`} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                        Refund Policy
+                      </a>
+                    </li>
+                  </>
+                ) : (
+                  <li>
+                    <span className="font-body text-[13px] text-white/20">
+                      Coming soon
+                    </span>
+                  </li>
+                )}
+              </ul>
+              <p className="mt-6 font-body text-[12px] text-white/20">
+                {config.location}
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="h-[1px] w-full bg-white/[0.06]" />
+          <div className="flex flex-col items-center justify-between gap-4 py-8 md:flex-row">
+            <p className="font-body text-[12px] font-light text-white/25">
+              &copy; {config.year} {config.siteName}. All rights reserved.
+            </p>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="group flex items-center gap-2 font-body text-[11px] uppercase tracking-wide text-white/25 transition-colors duration-300 hover:text-nude"

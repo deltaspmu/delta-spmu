@@ -1,24 +1,78 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.local
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
 
-# Editor directories and files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+*.egg
+venv/
+.venv/
+pip-log.txt
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.*
+infrastructure/*.tfvars
+infrastructure/.terraform.lock.hcl
+infrastructure/tfplan
+infrastructure/*.tfplan
+infrastructure/lambda_placeholder.zip
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Vercel
+.vercel/
+
+# Claude Code per-user settings (each user has their own)
+.claude/settings.local.json
+
+# Misc
+*.tsbuildinfo
+coverage/
+.cache/
