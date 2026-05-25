@@ -1,6 +1,14 @@
 {
+  "build": {
+    "env": {
+      "VITE_API_URL": ""
+    }
+  },
   "rewrites": [
-    { "source": "/((?!api|files|assets).*)", "destination": "/" }
+    { "source": "/api/:path*", "destination": "https://api.deltaspmu.com/api/:path*" },
+    { "source": "/files/:path*", "destination": "https://api.deltaspmu.com/files/:path*" },
+    { "source": "/private/:path*", "destination": "https://api.deltaspmu.com/private/:path*" },
+    { "source": "/((?!api|files|private|assets).*)", "destination": "/" }
   ],
   "headers": [
     {

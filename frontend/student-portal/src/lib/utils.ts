@@ -2,9 +2,8 @@
  * Delta SPMU Academy — Utility Functions
  */
 
-const API_BASE_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'https://api.deltaspmu.com');
+// Same-origin by default — Vercel rewrites /files/* to api.deltaspmu.com.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 /**
  * Resolve a Frappe file path to a full URL.

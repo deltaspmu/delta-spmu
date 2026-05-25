@@ -12,9 +12,8 @@ import type { User } from '../types';
 // ---------------------------------------------------------------------------
 // API instance
 // ---------------------------------------------------------------------------
-const API_BASE_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'https://api.deltaspmu.com');
+// Same-origin by default — Vercel rewrites /api/* to api.deltaspmu.com.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

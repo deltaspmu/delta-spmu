@@ -1,11 +1,16 @@
 {
   "build": {
     "env": {
-      "VITE_API_URL": "https://api.deltaspmu.com",
+      "VITE_API_URL": "",
       "VITE_USE_VIMEO_PROXY": "true"
     }
   },
-  "rewrites": [{ "source": "/((?!api|files).*)", "destination": "/" }],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.deltaspmu.com/api/:path*" },
+    { "source": "/files/:path*", "destination": "https://api.deltaspmu.com/files/:path*" },
+    { "source": "/private/:path*", "destination": "https://api.deltaspmu.com/private/:path*" },
+    { "source": "/((?!api|files|private).*)", "destination": "/" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

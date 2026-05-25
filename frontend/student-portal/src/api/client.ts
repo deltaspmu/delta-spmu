@@ -1,8 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'https://api.deltaspmu.com');
+// Default to same-origin (empty string) so requests go to
+// /api/* on the current host. In production that's
+// learn.deltaspmu.com which Vercel rewrites to api.deltaspmu.com —
+// keeps everything same-origin so session cookies aren't treated
+// as third-party.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

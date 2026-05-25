@@ -93,8 +93,8 @@ function RichTextEditor({
 // and stores the returned file_url (e.g. /files/img.jpg) on the course.
 // ---------------------------------------------------------------------------
 
-const FRAPPE_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) || 'https://api.deltaspmu.com';
+// Same-origin by default — Vercel rewrites /files/* to api.deltaspmu.com.
+const FRAPPE_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 function CourseImageUpload({
   image,

@@ -18,9 +18,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const API_BASE_URL = import.meta.env.DEV
-  ? ''
-  : (import.meta.env.VITE_API_URL || 'https://api.deltaspmu.com');
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 // ---------------------------------------------------------------------------
 // Skeleton Card
