@@ -883,27 +883,28 @@ export default function CourseEditor() {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-dark">
+    <div className="space-y-6 sm:space-y-8 max-w-4xl">
+      {/* Header — stacks on mobile so the action buttons don't squeeze
+          the title into ellipsis territory */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-dark">
             {isNew ? 'Create Course' : 'Edit Course'}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">{isNew ? 'Add a new course to the platform' : title}</p>
+          <p className="text-sm text-gray-500 mt-1 truncate">{isNew ? 'Add a new course to the platform' : title}</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => { setPublished(false); saveMutation.mutate(); }}
             disabled={saveMutation.isPending}
-            className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> Save Draft
           </button>
           <button
             onClick={() => { setPublished(true); saveMutation.mutate(); }}
             disabled={saveMutation.isPending}
-            className="flex items-center gap-2 bg-dark text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-dark-light disabled:opacity-50"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-dark text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-dark-light disabled:opacity-50"
           >
             <Eye className="w-4 h-4" /> {saveMutation.isPending ? 'Saving...' : 'Publish'}
           </button>
