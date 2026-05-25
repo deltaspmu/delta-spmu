@@ -7,11 +7,11 @@ import { getEnrolledCourses, getCertificates, getCourses, getCourseProgress } fr
 import type { Course, Certificate, CourseProgress } from '@/types';
 import {
   getCourseImageUrl,
-  getUserAvatarUrl,
   formatPrice,
   formatDuration,
   cn,
 } from '@/lib/utils';
+import Avatar from '@/components/Avatar';
 import {
   BookOpen,
   Award,
@@ -219,8 +219,10 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             {user && (
-              <img
-                src={getUserAvatarUrl({ user_image: user.user_image, full_name: user.full_name })}
+              <Avatar
+                src={user.user_image}
+                name={user.full_name}
+                size={56}
                 alt={user.full_name}
                 className="w-14 h-14 rounded-full object-cover border-2 border-primary/30"
               />
@@ -402,11 +404,10 @@ export default function Dashboard() {
                         {course.title}
                       </h3>
                       <div className="flex items-center gap-2 mb-2">
-                        <img
-                          src={getUserAvatarUrl({
-                            user_image: course.instructor_image,
-                            full_name: course.instructor_name,
-                          })}
+                        <Avatar
+                          src={course.instructor_image}
+                          name={course.instructor_name}
+                          size={20}
                           alt={course.instructor_name}
                           className="w-5 h-5 rounded-full object-cover"
                         />

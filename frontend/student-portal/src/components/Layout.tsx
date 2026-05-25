@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
+import Avatar from './Avatar';
 
 // ---------------------------------------------------------------------------
 // Language Switcher (inline — no separate file exists yet)
@@ -187,9 +188,10 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-primary-light/50"
               >
                 {user.user_image ? (
-                  <img
+                  <Avatar
                     src={user.user_image}
-                    alt=""
+                    name={user.full_name}
+                    size={28}
                     className="h-7 w-7 rounded-full object-cover"
                   />
                 ) : (
@@ -319,9 +321,10 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
             {isAuthenticated && user && (
               <div className="mb-4 flex items-center gap-3 rounded-lg bg-alabaster px-3 py-3">
                 {user.user_image ? (
-                  <img
+                  <Avatar
                     src={user.user_image}
-                    alt=""
+                    name={user.full_name}
+                    size={36}
                     className="h-9 w-9 rounded-full object-cover"
                   />
                 ) : (

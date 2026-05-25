@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { cn, getUserAvatarUrl, formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import StarRating from './StarRating';
+import Avatar from './Avatar';
 import type { Review } from '@/types';
 
 interface CourseReviewsProps {
@@ -71,11 +72,10 @@ export default function CourseReviews({
             className="border-b border-gray-100 pb-6 last:border-0"
           >
             <div className="flex items-center gap-3 mb-2">
-              <img
-                src={getUserAvatarUrl({
-                  user_image: review.owner_image,
-                  full_name: review.owner_name,
-                })}
+              <Avatar
+                src={review.owner_image}
+                name={review.owner_name}
+                size={40}
                 alt={review.owner_name}
                 className="w-10 h-10 rounded-full object-cover"
               />

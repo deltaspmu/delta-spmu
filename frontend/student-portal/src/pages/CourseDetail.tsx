@@ -16,13 +16,13 @@ import { useAuth } from '@/context/AuthContext';
 import type { Course, Chapter, Review } from '@/types';
 import {
   getCourseImageUrl,
-  getUserAvatarUrl,
   formatPrice,
   formatDuration,
   formatDate,
   parseVimeoVideo,
   cn,
 } from '@/lib/utils';
+import Avatar from '@/components/Avatar';
 import {
   Star,
   Clock,
@@ -265,11 +265,10 @@ function ReviewCard({ review }: { review: Review }) {
   return (
     <div className="bg-white rounded-xl p-5 border border-gray-100">
       <div className="flex items-start gap-3 mb-3">
-        <img
-          src={getUserAvatarUrl({
-            user_image: review.owner_image,
-            full_name: review.owner_name,
-          })}
+        <Avatar
+          src={review.owner_image}
+          name={review.owner_name}
+          size={40}
           alt={review.owner_name}
           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
         />
@@ -508,11 +507,10 @@ export default function CourseDetail() {
 
             {/* Instructor row */}
             <div className="flex items-center gap-3">
-              <img
-                src={getUserAvatarUrl({
-                  user_image: course.instructor_image,
-                  full_name: course.instructor_name,
-                })}
+              <Avatar
+                src={course.instructor_image}
+                name={course.instructor_name}
+                size={40}
                 alt={course.instructor_name}
                 className="w-10 h-10 rounded-full object-cover"
               />

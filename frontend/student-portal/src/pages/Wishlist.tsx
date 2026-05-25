@@ -8,11 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 import type { Course } from '@/types';
 import {
   getCourseImageUrl,
-  getUserAvatarUrl,
   formatPrice,
   formatDuration,
   cn,
 } from '@/lib/utils';
+import Avatar from '@/components/Avatar';
 import {
   Heart,
   Star,
@@ -96,11 +96,10 @@ function CourseCard({ course, onRemove }: CourseCardProps) {
 
         {/* Instructor */}
         <div className="flex items-center gap-2 mb-2">
-          <img
-            src={getUserAvatarUrl({
-              user_image: course.instructor_image,
-              full_name: course.instructor_name,
-            })}
+          <Avatar
+            src={course.instructor_image}
+            name={course.instructor_name}
+            size={24}
             alt={course.instructor_name}
             className="w-6 h-6 rounded-full object-cover"
           />

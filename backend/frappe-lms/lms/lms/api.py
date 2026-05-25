@@ -3212,7 +3212,15 @@ def submit_contact_form(name=None, email=None, subject=None, message=None):
 # Returns the same [code, message] tuple as Frappe's sign_up so the existing
 # frontend doesn't need a contract change beyond the URL.
 
-SIGNUP_PORTAL_URL = "https://learn.deltaspmu.com"
+def _signup_portal_url():
+    """Where the verify/reset links in outgoing emails should land.
+
+    Reads from site_config first so we can swap targets during staging
+    (e.g. point at delta-student-delta.vercel.app while DNS verification
+    is pending) without redeploying. Falls back to the production
+    domain when not configured.
+    """
+    return frappe.conf.get("signup_portal_url") or "https://learn.deltaspmu.com"
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
@@ -3274,7 +3282,7 @@ def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
     frappe.db.set_value("User", email, "reset_password_key", key)
     frappe.db.commit()
 
-    verify_url = f"{SIGNUP_PORTAL_URL}/verify?key={key}"
+    verify_url = f"{_signup_portal_url()}/verify?key={key}"
 
     try:
         frappe.sendmail(
@@ -3382,7 +3390,7 @@ def custom_reset_password(user=None, email=None):
     frappe.db.commit()
 
     student_name = frappe.db.get_value("User", target, "full_name") or target
-    reset_url = f"{SIGNUP_PORTAL_URL}/reset-password?key={key}"
+    reset_url = f"{_signup_portal_url()}/reset-password?key={key}"
 
     try:
         frappe.sendmail(

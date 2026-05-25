@@ -10,7 +10,8 @@ import {
   deleteUserAccount,
   uploadAvatar,
 } from '@/api/client';
-import { getUserAvatarUrl, formatDate, cn } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
+import Avatar from '@/components/Avatar';
 import {
   Camera,
   Save,
@@ -266,8 +267,6 @@ export default function Profile() {
 
   if (!user) return null;
 
-  const avatarUrl = getUserAvatarUrl({ user_image: user.user_image, full_name: user.full_name });
-
   return (
     <div className="min-h-screen bg-alabaster">
       {ToastUI}
@@ -288,8 +287,10 @@ export default function Profile() {
             <div className="bg-white rounded-xl shadow-sm p-6 text-center sticky top-8">
               {/* Avatar */}
               <div className="relative mx-auto w-28 h-28 mb-4">
-                <img
-                  src={avatarUrl}
+                <Avatar
+                  src={user.user_image}
+                  name={user.full_name}
+                  size={128}
                   alt={user.full_name}
                   className="w-28 h-28 rounded-full object-cover border-4 border-gray-100"
                 />
