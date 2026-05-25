@@ -225,7 +225,10 @@ function Sidebar({
 }) {
   return (
     <aside
-      className={`sidebar fixed left-0 top-0 z-30 flex h-screen flex-col bg-sidebar-bg ${
+      // `fixed` only on desktop (lg+). On mobile we let the wrapper
+      // div control position so the slide-in drawer animation works
+      // and the bar doesn't overlap content when "closed".
+      className={`sidebar relative lg:fixed left-0 top-0 z-30 flex h-screen flex-col bg-sidebar-bg ${
         collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'
       }`}
     >

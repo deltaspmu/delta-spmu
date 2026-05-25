@@ -55,15 +55,63 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Single call returns counts + recent enrollments + recent payments
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, error: statsError, refetch } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: getDashboardStats,
+    retry: 0,
   });
 
   if (statsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-primary-dark" />
+      </div>
+    );
+  }
+
+  // Surface API errors instead of silently rendering zeros.
+  if (statsError) {
+    const err = statsError as any;
+    const status = err?.response?.status;
+    const isAuth = status === 401 || status === 403;
+    const message =
+      err?.response?.data?._server_messages ||
+      err?.response?.data?.exception ||
+      err?.message ||
+      'Unknown error';
+    return (
+      <div className="max-w-xl mx-auto mt-12 admin-card text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        </div>
+        <h2 className="font-heading text-lg font-semibold text-dark">
+          {isAuth ? 'Your session expired' : 'Dashboard failed to load'}
+        </h2>
+        <p className="text-sm text-gray-500">
+          {isAuth
+            ? 'Sign in again to view the dashboard.'
+            : `The server returned an error: ${String(message).slice(0, 200)}`}
+        </p>
+        <div className="flex justify-center gap-2">
+          {isAuth ? (
+            <button
+              onClick={() => {
+                localStorage.removeItem('deltaspmu_admin_user');
+                window.location.href = '/login';
+              }}
+              className="bg-dark text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-dark-light"
+            >
+              Sign In Again
+            </button>
+          ) : (
+            <button
+              onClick={() => refetch()}
+              className="bg-dark text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-dark-light"
+            >
+              Try Again
+            </button>
+          )}
+        </div>
       </div>
     );
   }
