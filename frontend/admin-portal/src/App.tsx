@@ -11,6 +11,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import SiteGate from './components/SiteGate';
 import {
   LayoutDashboard,
   BookOpen,
@@ -417,10 +418,11 @@ function AdminLayout({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 export default function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <AuthProvider>
+    <SiteGate>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <AuthProvider>
             <ScrollToTop />
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -624,6 +626,7 @@ export default function App() {
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </SiteGate>
   );
 }

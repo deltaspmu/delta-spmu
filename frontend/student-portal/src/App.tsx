@@ -12,6 +12,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import SiteGate from './components/SiteGate';
 import { trackPageView } from './lib/analytics';
 
 // ---------------------------------------------------------------------------
@@ -170,10 +171,11 @@ function LayoutOutlet() {
 // ---------------------------------------------------------------------------
 export default function App() {
   return (
-    <ErrorBoundary>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
+    <SiteGate>
+      <ErrorBoundary>
+        <HelmetProvider>
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
             <AuthProvider>
               <ScrollToTop />
               <Suspense fallback={<LoadingFallback />}>
@@ -242,6 +244,7 @@ export default function App() {
           </BrowserRouter>
         </QueryClientProvider>
       </HelmetProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </SiteGate>
   );
 }

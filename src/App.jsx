@@ -2,6 +2,7 @@
 import NoiseOverlay from "./components/ui/NoiseOverlay";
 import SmoothScroll from "./components/ui/SmoothScroll";
 import CustomCursor from "./components/ui/CustomCursor";
+import SiteGate from "./components/SiteGate";
 
 /* ── Sections ── */
 import Hero from "./components/Hero";
@@ -18,7 +19,7 @@ import FooterCTA from "./components/FooterCTA";
 
 function App() {
   return (
-    <>
+    <SiteGate>
       {/* ── Persistent overlays ── */}
       <NoiseOverlay />
       <CustomCursor />
@@ -39,7 +40,7 @@ function App() {
           <FooterCTA />
         </main>
       </SmoothScroll>
-    </>
+    </SiteGate>
   );
 }
 
