@@ -89,7 +89,7 @@ export default function FooterCTA() {
           >
             <a
               href="#admissions"
-              className="group mt-10 inline-flex items-center gap-3 bg-nude px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-charcoal transition-all duration-300 hover:bg-white hover:shadow-[0_20px_60px_rgba(209,191,174,0.25)]"
+              className="group mt-10 inline-flex items-center gap-3 bg-nude px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-terracotta-dark hover:shadow-[0_20px_60px_rgba(192,112,60,0.3)]"
             >
               Apply for Enrollment
               <svg

@@ -30,7 +30,7 @@ export default function Safety() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-nude py-32 md:py-44">
+    <section className="relative overflow-hidden bg-olive-dark py-32 md:py-44">
       <div className="mx-auto max-w-7xl px-6 lg:px-12">
         {/* Header */}
         <div className="mb-20 md:mb-28">
@@ -40,7 +40,7 @@ export default function Safety() {
             whileInView="visible"
             viewport={{ once: true }}
             custom={0}
-            className="mb-4 font-body text-[11px] font-semibold uppercase tracking-wide text-charcoal/40"
+            className="mb-4 font-body text-[11px] font-semibold uppercase tracking-wide text-white/65"
           >
             Our Standards
           </motion.p>
@@ -51,7 +51,7 @@ export default function Safety() {
             whileInView="visible"
             viewport={{ once: true }}
             custom={1}
-            className="max-w-lg font-heading text-[clamp(1.8rem,3.8vw,3rem)] leading-[1.12] tracking-tight text-charcoal"
+            className="max-w-lg font-heading text-[clamp(1.8rem,3.8vw,3rem)] leading-[1.12] tracking-tight text-white"
           >
             Zero Compromise on{" "}
             <br className="hidden md:block" />
@@ -71,29 +71,29 @@ export default function Safety() {
               custom={i + 1}
               className={`relative py-14 md:py-20 ${
                 i === 0
-                  ? "border-b border-charcoal/10 md:border-b-0 md:border-r md:pr-16 lg:pr-24"
+                  ? "border-b border-white/15 md:border-b-0 md:border-r md:pr-16 lg:pr-24"
                   : "md:pl-16 lg:pl-24"
               }`}
             >
               {/* Giant background number */}
-              <span className="pointer-events-none absolute -top-4 right-4 select-none font-heading text-[clamp(8rem,18vw,14rem)] leading-none text-charcoal/[0.04] md:-top-8">
+              <span className="pointer-events-none absolute -top-4 right-4 select-none font-heading text-[clamp(8rem,18vw,14rem)] leading-none text-white/[0.07] md:-top-8">
                 {pillar.number}
               </span>
 
               {/* Content */}
               <div className="relative">
                 <div className="mb-8 flex items-center gap-4">
-                  <span className="font-body text-[12px] font-semibold uppercase tracking-wide text-charcoal/30">
+                  <span className="font-body text-[12px] font-semibold uppercase tracking-wide text-white/55">
                     {pillar.number}
                   </span>
-                  <div className="h-[1px] w-10 bg-charcoal/15" />
+                  <div className="h-[1px] w-10 bg-white/25" />
                 </div>
 
-                <h3 className="font-heading text-[clamp(1.6rem,2.8vw,2.4rem)] leading-[1.1] tracking-tight text-charcoal">
+                <h3 className="font-heading text-[clamp(1.6rem,2.8vw,2.4rem)] leading-[1.1] tracking-tight text-white">
                   {pillar.title}
                 </h3>
 
-                <p className="mt-5 max-w-sm font-body text-[15px] font-light leading-[1.75] text-charcoal/55">
+                <p className="mt-5 max-w-sm font-body text-[15px] font-light leading-[1.75] text-white/75">
                   {pillar.description}
                 </p>
               </div>

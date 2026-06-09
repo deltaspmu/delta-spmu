@@ -42,18 +42,23 @@ Delta_SPMU/
 | IaC | Terraform |
 
 ## Branding
-Canonical palette is gold accent on a deep forest-green base (matches the
-marketing site at deltaspmu.com). The CSS variable names in
-`frontend/*/src/index.css` are still `--color-primary` / `--color-dark`
-for backward compatibility; the actual hues are gold and forest green.
-- **Primary (gold)**: `#C9A96E`
-- **Primary dark (deeper gold)**: `#A8893E`
-- **Primary light (champagne)**: `#E5D2A9`
-- **Dark (forest green)**: `#1A2F23`
-- **Dark light (lighter forest green)**: `#2D4A38`
-- **Light background (warm alabaster)**: `#F5F2EC`
+The marketing site (root repo) uses an **olive + terracotta on warm cream**
+palette, sampled from the client's reference design. Tailwind token names in
+`tailwind.config.js` are kept stable; the legacy `nude` token now resolves to
+the terracotta accent for backward compatibility with existing components.
+- **Olive (primary brand green — top bar, primary buttons, bands)**: `#8B8D5A`
+- **Olive dark (hover / deeper band)**: `#73754A`
+- **Terracotta (accent pop — highlighted words, key CTAs, links; legacy `nude`)**: `#C0703C`
+- **Terracotta dark (hover; legacy `nude-dark`)**: `#A5592C`
+- **Charcoal (deep forest-olive — headings, dark sections, dark text)**: `#2F3D2A`
+- **Tan / champagne (soft icon circles & dividers)**: `#D8C7A1`
+- **Light background (warm cream / alabaster)**: `#F4F1E8`
 - **Heading font**: Wensley (serif) — currently shipping Playfair Display as a licensed substitute
 - **Body font**: Visia Pro (sans-serif) — currently shipping Inter as a licensed substitute
+
+> **Note:** the student/admin portals (`frontend/*/src/index.css`) still use the
+> older gold-on-forest-green palette (`--color-primary` gold `#C9A96E`, `--color-dark`
+> forest green `#1A2F23`). They have **not** been migrated to the new palette yet.
 
 ## 4 Courses
 1. Foundation Certification — No prior experience required

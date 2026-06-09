@@ -270,7 +270,7 @@ export default function Contact() {
               <div className="mt-10 flex items-center gap-6">
                 <button
                   type="submit"
-                  className="group inline-flex items-center gap-3 bg-charcoal px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-alabaster transition-all duration-300 hover:bg-nude-dark hover:text-charcoal"
+                  className="group inline-flex items-center gap-3 bg-charcoal px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-alabaster transition-all duration-300 hover:bg-nude-dark hover:text-white"
                 >
                   Send Message
                   <Send className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={1.5} />

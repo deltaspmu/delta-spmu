@@ -46,15 +46,15 @@ function EasterEgg() {
           maxWidth: "32rem",
           padding: "2.5rem 2rem",
           borderRadius: "1rem",
-          background: "#1A2F23",
-          border: "1px solid #C9A96E",
-          color: "#E5D2A9",
+          background: "#2F3D2A",
+          border: "1px solid #C0703C",
+          color: "#E8E1CF",
           textAlign: "center",
           fontFamily: "monospace",
           boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
         }}
       >
-        <pre style={{ color: "#C9A96E", fontSize: "0.75rem", lineHeight: 1.2, margin: 0 }}>
+        <pre style={{ color: "#C0703C", fontSize: "0.75rem", lineHeight: 1.2, margin: 0 }}>
 {`  ____  _____ _   _____  _
  |  _ \\| ____| | |_   _|/ \\
  | | | |  _| | |   | | / _ \\
@@ -85,8 +85,8 @@ function MaintenancePage() {
         alignItems: "center",
         justifyContent: "center",
         padding: "1.5rem",
-        background: "#1A2F23",
-        color: "#E5D2A9",
+        background: "#2F3D2A",
+        color: "#E8E1CF",
         textAlign: "center",
         fontFamily: '"Visia Pro", Inter, system-ui, sans-serif',
       }}
@@ -96,7 +96,7 @@ function MaintenancePage() {
           style={{
             fontFamily: '"Wensley", "Playfair Display", serif',
             fontSize: "3rem",
-            color: "#C9A96E",
+            color: "#C0703C",
             marginBottom: "1rem",
             letterSpacing: "0.02em",
           }}
@@ -107,7 +107,7 @@ function MaintenancePage() {
           style={{
             width: "3rem",
             height: "1px",
-            background: "#C9A96E",
+            background: "#C0703C",
             margin: "0 auto 1.5rem",
             opacity: 0.5,
           }}
@@ -120,7 +120,7 @@ function MaintenancePage() {
           or reach us at{" "}
           <a
             href="mailto:hello@deltaspmu.com"
-            style={{ color: "#C9A96E", textDecoration: "underline" }}
+            style={{ color: "#C0703C", textDecoration: "underline" }}
           >
             hello@deltaspmu.com
           </a>
