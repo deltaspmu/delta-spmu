@@ -119,10 +119,10 @@ function MaintenancePage() {
           The site is temporarily offline for maintenance. Please check back later
           or reach us at{" "}
           <a
-            href="mailto:hello@deltaspmu.com"
+            href="mailto:deltaspmu@gmail.com"
             style={{ color: "#C0703C", textDecoration: "underline" }}
           >
-            hello@deltaspmu.com
+            deltaspmu@gmail.com
           </a>
           .
         </p>

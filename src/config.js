@@ -30,8 +30,8 @@ const config = {
   // Branding
   siteName: 'Delta SPMU Academy',
   tagline: 'Sacred Transformation',
-  location: 'Addis Ababa, Ethiopia',
-  email: 'info@deltaspmu.com',
+  location: 'Bole, Redwan Bldg — Addis Ababa',
+  email: 'deltaspmu@gmail.com',
   year: new Date().getFullYear(),
 };
 

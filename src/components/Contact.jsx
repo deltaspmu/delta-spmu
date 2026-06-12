@@ -19,19 +19,19 @@ const contactInfo = [
   {
     icon: MapPin,
     label: "Visit Us",
-    value: "Addis Ababa, Ethiopia",
-    detail: "Delta SPMU Academy Campus",
+    value: "Bole, Redwan Bldg, 4th Floor",
+    detail: "Near Eden Mall, Addis Ababa",
   },
   {
     icon: Phone,
     label: "Call Us",
-    value: "+251 91 234 5678",
+    value: "+251 951 777 888",
     detail: "Mon - Sat, 9:00 AM - 6:00 PM",
   },
   {
     icon: Mail,
     label: "Email Us",
-    value: "info@deltaspmu.com",
+    value: "deltaspmu@gmail.com",
     detail: "We respond within 24 hours",
   },
   {
