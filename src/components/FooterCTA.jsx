@@ -216,9 +216,14 @@ export default function FooterCTA() {
           {/* Bottom bar */}
           <div className="h-[1px] w-full bg-white/[0.06]" />
           <div className="flex flex-col items-center justify-between gap-4 py-8 md:flex-row">
-            <p className="font-body text-[12px] font-light text-white/25">
-              &copy; {config.year} {config.siteName}. All rights reserved.
-            </p>
+            <div className="flex flex-col items-center gap-1 md:items-start">
+              <p className="font-body text-[12px] font-light text-white/25">
+                &copy; {config.year} {config.siteName}. All rights reserved.
+              </p>
+              <p className="font-body text-[11px] font-light text-white/20">
+                Powered by Philocom
+              </p>
+            </div>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="group flex items-center gap-2 font-body text-[11px] uppercase tracking-wide text-white/25 transition-colors duration-300 hover:text-nude"

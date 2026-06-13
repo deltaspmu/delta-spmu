@@ -499,6 +499,9 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
           <p className="text-xs text-white/40">
             &copy; 2026 Delta SPMU Academy. All rights reserved.
           </p>
+          <p className="mt-1 text-xs text-white/30">
+            Powered by Philocom
+          </p>
         </div>
       </div>
     </footer>
