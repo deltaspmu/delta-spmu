@@ -15,10 +15,10 @@ from frappe import _
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-BASE_PRICE = 5000
+BASE_PRICE = 12500
 ACCESS_DURATION_DAYS = 30
 BUNDLE_ID = "all-courses-bundle"
-BUNDLE_PRICE = 5000
+BUNDLE_PRICE = 20000
 TRANSACTION_PREFIX = "DS"
 
 # ---------------------------------------------------------------------------
@@ -251,6 +251,52 @@ def get_course_price(course, currency="ETB"):
     if not course:
         frappe.throw(_("Course is required."), frappe.MandatoryError)
 
+    # The bundle is a virtual product (no LMS Course row of its own), so price
+    # it directly from BUNDLE_PRICE rather than looking it up as a course.
+    if course == BUNDLE_ID:
+        published_prices = frappe.get_all(
+            "LMS Course", filters={"published": 1}, pluck="course_price"
+        )
+        individual_total = (
+            float(sum(float(p or BASE_PRICE) for p in published_prices))
+            if published_prices
+            else float(BUNDLE_PRICE)
+        )
+        bundle_price_val = float(BUNDLE_PRICE)
+        final_price = bundle_price_val
+        discount_amount = max(0.0, round(individual_total - bundle_price_val, 2))
+        discount_percent = (
+            round((discount_amount / individual_total) * 100, 2)
+            if individual_total
+            else 0.0
+        )
+
+        if currency and currency.upper() == "USD":
+            try:
+                from lms.lms.exchange_rate import get_exchange_rate
+
+                rate = get_exchange_rate(from_currency="ETB", to_currency="USD")
+            except Exception:
+                rate = frappe.db.get_single_value("Payment Settings", "etb_to_usd_rate") or 0.018
+            rate = float(rate)
+            individual_total = round(individual_total * rate, 2)
+            final_price = round(final_price * rate, 2)
+            discount_amount = round(discount_amount * rate, 2)
+            bundle_price_val = round(bundle_price_val * rate, 2)
+            currency = "USD"
+        else:
+            currency = "ETB"
+
+        return {
+            "original_price": individual_total,
+            "discount_percent": discount_percent,
+            "discount_amount": discount_amount,
+            "final_price": final_price,
+            "currency": currency,
+            "bundle_available": True,
+            "bundle_price": bundle_price_val,
+        }
+
     # Fetch price from DB – never use frappe.get_doc() for guest endpoints
     course_price = frappe.db.get_value("LMS Course", course, "course_price")
 
@@ -331,7 +377,10 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     if not course:
         frappe.throw(_("Course is required."), frappe.MandatoryError)
 
-    if not frappe.db.exists("LMS Course", course):
+    # The bundle ("all-courses-bundle") is a virtual product with no LMS Course
+    # row, so skip the course-existence check for it.
+    is_bundle = course == BUNDLE_ID
+    if not is_bundle and not frappe.db.exists("LMS Course", course):
         frappe.throw(_("Course {0} not found.").format(course), frappe.DoesNotExistError)
 
     # Check for existing valid access
@@ -369,8 +418,11 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
         )
 
     # --- Resolve price ---
-    course_price = frappe.db.get_value("LMS Course", course, "course_price")
-    amount = float(course_price) if course_price else float(BASE_PRICE)
+    if is_bundle:
+        amount = float(BUNDLE_PRICE)
+    else:
+        course_price = frappe.db.get_value("LMS Course", course, "course_price")
+        amount = float(course_price) if course_price else float(BASE_PRICE)
 
     if currency and currency.upper() == "USD":
         try:
@@ -387,7 +439,9 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     transaction_id = _generate_transaction_id()
     expiry_time = datetime.now() + timedelta(minutes=30)
 
-    course_title = frappe.db.get_value("LMS Course", course, "title") or course
+    course_title = "All Courses Bundle" if is_bundle else (
+        frappe.db.get_value("LMS Course", course, "title") or course
+    )
 
     tx_doc = frappe.get_doc(
         {
@@ -960,12 +1014,18 @@ def get_course_access(course):
             "is_expiring_soon": False,
         }
 
+    # access_end is a Date field, so normalise it to a date before comparing.
+    # Frappe returns it as a datetime.date (not a string), and comparing a
+    # date against datetime.now() raises TypeError — which made this endpoint
+    # error on every call and break the access/"expired" state in the UI.
     access_end = access.access_end
     if isinstance(access_end, str):
-        access_end = datetime.strptime(access_end, "%Y-%m-%d %H:%M:%S")
+        access_end = datetime.strptime(access_end[:10], "%Y-%m-%d").date()
+    elif isinstance(access_end, datetime):
+        access_end = access_end.date()
 
-    now = datetime.now()
-    if access_end < now:
+    today = datetime.now().date()
+    if access_end < today:
         # Expired — deactivate
         frappe.db.set_value(
             "Course Access",
@@ -982,8 +1042,7 @@ def get_course_access(course):
             "is_expiring_soon": False,
         }
 
-    remaining = access_end - now
-    days_remaining = remaining.days
+    days_remaining = (access_end - today).days
 
     return {
         "has_access": True,
