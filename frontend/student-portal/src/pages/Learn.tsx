@@ -503,6 +503,49 @@ export default function Learn() {
     setVideoProgress(percent);
   }, []);
 
+  // Derived lesson media/content. Computed here (before the render guards) so
+  // that the hooks below always run on every render — moving them after an
+  // early return violates the Rules of Hooks (React error #310).
+  const videoData = currentLesson?.youtube
+    ? parseVimeoVideo(currentLesson.youtube)
+    : lessonDetail?.youtube
+      ? parseVimeoVideo(lessonDetail.youtube)
+      : null;
+
+  const lessonContent = lessonDetail?.content || currentLesson?.content || '';
+
+  // Reading-time estimate for text-only lessons (250 wpm).
+  const readingTimeMinutes = useMemo(() => {
+    if (!lessonContent) return 0;
+    const text = lessonContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const words = text ? text.split(' ').length : 0;
+    return Math.max(1, Math.round(words / 250));
+  }, [lessonContent]);
+
+  // Auto-complete on scroll-to-bottom for text-only lessons. Only fires when
+  // there is no video (video lessons complete via the player's onComplete).
+  useEffect(() => {
+    if (videoData) return;
+    if (!textBottomRef.current) return;
+    if (!lessonId || !courseId) return;
+    if (hasAutoCompleted || isCurrentLessonCompleted) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setHasAutoCompleted(true);
+          markCompleteMutation.mutate();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(textBottomRef.current);
+    return () => observer.disconnect();
+  // markCompleteMutation is stable — exclude it to avoid re-subscribing per render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoData, lessonId, courseId, hasAutoCompleted, isCurrentLessonCompleted, lessonContent]);
+
   // =========================================================================
   // Render guards
   // =========================================================================
@@ -569,46 +612,6 @@ export default function Learn() {
         (progress.completed_lessons.length / Math.max(progress.total_lessons, 1)) * 100
       )
     : 0;
-
-  const videoData = currentLesson?.youtube
-    ? parseVimeoVideo(currentLesson.youtube)
-    : lessonDetail?.youtube
-      ? parseVimeoVideo(lessonDetail.youtube)
-      : null;
-
-  const lessonContent = lessonDetail?.content || currentLesson?.content || '';
-
-  // Reading-time estimate for text-only lessons (250 wpm).
-  const readingTimeMinutes = useMemo(() => {
-    if (!lessonContent) return 0;
-    const text = lessonContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const words = text ? text.split(' ').length : 0;
-    return Math.max(1, Math.round(words / 250));
-  }, [lessonContent]);
-
-  // Auto-complete on scroll-to-bottom for text-only lessons. Only fires when
-  // there is no video (video lessons complete via the player's onComplete).
-  useEffect(() => {
-    if (videoData) return;
-    if (!textBottomRef.current) return;
-    if (!lessonId || !courseId) return;
-    if (hasAutoCompleted || isCurrentLessonCompleted) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setHasAutoCompleted(true);
-          markCompleteMutation.mutate();
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    observer.observe(textBottomRef.current);
-    return () => observer.disconnect();
-  // markCompleteMutation is stable — exclude it to avoid re-subscribing per render
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoData, lessonId, courseId, hasAutoCompleted, isCurrentLessonCompleted, lessonContent]);
 
   const allComplete =
     progress &&
