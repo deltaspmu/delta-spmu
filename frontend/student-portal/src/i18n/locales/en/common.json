@@ -41,7 +41,7 @@
   "buttons": {
     "enroll": "Enroll Now",
     "buy_now": "Buy Now",
-    "buy_bundle": "Buy All 4 Courses",
+    "buy_bundle": "Buy All 5 Courses",
     "start_learning": "Start Learning",
     "continue_learning": "Continue Learning",
     "view_course": "View Course",
@@ -92,8 +92,8 @@
     "description": "Description",
     "curriculum": "Curriculum",
     "no_courses": "No courses found.",
-    "bundle_offer": "Bundle Offer — All 4 Courses",
-    "bundle_description": "Get access to all 4 certification courses at a special price."
+    "bundle_offer": "Bundle Offer — All 5 Courses",
+    "bundle_description": "Get access to all 5 certification courses at a special price."
   },
   "payment": {
     "select_method": "Select Payment Method",

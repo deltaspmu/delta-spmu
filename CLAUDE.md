@@ -60,11 +60,15 @@ the terracotta accent for backward compatibility with existing components.
 > older gold-on-forest-green palette (`--color-primary` gold `#C9A96E`, `--color-dark`
 > forest green `#1A2F23`). They have **not** been migrated to the new palette yet.
 
-## 4 Courses
+## 5 Courses
 1. Foundation Certification — No prior experience required
 2. Advanced Certification — Specialized techniques
 3. Master Artist Program — Highest level
 4. Instructor Licensing — Train to become an educator
+5. Professional Bridal Makeup — Bridal artistry track (separate from the SPMU progression)
+
+Each course is **12,500 ETB**. The 4 SPMU courses (1–4) form a progressive tier
+system; Bridal Makeup (5) is a standalone track.
 
 ## Critical Frappe Backend Patterns
 
@@ -112,8 +116,10 @@ Split on `/` to get video ID and privacy hash.
 
 ### Transaction ID prefix: `DS-` (not `AT-`)
 
-### Bundle: "all 4 courses" (not 6)
-BUNDLE_ID = "all-courses-bundle", BUNDLE_PRICE = 5000 ETB
+### Bundle: "all 5 courses" (not 6)
+BUNDLE_ID = "all-courses-bundle", BUNDLE_PRICE = 20000 ETB (per-course = 12500 ETB).
+The bundle is a *virtual* product (no LMS Course row): `payments_api.initiate_payment`
+and `get_course_price` special-case `BUNDLE_ID` to charge/display BUNDLE_PRICE.
 
 ### Vimeo tag: `deltaspmu-lms` (not `afritutors-lms`)
 

@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
+import { extractFrappeError } from '@/lib/errors';
 
 export default function Login() {
   const { t } = useTranslation(['common', 'pages']);
@@ -58,8 +59,7 @@ export default function Login() {
       // committed, leaving us stuck on /login.
       window.location.replace(redirectTo);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Login failed. Please try again.';
+      const message = extractFrappeError(err);
       if (message.toLowerCase().includes('disabled')) {
         setError('Your account has been disabled. Please contact support.');
       } else if (
@@ -128,7 +128,7 @@ export default function Login() {
         <div className="relative z-10 flex items-center gap-6 text-xs text-white/40 border-t border-white/10 pt-6">
           <span>16 chapters</span>
           <span className="w-px h-3 bg-white/20" />
-          <span>4 certification tiers</span>
+          <span>5 certification courses</span>
           <span className="w-px h-3 bg-white/20" />
           <span>Addis Ababa</span>
         </div>

@@ -9,7 +9,7 @@ interface BundleOfferProps {
 }
 
 export default function BundleOffer({
-  bundlePrice = 5000,
+  bundlePrice = 20000,
   individualTotal,
 }: BundleOfferProps) {
   const { t } = useTranslation();
@@ -29,7 +29,7 @@ export default function BundleOffer({
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-3">
             <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">
-              {t('Bundle Offer — All 4 Courses', 'Bundle Offer — All 4 Courses')}
+              {t('Bundle Offer — All 5 Courses', 'Bundle Offer — All 5 Courses')}
             </h2>
             {savings && (
               <span className="shrink-0 inline-flex items-center gap-1 bg-yellow-400 text-dark text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
@@ -41,8 +41,8 @@ export default function BundleOffer({
 
           <p className="text-white/70 text-base max-w-lg">
             {t(
-              'Get access to all 4 certification courses at a special price',
-              'Get access to all 4 certification courses at a special price'
+              'Get access to all 5 certification courses at a special price',
+              'Get access to all 5 certification courses at a special price'
             )}
           </p>
 

@@ -4,7 +4,8 @@ Delta SPMU Academy — canonical seed script.
 Seeds:
 - Categories (Permanent Makeup + supporting)
 - Instructor + test student users
-- 4 courses: Foundation, Advanced, Master Artist, Instructor Licensing
+- 5 courses: Foundation, Advanced, Master Artist, Instructor Licensing,
+  Professional Bridal Makeup
 - All chapters and lessons (text bodies — videos uploaded later via admin)
 - One quiz per chapter (SingleChoice + MultipleChoice mix)
 
@@ -21,7 +22,8 @@ Or from a workstation:
 Do NOT pipe this into ``bench console`` — IPython treats each top-level line
 as its own cell and global variables get torn down between definitions.
 
-Pricing: every course is 5000 ETB (no bundle discount logic for v1).
+Pricing: every course is 12,500 ETB. The "all courses" bundle is 20,000 ETB
+(see lms.lms.payments_api.BUNDLE_PRICE).
 """
 
 import os
@@ -39,9 +41,13 @@ def _frappe_init():
     """Boot Frappe against the target site if we are not already inside a
     running Frappe context. No-op when imported from a bench console."""
     if not getattr(frappe.local, "site", None):
-        os.chdir(BENCH_PATH)
-        # sites_path defaults to the working directory's "sites" subdir.
-        frappe.init(site=SITE, sites_path=os.path.join(BENCH_PATH, "sites"))
+        # This frappe build builds its log paths RELATIVE to the cwd
+        # (``<site>/logs`` and ``../logs``), so the working directory must be
+        # the bench's ``sites`` dir — chdir-ing to the bench root makes
+        # frappe.connect() crash trying to open ``<bench>/<site>/logs``.
+        sites_path = os.path.join(BENCH_PATH, "sites")
+        os.chdir(sites_path)
+        frappe.init(site=SITE, sites_path=sites_path)
         frappe.connect()
 
 # ---------------------------------------------------------------------------
@@ -64,7 +70,7 @@ CATEGORIES = [
     "Health & Safety",
 ]
 
-COURSE_PRICE = 5000
+COURSE_PRICE = 12500
 DEFAULT_PASSING_PERCENTAGE = 70
 DEFAULT_MAX_ATTEMPTS = 3
 
@@ -316,12 +322,178 @@ SUPPLEMENTARY_BODIES = {
 
 
 # ---------------------------------------------------------------------------
+# Professional Bridal Makeup — lesson bodies (text drawn from the official
+# Delta SPMU Academy "Professional Bridal Makeup Training Module" by Birikty
+# Haile). Distinct curriculum from the permanent-makeup courses above.
+# ---------------------------------------------------------------------------
+
+BRIDAL_BODIES = {
+    # Chapter 1 — Introduction
+    "bridal_what": """<p>Bridal makeup is a specialised branch of makeup artistry focused on creating elegant, long-lasting, camera-ready beauty looks for wedding ceremonies and bridal events. Unlike everyday makeup, a bridal look must survive a full day of emotion, movement, embraces, photography, and changing light — from soft morning preparation through to evening reception.</p>
+<p>The bridal artist designs for longevity and for the camera at the same time. Products are layered and set so the finished face reads flawless both to the naked eye and through a photographer's lens, while remaining comfortable for the client to wear for twelve hours or more.</p>""",
+
+    "bridal_role": """<p>A professional bridal artist must manage far more than colour and brushes. On the wedding day you are responsible for timing, emotional pressure, client expectations, sanitation, photography readiness, and the overall luxury customer experience.</p>
+<p>Timing is critical: the bride's makeup must be complete on schedule so the rest of the day can proceed. The artist absorbs stress rather than adding to it — staying calm, organised, and reassuring keeps the bridal party relaxed. Managing expectations through consultation and a trial session ensures there are no surprises on the day itself.</p>""",
+
+    "bridal_mindset": """<p>Professionalism is the foundation of a successful bridal career. Students learn punctuality, clear communication, confidence, and the ability to maintain calm, positive energy throughout the high-pressure environment of wedding preparation.</p>
+<ul>
+<li><strong>Punctuality:</strong> arrive early, set up methodically, and build a time buffer into every booking.</li>
+<li><strong>Communication:</strong> listen to the bride's vision and confirm it back clearly before you begin.</li>
+<li><strong>Composure:</strong> weddings are emotional — a steady, reassuring artist is part of the luxury experience.</li>
+</ul>""",
+
+    # Chapter 2 — Hygiene, Sanitation & Safety
+    "bridal_sanitation": """<p>Sanitation protects both the client and the artist and is non-negotiable in professional practice. Brushes must be cleaned and disinfected after every client. Cream products should never be applied to the face directly from the pan — they should be depotted onto a clean palette using a spatula to prevent cross-contamination between clients.</p>
+<p>Use disposable applicators (mascara wands, lip wands, sponges) wherever possible and never "double-dip" a used applicator back into product. A bride should never share a tool or product with a previous client.</p>""",
+
+    "bridal_workspace": """<p>A luxury bridal station is organised, clean, and well-lit. Students learn how to set up a professional workspace including balanced lighting, an orderly brush layout, disposable tools, a clean mirror, and a sanitation system within easy reach.</p>
+<p>Lighting should mimic neutral daylight so that colour matching is accurate and the makeup looks correct in any environment. Tools are arranged in the order they will be used, keeping the workflow fast and unhurried, and the station is wiped down and reset between clients.</p>""",
+
+    "bridal_health_safety": """<p>Client health and safety must be assessed before any product touches the skin. This lesson covers allergies, skin reactions, patch testing, eye safety, and the careful handling of sensitive skin.</p>
+<p>During consultation, always ask about known allergies and past reactions to cosmetics or adhesives. When in doubt — particularly with lash glue or a new product — perform a patch test ahead of the wedding day. Keep products away from the waterline if a client has sensitive eyes, and stop immediately if any irritation appears.</p>""",
+
+    # Chapter 3 — Skin Anatomy & Preparation
+    "bridal_skin_types": """<p>Identifying the client's skin type is the first step toward a flawless, long-lasting base. The four main types behave very differently under makeup:</p>
+<ul>
+<li><strong>Dry skin</strong> lacks oil and hydration and can show flaking or cakiness — prioritise hydration and creamy formulas.</li>
+<li><strong>Oily skin</strong> produces excess sebum and can cause makeup to slide — use mattifying primers and powders.</li>
+<li><strong>Combination skin</strong> is oily in some areas (often the T-zone) and dry in others — treat each zone differently.</li>
+<li><strong>Sensitive skin</strong> reacts easily to products — choose gentle, fragrance-free formulas and patch test.</li>
+</ul>""",
+
+    "bridal_skin_prep": """<p>Proper preparation creates a flawless base and dramatically increases makeup longevity. Bridal skin prep follows a clear sequence: cleanse, moisturise, and prime before any complexion product is applied.</p>
+<p>Cleansing removes oil and residue so products grip the skin; moisturising restores balance and prevents the foundation from clinging to dry patches; priming creates a smooth, even canvas and helps makeup last through the day. Allow each layer a moment to absorb before moving to the next.</p>""",
+
+    "bridal_product_layering": """<p>Applying complexion products in the correct order prevents separation, pilling, and cakiness. Students learn the logic of layering: skincare first, then primer, then base and complexion products, finishing with setting products.</p>
+<p>A reliable order is: moisturiser → primer → foundation → concealer → cream products (contour/blush) → powder to set → powder products → setting spray. Cream layers go before powders; powders lock everything in place. Respecting this sequence is what keeps a bridal look intact for hours.</p>""",
+
+    # Chapter 4 — Color Theory & Foundation Matching
+    "bridal_undertones": """<p>Recognising undertone is the key to a foundation that disappears into the skin. Undertones fall into three families:</p>
+<ul>
+<li><strong>Warm:</strong> golden or yellow hues.</li>
+<li><strong>Cool:</strong> pink, red, or bluish hues.</li>
+<li><strong>Neutral:</strong> a balance of both.</li>
+</ul>
+<p>Matching the foundation's undertone to the client's prevents the base from looking ashy, orange, or grey once it has set and oxidised on the skin.</p>""",
+
+    "bridal_foundation_matching": """<p>A correct foundation match is invisible. Students practise matching foundation along the jaw and blending toward the neck and chest under natural lighting, so the face and body read as one continuous tone in person and on camera.</p>
+<p>Test a shade on the lower face rather than the hand or wrist, let it settle for a minute to account for oxidation, and check the match in daylight. The neck and décolletage must be considered as well — a face that is lighter or darker than the body is the most common and most photographed mistake.</p>""",
+
+    "bridal_corrective_color": """<p>Colour correction uses complementary colours to neutralise unwanted tones before foundation. The core corrective principles are:</p>
+<ul>
+<li><strong>Green</strong> cancels redness (blemishes, rosacea, irritation).</li>
+<li><strong>Orange / peach</strong> neutralises dark circles and hyperpigmentation on deeper skin tones.</li>
+<li><strong>Yellow</strong> brightens dullness and counteracts mild purple tones.</li>
+</ul>
+<p>Apply correctors sparingly and only where needed, then layer foundation and concealer on top for a seamless, natural finish.</p>""",
+
+    # Chapter 5 — Face Shapes & Sculpting
+    "bridal_face_analysis": """<p>Reading the face shape guides where contour and highlight are placed. Oval, round, square, heart, long, and diamond shapes each call for different sculpting to bring the face into balance.</p>
+<p>The goal is never to "change" the bride but to enhance her natural structure — softening or defining where the photographer's lens and the day's lighting will benefit most. Analyse the face in good light before choosing a contour map.</p>""",
+
+    "bridal_contouring": """<p>Contour defines facial structure while keeping a soft, romantic bridal finish. Students learn both cream and powder techniques and when to use each.</p>
+<p>Cream contour, applied before powder, melts into the skin for the most natural sculpt and suits drier or mature skin; powder contour layered over a set base gives more control and longevity on oily skin. Whatever the medium, the rule for bridal is restraint and seamless blending — structure should be felt, not seen.</p>""",
+
+    "bridal_blush": """<p>Blush placement changes the entire impression of the face, and the chosen effect depends on the bridal look:</p>
+<ul>
+<li><strong>Youthful:</strong> blush on the apples of the cheeks.</li>
+<li><strong>Lifted:</strong> blush swept higher toward the cheekbone and temple.</li>
+<li><strong>Soft glam:</strong> a diffused wash blended with the highlight.</li>
+<li><strong>Dramatic:</strong> a deeper, more sculpted placement under the cheekbone.</li>
+</ul>
+<p>Build colour gradually and blend the edges so the flush looks like it comes from within.</p>""",
+
+    # Chapter 6 — Eye Makeup Mastery
+    "bridal_eye_shapes": """<p>Eye makeup must be tailored to the individual eye shape. Students learn how to flatter hooded eyes, almond eyes, monolids, downturned eyes, and protruding eyes — each of which responds differently to placement of shadow, liner, and lashes.</p>
+<p>For example, hooded eyes benefit from shadow placed slightly above the natural crease so it remains visible when the eye is open, while downturned eyes are lifted by winging liner and shadow upward at the outer corner. Technique is practised on artificial skin, through self-application, and on live models, with photo or video documentation submitted for review.</p>""",
+
+    "bridal_eye_looks": """<p>The bridal eye-look library gives the artist a range to match any bride and culture. Core looks include soft glam, smokey eyes, halo eyes, shimmer glam, matte elegance, and Arabic-inspired bridal styles.</p>
+<p>Each look is a recipe of base, transition, definition, and accent shades, adjusted in intensity to suit the wedding style and the bride's comfort. Students learn to scale a look up for a dramatic evening reception or down for an intimate ceremony.</p>""",
+
+    "bridal_lashes_liner": """<p>Lashes and eyeliner frame and finish the eye, and both are practised extensively. Students learn correct lash sizing, trimming the band to fit the eye, applying adhesive and waiting for the right tack, and placing the lash close to the natural lash line.</p>
+<p>Eyeliner balance — matching wing length and thickness on both eyes, and adapting the line to the eye shape — is rehearsed until it is consistent and symmetrical. A well-fitted lash and balanced liner are what elevate a look from pretty to professional.</p>""",
+
+    # Chapter 7 — Brow Perfection
+    "bridal_brow_mapping": """<p>Symmetrical brows frame the entire face. Students learn brow mapping using facial measurements to find the ideal start, arch, and tail of each brow and to balance the two sides.</p>
+<p>Mapping references fixed facial landmarks rather than the existing (often uneven) brow hairs, so the finished brows are balanced even when the natural brows are not. The mapped shape is reviewed before any colour is committed.</p>""",
+
+    "bridal_brow_styles": """<p>Brow intensity is matched to the bride and the look. Different bridal styles call for different brow finishes — from soft, natural, feathered brows to fully defined, structured brows.</p>
+<p>A natural bride suits a lightly filled, fluffy brow; a full-glam bride can carry a sharper, more defined brow with a crisp tail. The brow should always agree with the rest of the face: soft makeup pairs with soft brows, dramatic makeup with defined brows.</p>""",
+
+    "bridal_brow_longwear": """<p>Bridal brows must last the entire day without fading or smudging. Long-wear brows are built by layering products: a tinted gel or pomade for shape, powder for soft fill, and a pencil for crisp hair-like strokes, finished with a clear or tinted setting gel.</p>
+<p>Layering creates depth and dimension while locking the brow in place through heat, tears, and touch — exactly what a wedding day demands.</p>""",
+
+    # Chapter 8 — Bridal Makeup Styles
+    "bridal_soft_glam": """<p>Soft glam is the most requested modern bridal style. It focuses on neutral tones, radiant skin, and soft definition — polished and elegant without being heavy.</p>
+<p>The base is luminous rather than matte, the eyes use warm neutral shades with a touch of shimmer, and definition is added with soft liner and natural-looking lashes. The result reads beautifully both in person and on camera.</p>""",
+
+    "bridal_full_glam": """<p>Luxury full glam is the high-impact bridal style for brides who want drama. It features intense eye definition, stronger contour, bold lashes, and a flawless, fully sculpted base.</p>
+<p>Even at maximum intensity, blending remains the priority — full glam should look rich and intentional, never muddy or harsh. This style photographs powerfully and suits grand evening receptions.</p>""",
+
+    "bridal_natural": """<p>Natural bridal makeup enhances the bride's features while maintaining a minimal-makeup appearance. The goal is a fresh, "your-skin-but-better" finish that still holds up for photography and a long day.</p>
+<p>Skin looks like skin, brows and lashes are softly defined, and colour is kept close to the bride's natural tones. Achieving a convincing natural look actually requires excellent prep and product control — there is nowhere to hide.</p>""",
+
+    # Chapter 9 — Consultation & Client Experience
+    "bridal_consultation": """<p>The consultation aligns the artist and the bride before the wedding. It is used to identify bridal preferences, allergies, the wedding theme, and the bride's makeup expectations.</p>
+<p>Use reference images, discuss skin concerns and any sensitivities, and note the dress, venue, and time of day so the look suits the whole event. A clear consultation prevents misunderstandings and builds the bride's confidence in you.</p>""",
+
+    "bridal_trial": """<p>A trial session is a rehearsal of the wedding-day look. It allows the artist to test makeup styles, confirm colour and longevity, and make adjustments before the day itself.</p>
+<p>During the trial, photograph the look in different lighting, ask the bride to wear it for several hours to check wear and comfort, and refine the design together. By the wedding day there should be no surprises — only execution.</p>""",
+
+    "bridal_luxury_exp": """<p>The luxury experience is what turns a bride into a referral. Beyond the makeup itself, the artist provides hospitality, calming communication, a touch-up kit, and excellent time management.</p>
+<p>Small touches — a tidy station, a warm and unhurried manner, a prepared touch-up kit handed to the bridal party, and finishing exactly on schedule — create the premium feeling that justifies premium pricing and earns word-of-mouth.</p>""",
+
+    # Chapter 10 — Photography & Social Media
+    "bridal_photography": """<p>Bridal makeup is created to be photographed. Students learn flashback prevention — avoiding products with high SPF or heavy light-reflecting particles in areas hit by flash — and how to balance makeup so it looks correct both on camera and in real life.</p>
+<p>Strategic use of matte and luminous products controls how the face catches light, ensuring the bride looks flawless in flash photography, natural daylight, and video alike.</p>""",
+
+    "bridal_content": """<p>Content creation is a core business skill for the modern bridal artist. Students learn phone camera angles, lighting, recording short-form reels, and shooting before-and-after transitions that showcase their work.</p>
+<p>Good lighting and consistent angles let an artist build a professional social-media presence using only a phone — turning everyday bookings into marketing assets.</p>""",
+
+    "bridal_portfolio": """<p>A strong portfolio wins bookings. Students learn to build a bridal portfolio using professional editing, consistent branding, and a curated selection of their best work.</p>
+<p>Consistency in editing style, framing, and presentation makes a portfolio look cohesive and premium. The portfolio is the artist's most powerful sales tool and should be refined continuously as new work is created.</p>""",
+
+    # Chapter 11 — Business & Branding
+    "bridal_pricing": """<p>Pricing bridal services correctly is essential to a sustainable business. Students learn to build pricing structures based on skill level, product cost, time required, travel, and the luxury of the experience offered.</p>
+<p>Bridal pricing should account for the trial, the wedding-day timing, party members, and the premium nature of the service — not just an hourly rate. Confident, transparent pricing signals professionalism.</p>""",
+
+    "bridal_marketing": """<p>Marketing builds a steady stream of bridal bookings. The lesson covers Instagram branding, TikTok growth, referrals, partnerships with wedding vendors, and maintaining a consistent online presence.</p>
+<p>Bridal partnerships — with photographers, planners, and venues — are among the most reliable sources of high-quality referrals. A consistent brand across platforms makes the artist memorable and easy to recommend.</p>""",
+
+    "bridal_retention": """<p>Client retention turns one wedding into a long relationship and a stream of referrals. Professional communication and thoughtful after-service follow-up increase repeat bookings and word-of-mouth.</p>
+<p>A thank-you message, a request for a review, and staying in touch for future events (anniversaries, family weddings, events) keep an artist top-of-mind. In a referral-driven industry, the experience after the service matters as much as the service itself.</p>""",
+
+    # Chapter 12 — Final Live Bridal Demonstration
+    "bridal_transformation": """<p>The final assessment is a complete bridal transformation performed under timed conditions. The student executes a full bridal look from prep to finish, demonstrating command of every skill in the program within a realistic time limit.</p>
+<p>This mirrors the real wedding-day environment: a fixed schedule, a single flawless result, and the composure to deliver it calmly.</p>""",
+
+    "bridal_photoshoot": """<p>The professional photoshoot stage proves the makeup performs on camera. Students prepare a model for professional bridal photography and confirm that the look reads beautifully through the lens.</p>
+<p>This step ties together the photography, styling, and technical lessons — the finished face must satisfy both the eye in the room and the final photographs.</p>""",
+
+    "bridal_certification": """<p>Certification is awarded against clear, professional standards. Assessment is based on hygiene, blending, symmetry, professionalism, timing, and the final result.</p>
+<h4>Assessment weighting</h4>
+<ol>
+<li>Theory Examination — 20%</li>
+<li>Practical Assignments — 30%</li>
+<li>Portfolio Submission — 20%</li>
+<li>Final Live Model Assessment — 30%</li>
+</ol>
+<h4>Professional bridal kit essentials</h4>
+<p>A complete kit includes a foundation palette, concealers and correctors, loose and pressed powders, cream and powder contour, eyeshadow palettes, professional brushes, disposable mascara wands, beauty sponges, setting spray, false lashes and adhesive, lip liners and lipsticks, and brush cleaner and disinfectant.</p>""",
+}
+
+
+# ---------------------------------------------------------------------------
 # Course definitions
 # ---------------------------------------------------------------------------
 
 def L(title, body_key):
     """Shortcut for building a lesson record."""
-    body = LESSON_BODIES.get(body_key) or SUPPLEMENTARY_BODIES.get(body_key)
+    body = (
+        LESSON_BODIES.get(body_key)
+        or SUPPLEMENTARY_BODIES.get(body_key)
+        or BRIDAL_BODIES.get(body_key)
+    )
     if body is None:
         raise KeyError(f"No body for key '{body_key}'")
     return {"title": title, "body": body}
@@ -1227,6 +1399,469 @@ COURSES = [
             },
         ],
     },
+
+    # -----------------------------------------------------------------------
+    # 5. Professional Bridal Makeup
+    # -----------------------------------------------------------------------
+    {
+        "title": "Professional Bridal Makeup",
+        "image": "/images/course-bridal.jpg",
+        "short_introduction": (
+            "Become a professional bridal makeup artist: skin prep, colour matching, "
+            "sculpting, eyes, brows, bridal styles, consultation, photography, and "
+            "the business of bridal beauty — finished with a timed live demonstration."
+        ),
+        "description": """<p><strong>Professional Bridal Makeup</strong> trains you to deliver elegant, long-lasting, camera-ready bridal looks across all skin tones, face shapes, bridal cultures, and lighting conditions — while providing a luxury client experience.</p>
+<p>By the end of this course you will:</p>
+<ul>
+<li>Prepare any skin type for a flawless, long-wearing bridal base.</li>
+<li>Match foundation and correct colour for a seamless, photo-ready complexion.</li>
+<li>Sculpt and balance the face with contour, highlight, and blush.</li>
+<li>Design eye looks and brows tailored to each eye and face shape.</li>
+<li>Execute soft glam, full glam, and natural bridal styles.</li>
+<li>Run professional consultations and trial sessions.</li>
+<li>Create makeup that performs on camera and build a bridal portfolio and business.</li>
+<li>Complete a full bridal transformation under timed assessment conditions.</li>
+</ul>""",
+        "chapters": [
+            {
+                "title": "Introduction to Professional Bridal Makeup",
+                "lessons": [
+                    L("What Is Bridal Makeup?", "bridal_what"),
+                    L("Role of a Bridal Makeup Artist", "bridal_role"),
+                    L("Professionalism & Artist Mindset", "bridal_mindset"),
+                ],
+                "quiz": {
+                    "title": "Bridal Introduction Quiz",
+                    "questions": [
+                        {
+                            "question": "What primarily distinguishes bridal makeup from everyday makeup?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "It must be long-lasting and camera-ready for a full event day", "is_correct": 1},
+                                {"option": "It uses no foundation", "is_correct": 0},
+                                {"option": "It is only ever applied in matte finishes", "is_correct": 0},
+                                {"option": "It is always completed in under ten minutes", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which responsibilities fall to a professional bridal artist on the wedding day? (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Managing timing so makeup finishes on schedule", "is_correct": 1},
+                                {"option": "Maintaining sanitation", "is_correct": 1},
+                                {"option": "Keeping calm and managing client expectations", "is_correct": 1},
+                                {"option": "Choosing the wedding venue for the couple", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Hygiene, Sanitation & Safety",
+                "lessons": [
+                    L("Sanitation Standards", "bridal_sanitation"),
+                    L("Workspace Preparation", "bridal_workspace"),
+                    L("Health & Safety", "bridal_health_safety"),
+                ],
+                "quiz": {
+                    "title": "Bridal Hygiene & Safety Quiz",
+                    "questions": [
+                        {
+                            "question": "How should cream products be taken from the pan to avoid cross-contamination?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Applied directly from the pan to each client's face", "is_correct": 0},
+                                {"option": "Depotted onto a clean palette with a spatula", "is_correct": 1},
+                                {"option": "Scooped with a used finger", "is_correct": 0},
+                                {"option": "Diluted with water first", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "When is a patch test most important?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Only for foundation", "is_correct": 0},
+                                {"option": "Ahead of the wedding day for products like lash glue or when a client has sensitivities", "is_correct": 1},
+                                {"option": "Never — patch tests are unnecessary for makeup", "is_correct": 0},
+                                {"option": "Only on the wedding day itself", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "A professional bridal station should include: (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Neutral, daylight-balanced lighting", "is_correct": 1},
+                                {"option": "Disposable tools within easy reach", "is_correct": 1},
+                                {"option": "An organised brush layout and clean mirror", "is_correct": 1},
+                                {"option": "Shared, unwashed brushes between clients", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Skin Anatomy & Skin Preparation",
+                "lessons": [
+                    L("Understanding Skin Types", "bridal_skin_types"),
+                    L("Bridal Skin Preparation", "bridal_skin_prep"),
+                    L("Product Layering", "bridal_product_layering"),
+                ],
+                "quiz": {
+                    "title": "Bridal Skin Preparation Quiz",
+                    "questions": [
+                        {
+                            "question": "What is the correct bridal skin-prep sequence before complexion products?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Cleanse → moisturise → prime", "is_correct": 1},
+                                {"option": "Prime → cleanse → moisturise", "is_correct": 0},
+                                {"option": "Moisturise → cleanse → prime", "is_correct": 0},
+                                {"option": "Powder → cleanse → moisturise", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "In product layering, which products are applied before powders?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Cream products such as cream contour and blush", "is_correct": 1},
+                                {"option": "Setting powder always goes first", "is_correct": 0},
+                                {"option": "Powder blush before foundation", "is_correct": 0},
+                                {"option": "Setting spray before foundation", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Oily skin is best supported by which approach?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Heavy facial oils only", "is_correct": 0},
+                                {"option": "Mattifying primers and powders to control excess sebum", "is_correct": 1},
+                                {"option": "Skipping primer entirely", "is_correct": 0},
+                                {"option": "No setting products at all", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Color Theory & Foundation Matching",
+                "lessons": [
+                    L("Undertones", "bridal_undertones"),
+                    L("Foundation Matching", "bridal_foundation_matching"),
+                    L("Corrective Color Theory", "bridal_corrective_color"),
+                ],
+                "quiz": {
+                    "title": "Bridal Color & Foundation Quiz",
+                    "questions": [
+                        {
+                            "question": "Which corrector neutralises redness?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Green", "is_correct": 1},
+                                {"option": "Orange", "is_correct": 0},
+                                {"option": "Yellow", "is_correct": 0},
+                                {"option": "Blue", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Where should a foundation shade be tested and checked?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "On the wrist under indoor light", "is_correct": 0},
+                                {"option": "On the lower face, blended toward the neck, checked in natural light", "is_correct": 1},
+                                {"option": "On the back of the hand only", "is_correct": 0},
+                                {"option": "It does not matter where", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Match the corrector to its job: (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Orange/peach neutralises dark circles on deeper skin tones", "is_correct": 1},
+                                {"option": "Yellow brightens dullness", "is_correct": 1},
+                                {"option": "Green cancels redness", "is_correct": 1},
+                                {"option": "Red brightens under-eyes on fair skin", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Face Shapes & Bridal Sculpting",
+                "lessons": [
+                    L("Face Shape Analysis", "bridal_face_analysis"),
+                    L("Contouring", "bridal_contouring"),
+                    L("Blush Placement", "bridal_blush"),
+                ],
+                "quiz": {
+                    "title": "Bridal Sculpting Quiz",
+                    "questions": [
+                        {
+                            "question": "Cream contour (vs powder) is generally best for which skin?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Drier or mature skin, applied before powder", "is_correct": 1},
+                                {"option": "Only very oily skin", "is_correct": 0},
+                                {"option": "It can never be used on bridal looks", "is_correct": 0},
+                                {"option": "Only over a fully powdered base", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "For a youthful blush effect, where is blush placed?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "On the apples of the cheeks", "is_correct": 1},
+                                {"option": "Only on the forehead", "is_correct": 0},
+                                {"option": "Along the jawline", "is_correct": 0},
+                                {"option": "On the tip of the nose", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Eye Makeup Mastery",
+                "lessons": [
+                    L("Eye Shapes", "bridal_eye_shapes"),
+                    L("Bridal Eye Looks", "bridal_eye_looks"),
+                    L("Lashes & Eyeliner", "bridal_lashes_liner"),
+                ],
+                "quiz": {
+                    "title": "Bridal Eye Makeup Quiz",
+                    "questions": [
+                        {
+                            "question": "For hooded eyes, shadow is best placed where so it stays visible when the eye is open?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Slightly above the natural crease", "is_correct": 1},
+                                {"option": "Only on the waterline", "is_correct": 0},
+                                {"option": "Only under the lower lash", "is_correct": 0},
+                                {"option": "Hooded eyes cannot wear shadow", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which are part of correct false-lash application? (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Trimming the band to fit the eye", "is_correct": 1},
+                                {"option": "Letting adhesive reach the right tack before placing", "is_correct": 1},
+                                {"option": "Placing the lash close to the natural lash line", "is_correct": 1},
+                                {"option": "Applying glue directly into the eye", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which is a recognised bridal eye look in this module?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Halo eyes", "is_correct": 1},
+                                {"option": "Block-colour clown eyes", "is_correct": 0},
+                                {"option": "Bare un-prepped lids", "is_correct": 0},
+                                {"option": "Random glitter only", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Brow Perfection",
+                "lessons": [
+                    L("Brow Mapping", "bridal_brow_mapping"),
+                    L("Natural vs Defined Brows", "bridal_brow_styles"),
+                    L("Long-Wear Brows", "bridal_brow_longwear"),
+                ],
+                "quiz": {
+                    "title": "Bridal Brow Quiz",
+                    "questions": [
+                        {
+                            "question": "When mapping brows, what should the artist reference for symmetry?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Fixed facial landmarks rather than the uneven natural brow hairs", "is_correct": 1},
+                                {"option": "Only the existing brow hairs", "is_correct": 0},
+                                {"option": "The hairline", "is_correct": 0},
+                                {"option": "Nothing — brows are freehanded", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "How are long-wear bridal brows built to last all day?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Layering gel/pomade, powder, and pencil, then setting with a brow gel", "is_correct": 1},
+                                {"option": "A single swipe of pencil", "is_correct": 0},
+                                {"option": "Only clear gel with no colour", "is_correct": 0},
+                                {"option": "Lip liner applied to the brows", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Bridal Makeup Styles",
+                "lessons": [
+                    L("Soft Glam Bridal", "bridal_soft_glam"),
+                    L("Luxury Full Glam", "bridal_full_glam"),
+                    L("Natural Bridal", "bridal_natural"),
+                ],
+                "quiz": {
+                    "title": "Bridal Styles Quiz",
+                    "questions": [
+                        {
+                            "question": "Soft glam bridal is characterised by:",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Neutral tones, radiant skin, and soft definition", "is_correct": 1},
+                                {"option": "Heavy black smokey eyes only", "is_correct": 0},
+                                {"option": "No base products", "is_correct": 0},
+                                {"option": "Bold neon colours", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which statement about natural bridal makeup is true?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "It enhances features for a minimal-makeup look but still requires excellent prep and product control", "is_correct": 1},
+                                {"option": "It requires no skill because less product is used", "is_correct": 0},
+                                {"option": "It cannot be photographed", "is_correct": 0},
+                                {"option": "It always uses the heaviest contour", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Bridal Consultation & Client Experience",
+                "lessons": [
+                    L("Client Consultation", "bridal_consultation"),
+                    L("Trial Sessions", "bridal_trial"),
+                    L("Luxury Experience", "bridal_luxury_exp"),
+                ],
+                "quiz": {
+                    "title": "Bridal Consultation Quiz",
+                    "questions": [
+                        {
+                            "question": "What is the main purpose of a bridal trial session?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "To rehearse and refine the look, and confirm wear and colour before the wedding day", "is_correct": 1},
+                                {"option": "To replace the consultation entirely", "is_correct": 0},
+                                {"option": "To upsell unrelated products", "is_correct": 0},
+                                {"option": "It is unnecessary if there was a consultation", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Elements of a luxury bridal experience include: (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Hospitality and calming communication", "is_correct": 1},
+                                {"option": "A prepared touch-up kit", "is_correct": 1},
+                                {"option": "Excellent time management", "is_correct": 1},
+                                {"option": "Arriving late and rushing the bride", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Photography & Social Media",
+                "lessons": [
+                    L("Makeup for Photography", "bridal_photography"),
+                    L("Content Creation", "bridal_content"),
+                    L("Portfolio Building", "bridal_portfolio"),
+                ],
+                "quiz": {
+                    "title": "Bridal Photography & Social Media Quiz",
+                    "questions": [
+                        {
+                            "question": "How is flashback in photos prevented?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Avoiding high-SPF and heavy light-reflecting products where flash hits", "is_correct": 1},
+                                {"option": "Using more SPF in those areas", "is_correct": 0},
+                                {"option": "Adding extra shimmer everywhere", "is_correct": 0},
+                                {"option": "It cannot be prevented", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "What makes a bridal portfolio look premium and cohesive?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Consistent editing style, framing, and branding across curated best work", "is_correct": 1},
+                                {"option": "Posting every photo unedited and unsorted", "is_correct": 0},
+                                {"option": "Mixing many random filters", "is_correct": 0},
+                                {"option": "Only stock images", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Business & Branding",
+                "lessons": [
+                    L("Pricing Bridal Services", "bridal_pricing"),
+                    L("Marketing", "bridal_marketing"),
+                    L("Client Retention", "bridal_retention"),
+                ],
+                "quiz": {
+                    "title": "Bridal Business & Branding Quiz",
+                    "questions": [
+                        {
+                            "question": "Bridal pricing should be based on: (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Skill level", "is_correct": 1},
+                                {"option": "Product cost and time required", "is_correct": 1},
+                                {"option": "The luxury of the experience offered", "is_correct": 1},
+                                {"option": "Charging less than every competitor regardless of cost", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which is among the most reliable sources of high-quality bridal referrals?",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Partnerships with photographers, planners, and venues", "is_correct": 1},
+                                {"option": "Buying email lists", "is_correct": 0},
+                                {"option": "Cold-calling strangers", "is_correct": 0},
+                                {"option": "Ignoring past clients", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                "title": "Final Live Bridal Demonstration",
+                "lessons": [
+                    L("Full Bridal Transformation", "bridal_transformation"),
+                    L("Professional Photoshoot", "bridal_photoshoot"),
+                    L("Certification Standards", "bridal_certification"),
+                ],
+                "quiz": {
+                    "title": "Bridal Certification Standards Quiz",
+                    "questions": [
+                        {
+                            "question": "The final live assessment requires the student to:",
+                            "type": "SingleChoice",
+                            "options": [
+                                {"option": "Complete a full bridal look under timed assessment conditions", "is_correct": 1},
+                                {"option": "Only answer written questions", "is_correct": 0},
+                                {"option": "Submit a single selfie", "is_correct": 0},
+                                {"option": "Skip practical work entirely", "is_correct": 0},
+                            ],
+                        },
+                        {
+                            "question": "Which criteria are used to assess bridal certification? (Select all that apply.)",
+                            "type": "MultipleChoice",
+                            "options": [
+                                {"option": "Hygiene and sanitation", "is_correct": 1},
+                                {"option": "Blending and symmetry", "is_correct": 1},
+                                {"option": "Professionalism, timing, and final result", "is_correct": 1},
+                                {"option": "The brand of phone used to film", "is_correct": 0},
+                            ],
+                        },
+                    ],
+                },
+            },
+        ],
+    },
 ]
 
 
@@ -1340,6 +1975,19 @@ def wipe_existing_courses():
         "Mentorship Quiz",
         "Educator Ethics Quiz",
         "Certification Standards Quiz",
+        # Professional Bridal Makeup
+        "Bridal Introduction Quiz",
+        "Bridal Hygiene & Safety Quiz",
+        "Bridal Skin Preparation Quiz",
+        "Bridal Color & Foundation Quiz",
+        "Bridal Sculpting Quiz",
+        "Bridal Eye Makeup Quiz",
+        "Bridal Brow Quiz",
+        "Bridal Styles Quiz",
+        "Bridal Consultation Quiz",
+        "Bridal Photography & Social Media Quiz",
+        "Bridal Business & Branding Quiz",
+        "Bridal Certification Standards Quiz",
     )
     for qtitle in orphan_quiz_titles:
         for qname in frappe.get_all("LMS Quiz", filters={"title": qtitle}, pluck="name"):

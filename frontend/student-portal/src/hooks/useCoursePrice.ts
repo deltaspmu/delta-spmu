@@ -3,13 +3,13 @@ import { getCoursePrice } from '@/api/client';
 import type { PaymentInfo } from '@/types';
 
 const FALLBACK_PRICE: PaymentInfo = {
-  original_price: 5000,
+  original_price: 12500,
   discount_percent: 0,
   discount_amount: 0,
-  final_price: 5000,
+  final_price: 12500,
   currency: 'ETB',
   bundle_available: true,
-  bundle_price: 5000,
+  bundle_price: 20000,
 };
 
 interface UseCoursePriceReturn {

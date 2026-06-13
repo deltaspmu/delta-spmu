@@ -779,7 +779,7 @@ export default function CourseDetail() {
                     </h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">
-                    Get all 4 courses for{' '}
+                    Get all 5 courses for{' '}
                     <span className="font-bold text-dark">
                       {formatPrice(priceInfo.bundle_price, priceInfo.currency)}
                     </span>

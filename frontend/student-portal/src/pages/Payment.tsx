@@ -397,7 +397,7 @@ export default function Payment() {
   // ---------------------------------------------------------------------------
 
   const courseTitle = useMemo(() => {
-    if (isBundle) return 'All 4 Courses Bundle';
+    if (isBundle) return 'All 5 Courses Bundle';
     return course?.title || 'Course';
   }, [isBundle, course]);
 

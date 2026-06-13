@@ -27,6 +27,12 @@ const PROGRAMS = [
     description:
       "Cultivate your skills to become an educator. Learn to train the next generation of artists.",
   },
+  {
+    number: "05",
+    title: "Professional Bridal Makeup",
+    description:
+      "Master long-lasting, camera-ready bridal artistry: skin prep, flawless base, sculpting, eyes and brows, client consultation, and the business of bridal beauty.",
+  },
 ];
 
 function ProgramCard({ program, index }) {
@@ -173,20 +179,17 @@ export default function Programs() {
             transition={{ duration: 0.7, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="max-w-xs font-body text-[13px] font-light leading-relaxed text-white/35"
           >
-            Four progressive certifications designed to take you from fundamentals to mastery.
+            Five professional certifications spanning permanent makeup and bridal artistry — from fundamentals to mastery.
           </motion.p>
         </div>
 
-        {/* ── Bento Grid ──
-             Desktop layout:
-             ┌──────────┬──────────┬──────────────┐
-             │ Card 01  │ Card 02  │    IMAGE     │
-             │ (4 col)  │ (4 col)  │   (4 col,    │
-             │          │          │   2 rows)    │
-             ├──────────┼──────────┤              │
-             │ Card 03  │ Card 04  │              │
-             │ (4 col)  │ (4 col)  │              │
-             └──────────┴──────────┴──────────────┘
+        {/* ── Grid — 5 program cards + 1 image tile in a 3×2 layout ──
+             Desktop:
+             ┌──────────┬──────────┬──────────┐
+             │ Card 01  │ Card 02  │ Card 03  │
+             ├──────────┼──────────┼──────────┤
+             │ Card 04  │ Card 05  │  IMAGE   │
+             └──────────┴──────────┴──────────┘
         */}
         <div className="grid gap-2 md:grid-cols-12 md:auto-rows-[minmax(320px,1fr)]">
           {/* Row 1 */}
@@ -196,16 +199,19 @@ export default function Programs() {
           <div className="md:col-span-4">
             <ProgramCard program={PROGRAMS[1]} index={1} />
           </div>
-          <div className="md:col-span-4 md:row-span-2">
-            <ImageTile />
+          <div className="md:col-span-4">
+            <ProgramCard program={PROGRAMS[2]} index={2} />
           </div>
 
           {/* Row 2 */}
           <div className="md:col-span-4">
-            <ProgramCard program={PROGRAMS[2]} index={2} />
+            <ProgramCard program={PROGRAMS[3]} index={3} />
           </div>
           <div className="md:col-span-4">
-            <ProgramCard program={PROGRAMS[3]} index={3} />
+            <ProgramCard program={PROGRAMS[4]} index={4} />
+          </div>
+          <div className="md:col-span-4">
+            <ImageTile />
           </div>
         </div>
       </div>
