@@ -267,7 +267,7 @@ export default function Contact() {
                 />
               </div>
 
-              <div className="mt-10 flex items-center gap-6">
+              <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
                 <button
                   type="submit"
                   className="group inline-flex items-center gap-3 bg-charcoal px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-alabaster transition-all duration-300 hover:bg-nude-dark hover:text-white"

@@ -134,7 +134,7 @@ function ImageTile() {
 
 export default function Programs() {
   return (
-    <section id="programs" className="relative bg-charcoal py-28 md:py-40">
+    <section id="programs" className="relative bg-charcoal py-20 sm:py-28 md:py-40">
       <div className="mx-auto max-w-7xl px-6 lg:px-12">
         {/* Section header */}
         <div className="mb-20 flex flex-col items-start justify-between gap-8 md:mb-28 md:flex-row md:items-end">

@@ -67,9 +67,9 @@ function FAQItem({ item, index, isOpen, onToggle }) {
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-6 py-7 md:py-9 text-left group cursor-pointer"
+        className="w-full flex items-center justify-between gap-4 md:gap-6 py-7 md:py-9 text-left group cursor-pointer"
       >
-        <div className="flex items-center gap-5 md:gap-8">
+        <div className="flex items-center gap-3 md:gap-8">
           <span
             className={`font-heading text-2xl md:text-3xl leading-none transition-colors duration-500 ${
               isOpen ? "text-nude" : "text-white/15"
@@ -122,7 +122,7 @@ function FAQItem({ item, index, isOpen, onToggle }) {
             }}
             className="overflow-hidden"
           >
-            <div className="pl-[calc(1.75rem+1.25rem)] md:pl-[calc(2.25rem+2rem)] pb-8 md:pb-10 pr-12">
+            <div className="pl-[calc(1.75rem+1.25rem)] md:pl-[calc(2.25rem+2rem)] pb-8 md:pb-10 pr-4 md:pr-12">
               <p className="font-body text-sm md:text-base text-white/45 leading-relaxed max-w-xl">
                 {item.answer}
               </p>

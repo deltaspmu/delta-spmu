@@ -17,7 +17,11 @@ import config from "../config";
 const NAV_LINKS = [
   { label: "Home", href: "#" },
   { label: "Programs", href: "#programs" },
-  { label: "LMS Portal", href: "#lms" },
+  {
+    label: "LMS Portal",
+    href: config.studentPortalLive ? config.studentPortalUrl : "#programs",
+    external: config.studentPortalLive,
+  },
   { label: "Admissions", href: "#admissions" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
@@ -143,6 +147,9 @@ export default function Hero() {
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    {...(link.external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
                     className={`font-body text-[13px] font-medium uppercase tracking-wide transition-colors duration-300 hover:text-terracotta ${
                       i === 0 ? "text-terracotta" : "text-charcoal/80"
                     }`}
@@ -198,6 +205,9 @@ export default function Hero() {
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    {...(link.external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
                     onClick={() => setMenuOpen(false)}
                     className="font-body text-sm uppercase tracking-wide text-charcoal/80 transition-colors duration-300 hover:text-terracotta"
                   >
@@ -323,8 +333,9 @@ export default function Hero() {
             />
           </div>
 
-          {/* Feature badges */}
-          <div className="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col gap-3 lg:-right-2">
+          {/* Feature badges — wrap below the portrait on mobile (no overflow),
+              float as a column over the image on large screens. */}
+          <div className="mt-5 flex flex-wrap justify-center gap-3 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2 lg:flex-col lg:flex-nowrap lg:justify-start lg:-right-2">
             {FEATURES.map(({ label, Icon }, i) => (
               <motion.div
                 key={label}

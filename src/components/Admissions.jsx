@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import config from "../config";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -104,7 +105,7 @@ function AccordionItem({ item, index, isOpen, onToggle }) {
             }}
             className="overflow-hidden"
           >
-            <div className="pl-[calc(1.75rem+1.25rem)] md:pl-[calc(2.25rem+2rem)] pb-8 md:pb-10 pr-12">
+            <div className="pl-[calc(1.25rem+1rem)] md:pl-[calc(2.25rem+2rem)] pb-8 md:pb-10 pr-2 md:pr-12">
               <p className="font-body text-sm md:text-base text-charcoal/60 leading-relaxed max-w-xl">
                 {item.content}
               </p>
@@ -124,7 +125,7 @@ export default function Admissions() {
   };
 
   return (
-    <section className="relative bg-alabaster overflow-hidden py-28 md:py-40">
+    <section id="admissions" className="relative bg-alabaster overflow-hidden py-28 md:py-40">
       {/* Subtle decorative accent */}
       <motion.div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-24 bg-gradient-to-b from-transparent via-nude/30 to-transparent"
@@ -194,7 +195,7 @@ export default function Admissions() {
           className="mt-16 md:mt-20 text-center"
         >
           <a
-            href="#apply"
+            href={config.studentPortalLive ? config.signupUrl : "#contact"}
             className="inline-block font-body text-xs tracking-[0.25em] uppercase px-10 py-4 border border-charcoal/15 text-charcoal hover:bg-charcoal hover:text-alabaster transition-all duration-500"
           >
             Apply Now
