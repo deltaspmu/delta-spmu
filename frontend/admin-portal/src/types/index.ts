@@ -7,6 +7,8 @@ export interface User {
   full_name: string;
   first_name: string;
   last_name: string;
+  mobile_no: string | null;
+  phone: string | null;
   user_image: string | null;
   bio: string | null;
   roles: string[];

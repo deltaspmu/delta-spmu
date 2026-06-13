@@ -52,7 +52,7 @@ export default function UserList() {
     queryKey: ['admin-users'],
     queryFn: () =>
       getUsers({
-        fields: JSON.stringify(['name', 'email', 'full_name', 'enabled', 'roles', 'last_active', 'user_image', 'creation']),
+        fields: JSON.stringify(['name', 'email', 'full_name', 'mobile_no', 'phone', 'enabled', 'roles', 'last_active', 'user_image', 'creation']),
         limit_page_length: 0,
         order_by: 'creation desc',
       }),
@@ -89,7 +89,8 @@ export default function UserList() {
     const matchesSearch =
       !search ||
       u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase());
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
+      (u.mobile_no || u.phone || '').toLowerCase().includes(search.toLowerCase());
     const matchesFilter =
       filter === 'all' ||
       (filter === 'active' && u.enabled === 1) ||
@@ -111,7 +112,7 @@ export default function UserList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email, or phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -140,6 +141,7 @@ export default function UserList() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Phone</th>
                 <th>Roles</th>
                 <th>Status</th>
                 <th>Last Login</th>
@@ -149,7 +151,7 @@ export default function UserList() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-400 py-8">No users found</td>
+                  <td colSpan={7} className="text-center text-gray-400 py-8">No users found</td>
                 </tr>
               ) : (
                 filtered.map((user) => (
@@ -167,6 +169,7 @@ export default function UserList() {
                       </div>
                     </td>
                     <td className="text-sm text-gray-500">{user.email}</td>
+                    <td className="text-sm text-gray-500">{user.mobile_no || user.phone || '—'}</td>
                     <td><RoleBadges roles={user.roles || []} /></td>
                     <td><StatusBadge enabled={user.enabled} /></td>
                     <td className="text-sm text-gray-500">
@@ -246,6 +249,10 @@ export default function UserList() {
 
                   {/* Info grid */}
                   <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="col-span-2">
+                      <p className="text-gray-400 text-xs">Phone</p>
+                      <p className="text-dark">{userDetail?.mobile_no || userDetail?.phone || selectedUser.mobile_no || selectedUser.phone || '—'}</p>
+                    </div>
                     <div>
                       <p className="text-gray-400 text-xs">Joined</p>
                       <p className="text-dark">{selectedUser.creation ? format(new Date(selectedUser.creation), 'MMM d, yyyy') : '-'}</p>
