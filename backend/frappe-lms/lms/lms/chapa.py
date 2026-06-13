@@ -131,7 +131,8 @@ def initialize_transaction(transaction_doc, currency="ETB"):
         "callback_url": callback_url,
         "return_url": return_url,
         "customization": {
-            "title": "Delta SPMU Academy",
+            # Chapa caps customization.title at 16 chars — keep it short.
+            "title": "Delta SPMU",
             "description": (course.title if course else "All Courses Bundle"),
             "logo": "https://learn.deltaspmu.com/assets/logo.png",
         },
@@ -217,30 +218,52 @@ def verify_webhook_signature(payload, signature):
 
     Returns:
         True if the signature is valid, False otherwise.
+
+    Fails closed (returns False) when the secret is missing or no signature
+    header was sent, so a misconfiguration can never let an unverified
+    webhook through — mirrors the live Afritutors implementation.
     """
-    secret = _get_config("chapa_webhook_secret")
+    secret = frappe.conf.get("chapa_webhook_secret")
+    if not secret:
+        frappe.log_error(
+            title="Chapa Config Error",
+            message="chapa_webhook_secret is not configured in site config.",
+        )
+        return False
 
-    if isinstance(payload, str):
-        payload = payload.encode("utf-8")
-    if isinstance(secret, str):
-        secret = secret.encode("utf-8")
+    if not signature:
+        return False
 
-    expected = hmac.new(secret, payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature or "")
+    payload_bytes = payload.encode("utf-8") if isinstance(payload, str) else payload
+    secret_bytes = secret.encode("utf-8") if isinstance(secret, str) else secret
+
+    # Chapa sends TWO signature headers with DIFFERENT meanings:
+    #   x-chapa-signature = HMAC-SHA256(key=secret, msg=raw_body)
+    #   Chapa-Signature   = HMAC-SHA256(key=secret, msg=secret)   (signs the secret itself)
+    # Accept either form — both prove knowledge of the shared secret. The
+    # authoritative gate is the Chapa /verify + amount match done afterwards in
+    # payments_api.chapa_webhook, so accepting either signature is safe.
+    sig_payload = hmac.new(secret_bytes, payload_bytes, hashlib.sha256).hexdigest()
+    sig_secret = hmac.new(secret_bytes, secret_bytes, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig_payload, signature) or hmac.compare_digest(sig_secret, signature)
 
 
 # ---------------------------------------------------------------------------
 # 4. Process Webhook
 # ---------------------------------------------------------------------------
 
-@frappe.whitelist(allow_guest=True)
+# NOTE: deliberately NOT @frappe.whitelist. The single, hardened webhook entry
+# point is lms.lms.payments_api.chapa_webhook (the configured chapa_callback_url),
+# which re-verifies the charge + amount against Chapa before granting access.
+# A second guest-exposed completion path would be an unmonitored, weaker door
+# into payment completion, so this stays an internal helper only.
 def process_webhook(payload=None):
     """
-    Handle an incoming Chapa webhook notification.
+    Handle an incoming Chapa webhook notification (internal helper).
 
-    This endpoint is called by Chapa's servers, so it must be accessible
-    without authentication (allow_guest=True).  We rely on HMAC signature
-    verification instead.
+    Not HTTP-exposed (see the note above). The live callback is
+    payments_api.chapa_webhook; this is retained only for potential internal
+    reuse and relies on HMAC signature verification when used.
 
     Args:
         payload: If None, reads from ``frappe.request``.

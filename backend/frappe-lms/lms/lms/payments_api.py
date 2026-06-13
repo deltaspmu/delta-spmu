@@ -7,7 +7,6 @@ All monetary values are in ETB unless explicitly converted to USD.
 
 import frappe
 import hashlib
-import hmac
 import json
 import time
 from datetime import datetime, timedelta
@@ -36,7 +35,12 @@ def _generate_transaction_id():
 
 
 def _check_transaction_expiry(transaction):
-    """Return True if the 30-minute payment window has expired.
+    """Return True if the payment window has expired.
+
+    Prefers the per-transaction ``expiry_time`` when present (telebirr C2B uses
+    a 24h window because the payer acts out-of-band in their app; cards use 30
+    min). Falls back to 30 minutes from creation if ``expiry_time`` is absent,
+    so behaviour is unchanged for every existing provider.
 
     Args:
         transaction: A dict or Document representing the Payment Transaction.
@@ -44,6 +48,18 @@ def _check_transaction_expiry(transaction):
     Returns:
         bool: True when the transaction is expired.
     """
+    expiry = transaction.get("expiry_time")
+    if expiry:
+        if isinstance(expiry, str):
+            for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    expiry = datetime.strptime(expiry, fmt)
+                    break
+                except ValueError:
+                    continue
+        if isinstance(expiry, datetime):
+            return datetime.now() > expiry
+
     created = transaction.get("creation") or transaction.get("created_at")
     if not created:
         return True
@@ -54,8 +70,7 @@ def _check_transaction_expiry(transaction):
         except ValueError:
             created = datetime.strptime(created, "%Y-%m-%d %H:%M:%S")
 
-    expiry = created + timedelta(minutes=30)
-    return datetime.now() > expiry
+    return datetime.now() > created + timedelta(minutes=30)
 
 
 def _create_course_access(user, course, transaction_name):
@@ -99,7 +114,7 @@ def _create_course_access(user, course, transaction_name):
                 "access_start": now,
                 "access_end": access_end,
                 "payment_transaction": transaction_name,
-                "status": "Active",
+                "is_active": 1,
             }
         )
         access_doc.insert(ignore_permissions=True)
@@ -209,6 +224,10 @@ def _process_successful_payment(transaction_name):
         },
     )
 
+    try:
+
+    except Exception:
+
     return True
 
 
@@ -244,7 +263,7 @@ def get_course_price(course, currency="ETB"):
     course_price = float(course_price) if course_price else float(BASE_PRICE)
 
     # --- Bundle logic ---
-    total_courses = frappe.db.count("LMS Course", {"is_published": 1})
+    total_courses = frappe.db.count("LMS Course", {"published": 1})
     bundle_available = total_courses >= 2
     bundle_price_val = float(BUNDLE_PRICE)
 
@@ -318,7 +337,7 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     # Check for existing valid access
     existing_access = frappe.db.get_value(
         "Course Access",
-        {"user": user, "course": course, "status": "Active"},
+        {"user": user, "course": course, "is_active": 1},
         ["access_end"],
     )
     if existing_access:
@@ -338,7 +357,7 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             "course": course,
             "status": "Pending",
         },
-        ["name", "transaction_id", "creation"],
+        ["name", "transaction_id", "creation", "expiry_time"],
         as_dict=True,
     )
     if pending_tx and not _check_transaction_expiry(pending_tx):
@@ -378,6 +397,9 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             "course": course,
             "course_title": course_title,
             "amount": amount,
+            # legacy mandatory columns from the fork's doctype
+            "original_amount": amount,
+            "final_amount": amount,
             "currency": currency,
             "payment_method": payment_method,
             "phone": phone,
@@ -396,25 +418,52 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
         "expiry_time": expiry_time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    if payment_method == "telebirr":
-        if not phone:
-            frappe.throw(_("Phone number is required for Telebirr payments."), frappe.MandatoryError)
-        try:
-            from lms.lms.telebirr import create_order as telebirr_create_order
-
-            order = telebirr_create_order(tx_doc)
-            result["checkout_url"] = order.get("checkout_url") or order.get("toPayUrl", "")
-            result["provider_order_id"] = order.get("prepay_id") or order.get("order_id", "")
-
-            frappe.db.set_value(
-                "Payment Transaction", tx_doc.name,
-                "provider_reference", result.get("provider_order_id", ""),
-            )
-        except Exception as e:
+    if payment_method in ("telebirr", "telebirr_c2b"):
+        # telebirr C2B "Pay Bill": the customer pays our short code from their
+        # own telebirr app, then Ethio Telecom's CPS calls our biller endpoints
+        # (lms.lms.telebirr_c2b). So we return the short code + a bill reference
+        # to display — not a checkout URL — like the CBE bank-transfer flow.
+        if not frappe.db.has_column("Payment Transaction", "telebirr_bill_ref"):
             frappe.db.set_value("Payment Transaction", tx_doc.name, "status", "Failed")
             frappe.db.commit()
-            frappe.log_error(title="Telebirr Order Creation Failed", message=frappe.get_traceback())
-            frappe.throw(_("Failed to initiate Telebirr payment. Please try again."))
+            frappe.throw(_("telebirr payments are not available yet. Please choose another method."))
+
+        from lms.lms.telebirr_c2b import generate_bill_ref
+
+        bill_ref = generate_bill_ref()
+        # C2B payers act out-of-band in their telebirr app -> longer window.
+        c2b_expiry = datetime.now() + timedelta(hours=24)
+        frappe.db.set_value(
+            "Payment Transaction", tx_doc.name,
+            {"telebirr_bill_ref": bill_ref, "expiry_time": c2b_expiry},
+        )
+
+        short_code = frappe.conf.get("telebirr_c2b_short_code") or ""
+        result["bill_ref"] = bill_ref
+        result["short_code"] = short_code
+        result["expiry_time"] = c2b_expiry.strftime("%Y-%m-%d %H:%M:%S")
+        result["checkout_url"] = None
+        result["instructions"] = {
+            "provider": "telebirr",
+            "method": "Pay Bill",
+            "short_code": short_code,
+            "bill_reference": bill_ref,
+            "amount": amount,
+            "currency": currency,
+            "steps": [
+                _("Open the telebirr app (or dial the telebirr USSD)."),
+                _("Choose 'Pay Bill'."),
+                _("Enter the merchant short code: {0}.").format(short_code or _("(shown at checkout)")),
+                _("Enter the bill reference: {0}.").format(bill_ref),
+                _("Confirm the amount {0} {1} and approve the payment.").format(
+                    "{0:.2f}".format(amount), currency
+                ),
+            ],
+            "note": _(
+                "Your course unlocks automatically once telebirr confirms the "
+                "payment — keep this page open."
+            ),
+        }
 
     elif payment_method in ("chapa", "chapa_international"):
         try:
@@ -709,21 +758,26 @@ def get_user_transactions(limit=20, offset=0):
 
     total = frappe.db.count("Payment Transaction", filters)
 
+    fields = [
+        "transaction_id",
+        "course",
+        "course_title",
+        "amount",
+        "currency",
+        "payment_method",
+        "status",
+        "creation",
+        "completed_at",
+        "user_reference",
+    ]
+    # endpoint behaves identically until e-invoicing has been set up.
+        if frappe.db.has_column("Payment Transaction", _col):
+            fields.append(_col)
+
     transactions = frappe.db.get_all(
         "Payment Transaction",
         filters=filters,
-        fields=[
-            "transaction_id",
-            "course",
-            "course_title",
-            "amount",
-            "currency",
-            "payment_method",
-            "status",
-            "creation",
-            "completed_at",
-            "user_reference",
-        ],
+        fields=fields,
         order_by="creation desc",
         start=offset,
         page_length=limit,
@@ -741,6 +795,124 @@ def get_user_transactions(limit=20, offset=0):
         "limit": limit,
         "offset": offset,
     }
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+@frappe.whitelist(methods=["GET"])
+
+    student portal can call it safely regardless.
+    """
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if not transaction_id:
+        frappe.throw(_("Transaction ID is required."), frappe.MandatoryError)
+
+
+    tx = frappe.db.get_value(
+        "Payment Transaction",
+        {"transaction_id": transaction_id},
+        [
+            "name", "user", "course", "course_title", "amount", "currency",
+        ],
+        as_dict=True,
+    )
+    if not tx:
+        frappe.throw(_("Transaction {0} not found.").format(transaction_id), frappe.DoesNotExistError)
+    if tx.user != user and "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("You do not have permission to view this invoice."), frappe.PermissionError)
+
+    return {
+        "transaction_id": transaction_id,
+        "course": tx.course,
+        "course_title": tx.course_title,
+        "amount": tx.amount,
+        "currency": tx.currency,
+        "date": str(tx.completed_at) if tx.completed_at else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+@frappe.whitelist(methods=["GET"])
+
+    Owner or System Manager only. Returns ``{"html": ...}`` so the client can
+    open it in a new window and print / save as PDF (the MoR printing-layout
+    artifact). Only available once the invoice is Registered.
+    """
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if not transaction_id:
+        frappe.throw(_("Transaction ID is required."), frappe.MandatoryError)
+
+    tx = frappe.db.get_value(
+        "Payment Transaction",
+        {"transaction_id": transaction_id},
+        [
+            "name", "user", "course", "course_title", "amount", "currency",
+        ],
+        as_dict=True,
+    )
+    if not tx:
+        frappe.throw(_("Transaction {0} not found.").format(transaction_id), frappe.DoesNotExistError)
+    if tx.user != user and "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("You do not have permission to view this invoice."), frappe.PermissionError)
+        frappe.throw(_("This invoice has not been registered yet."), frappe.ValidationError)
+
+    buyer = frappe.db.get_value(
+        "User", tx.user, ["full_name", "email", "mobile_no", "phone"], as_dict=True) or {}
+    conf = frappe.conf
+    amount = float(tx.amount or 0)
+
+
+    pre_tax, tax_amt, total_inc = _split_amount(amount, tax_code)
+
+    if isinstance(when, str):
+        try:
+            when = datetime.strptime(when[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            when = datetime.now()
+
+    seller = {
+        "city": ("[" + city_code + "]Addis Ababa") if city_code else "Addis Ababa",
+        "woreda": ("[" + woreda_code + "]Woreda " + woreda_code) if woreda_code else "N/A",
+        "sub_tin": "N/A",
+    }
+    buyer_blk = {
+        "name": buyer.get("full_name") or tx.user,
+        "city": "N/A", "subcity": "N/A", "woreda": "N/A", "kebele": "N/A",
+        "house_no": "N/A",
+        "phone": buyer.get("mobile_no") or buyer.get("phone") or "N/A",
+        "vat_no": "N/A",
+        "sub_tin": "N/A",
+    }
+
+        "doc_type": "INV",
+        "cancelled": cancelled,
+        "cancellation_reason": "The invoice has been cancelled." if cancelled else "",
+        "internal_ref": transaction_id,
+        "when": when,
+        "seller": seller,
+        "buyer": buyer_blk,
+        "items": [{
+            "description": tx.course_title or "Course",
+            "nature": "service", "uom": "PCS", "qty": "1.0",
+            "unit_price": pre_tax, "tax_code": tax_code,
+            "excise": 0, "discount": 0, "total": pre_tax,
+        }],
+        "totals": {
+            "total": pre_tax, "excise": 0, "discount": 0,
+            "vat_taxable": pre_tax, "vat15": tax_amt,
+            "non_taxable": 0, "total_inc_tax": total_inc,
+        },
+        "payment_type": "Cash",
+        "purchaser_name": buyer_blk["name"],
+        "brand_name": seller["name"],
+        "brand_city": "Addis Ababa",
+    })
+    return {"html": html}
 
 
 # ---------------------------------------------------------------------------
@@ -774,7 +946,7 @@ def get_course_access(course):
 
     access = frappe.db.get_value(
         "Course Access",
-        {"user": user, "course": course, "status": "Active"},
+        {"user": user, "course": course, "is_active": 1},
         ["access_start", "access_end"],
         as_dict=True,
     )
@@ -794,12 +966,12 @@ def get_course_access(course):
 
     now = datetime.now()
     if access_end < now:
-        # Expired — update status
+        # Expired — deactivate
         frappe.db.set_value(
             "Course Access",
-            {"user": user, "course": course, "status": "Active"},
-            "status",
-            "Expired",
+            {"user": user, "course": course, "is_active": 1},
+            "is_active",
+            0,
         )
         frappe.db.commit()
         return {
@@ -927,8 +1099,12 @@ def telebirr_notify():
 def chapa_webhook():
     """Handle Chapa payment webhook callback.
 
-    Verifies HMAC SHA256 signature, processes the payment, and returns
-    an appropriate response.
+    Mirrors the live Afritutors flow:
+      1. Verify the HMAC SHA256 signature (secret read from site config).
+      2. Re-verify the charge server-side against Chapa's /verify API and
+         check the amount — a webhook payload is never trusted on its own to
+         complete a payment.
+      3. Only then grant access via _process_successful_payment (which also
 
     Returns:
         dict with status and message.
@@ -946,35 +1122,40 @@ def chapa_webhook():
         frappe.log_error(title="Chapa Webhook Parse Error", message=str(e))
         return {"status": "error", "message": "Invalid payload"}
 
-    # --- Verify HMAC SHA256 signature ---
-    chapa_signature = frappe.request.headers.get("Chapa-Signature") or \
-                      frappe.request.headers.get("x-chapa-signature", "")
+    # --- Verify HMAC SHA256 signature (secret lives in site config) ---
+    # Chapa sends Chapa-Signature (HMAC of the secret) and/or x-chapa-signature
+    # (HMAC of the raw body); accept the webhook if EITHER header verifies.
+    sig_headers = [h for h in (
+        frappe.request.headers.get("Chapa-Signature"),
+        frappe.request.headers.get("x-chapa-signature"),
+    ) if h]
+    try:
+        from lms.lms.chapa import verify_webhook_signature
 
-    if chapa_signature:
-        chapa_secret = frappe.db.get_single_value("Payment Settings", "chapa_webhook_secret")
-        if chapa_secret:
-            expected = hmac.new(
-                chapa_secret.encode(),
-                payload.encode(),
-                hashlib.sha256,
-            ).hexdigest()
-
-            if not hmac.compare_digest(expected, chapa_signature):
+        if sig_headers:
+            if not any(verify_webhook_signature(payload, h) for h in sig_headers):
                 frappe.log_error(
                     title="Chapa Webhook Signature Failed",
-                    message=f"Expected: {expected}, Got: {chapa_signature}",
+                    message=(
+                        "No signature header matched. "
+                        f"received={sig_headers} payload[:300]={payload[:300]}"
+                    ),
                 )
                 return {"status": "error", "message": "Invalid signature"}
-    else:
-        frappe.log_error(
-            title="Chapa Webhook No Signature",
-            message="No signature header present; processing anyway.",
-        )
+        else:
+            frappe.log_error(
+                title="Chapa Webhook No Signature",
+                message="No signature header; relying on server-side re-verification.",
+            )
+    except Exception:
+        frappe.log_error(title="Chapa Signature Error", message=frappe.get_traceback())
+        return {"status": "error", "message": "Signature verification error"}
 
     # --- Extract transaction info ---
     tx_ref = data.get("tx_ref") or data.get("trx_ref", "")
     chapa_status = (data.get("status") or "").lower()
     chapa_reference = data.get("reference", "")
+    event_type = data.get("event", "")
 
     if not tx_ref:
         # Try nested event structure
@@ -991,12 +1172,18 @@ def chapa_webhook():
         )
         return {"status": "error", "message": "Missing transaction reference"}
 
+    # tx_ref is the Payment Transaction name we sent Chapa at init time
+    # (chapa.initialize_transaction sets tx_ref = txn.name). Fall back to the
+    # public transaction_id field for safety.
     tx = frappe.db.get_value(
-        "Payment Transaction",
-        {"transaction_id": tx_ref},
-        ["name", "status"],
-        as_dict=True,
+        "Payment Transaction", tx_ref,
+        ["name", "status", "amount"], as_dict=True,
     )
+    if not tx:
+        tx = frappe.db.get_value(
+            "Payment Transaction", {"transaction_id": tx_ref},
+            ["name", "status", "amount"], as_dict=True,
+        )
 
     if not tx:
         frappe.log_error(
@@ -1015,21 +1202,62 @@ def chapa_webhook():
             "provider_reference", chapa_reference,
         )
 
-    if chapa_status in ("success", "completed", "paid"):
+    is_success = event_type == "charge.success" or chapa_status in ("success", "completed", "paid")
+    is_failure = event_type in ("charge.failed", "charge.cancelled") or chapa_status in ("failed", "cancelled")
+
+    if is_success:
+        # Never trust the webhook alone — re-verify with Chapa and check amount.
+        try:
+            from lms.lms.chapa import verify_transaction
+
+            verification = verify_transaction(tx.name)
+        except Exception:
+            frappe.log_error(title="Chapa Webhook Verify Error", message=frappe.get_traceback())
+            return {"status": "error", "message": "Verification error"}
+
+        verified_status = (verification.get("status") or "").lower()
+        verified_data = verification.get("data") or {}
+        if verified_status not in ("success", "completed", "paid"):
+            frappe.log_error(
+                title="Chapa Webhook Verify Mismatch",
+                message=f"{tx_ref}: webhook reported success but verify returned '{verified_status}'.",
+            )
+            return {"status": "error", "message": "Verification did not confirm success"}
+
+        verified_amount = float(verified_data.get("amount") or 0)
+        expected_amount = float(tx.amount or 0)
+        # Treat a 0 / missing verified amount as a mismatch (fail closed) rather
+        # than skipping the check — matches the live Afritutors behaviour.
+        if abs(verified_amount - expected_amount) > 0.01:
+            frappe.db.set_value("Payment Transaction", tx.name, "status", "Failed")
+            frappe.db.commit()
+            frappe.log_error(
+                title="Chapa Amount Mismatch",
+                message=f"{tx_ref}: expected {expected_amount}, verified {verified_amount}.",
+            )
+            return {"status": "error", "message": "Amount mismatch"}
+
         success = _process_successful_payment(tx.name)
         if success:
             frappe.db.commit()
             return {"status": "success", "message": "Payment processed"}
-        else:
-            return {"status": "error", "message": "Processing error"}
-    else:
+        return {"status": "error", "message": "Processing error"}
+
+    elif is_failure:
         frappe.db.set_value("Payment Transaction", tx.name, "status", "Failed")
         frappe.db.commit()
         frappe.log_error(
             title="Chapa Payment Failed",
-            message=f"Transaction {tx_ref} status: {chapa_status}",
+            message=f"Transaction {tx_ref} status: {chapa_status or event_type}",
         )
-        return {"status": "error", "message": f"Payment status: {chapa_status}"}
+        return {"status": "error", "message": f"Payment status: {chapa_status or event_type}"}
+
+    # Pending / unknown — log only, leave state unchanged.
+    frappe.log_error(
+        title="Chapa Webhook Unhandled",
+        message=f"{tx_ref}: event={event_type}, status={chapa_status}",
+    )
+    return {"status": "ok", "message": "Event recorded"}
 
 
 # ---------------------------------------------------------------------------
@@ -1375,7 +1603,7 @@ def admin_get_revenue_stats():
     # --- Active access count ---
     active_access_count = frappe.db.count(
         "Course Access",
-        {"status": "Active", "access_end": (">", datetime.now())},
+        {"is_active": 1, "access_end": (">", datetime.now())},
     )
 
     # --- Pending verifications ---
@@ -1481,3 +1709,89 @@ def admin_export_payments_csv(status=None, payment_method=None, from_date=None, 
     frappe.response["filename"] = filename
     frappe.response["filecontent"] = csv_bytes
     return
+
+
+# ---------------------------------------------------------------------------
+# One-time schema reconciliation — bench-execute only.
+# The server's Payment Transaction doctype (from the Afritutors fork tarball)
+# predates this API: it has original_amount/final_amount/expires_at but lacks
+# the columns this module and the portal are written against. This adds them
+# as Custom Fields (idempotent, survives fork updates).
+# ---------------------------------------------------------------------------
+def setup_payment_transaction_fields():
+
+    Run once: bench --site api.deltaspmu.com execute
+        lms.lms.payments_api.setup_payment_transaction_fields
+    """
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    create_custom_fields({
+        "Payment Transaction": [
+            {"fieldname": "transaction_id", "label": "Transaction ID", "fieldtype": "Data",
+             "unique": 1, "length": 140, "insert_after": "user",
+             "description": "Public DS-… transaction reference used across the API."},
+            {"fieldname": "amount", "label": "Amount", "fieldtype": "Currency",
+             "insert_after": "transaction_id"},
+            {"fieldname": "phone", "label": "Phone", "fieldtype": "Data",
+             "insert_after": "amount"},
+            {"fieldname": "expiry_time", "label": "Expiry Time", "fieldtype": "Datetime",
+             "insert_after": "phone"},
+            {"fieldname": "user_reference", "label": "User Reference", "fieldtype": "Data",
+             "insert_after": "expiry_time"},
+            {"fieldname": "provider_reference", "label": "Provider Reference", "fieldtype": "Data",
+             "insert_after": "user_reference"},
+        ],
+    }, ignore_validate=True)
+    frappe.db.commit()
+    return "Payment Transaction fields created."
+
+
+# ---------------------------------------------------------------------------
+# Testing helper — bench-execute ONLY (deliberately NOT whitelisted, so it can
+# never be invoked over HTTP to mint free enrollments).
+# ---------------------------------------------------------------------------
+def simulate_completed_purchase(user, course, payment_method="chapa"):
+    """Create a Payment Transaction for ``user`` + ``course`` and drive it through
+    ``_process_successful_payment`` — exactly what a provider webhook does after a
+    real payment. Fires the full post-payment chain: course access, confirmation
+
+    Run on the server:
+        bench --site api.deltaspmu.com execute \
+          lms.lms.payments_api.simulate_completed_purchase \
+          --kwargs '{"user": "student@example.com", "course": "<course-name>"}'
+    """
+    if not frappe.db.exists("User", user):
+        frappe.throw(f"User {user} not found.")
+    if not frappe.db.exists("LMS Course", course):
+        frappe.throw(f"Course {course} not found.")
+
+    course_price = frappe.db.get_value("LMS Course", course, "course_price")
+    amount = float(course_price) if course_price else float(BASE_PRICE)
+    course_title = frappe.db.get_value("LMS Course", course, "title") or course
+
+    tx_doc = frappe.get_doc({
+        "doctype": "Payment Transaction",
+        "transaction_id": _generate_transaction_id(),
+        "user": user,
+        "course": course,
+        "course_title": course_title,
+        "amount": amount,
+        # legacy mandatory columns from the fork's doctype
+        "original_amount": amount,
+        "final_amount": amount,
+        "currency": "ETB",
+        "payment_method": payment_method,
+        "status": "Pending",
+        "expiry_time": datetime.now() + timedelta(minutes=30),
+    })
+    tx_doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+    ok = _process_successful_payment(tx_doc.name)
+    frappe.db.commit()
+
+    tx = frappe.db.get_value(
+        "Payment Transaction", tx_doc.name,
+        as_dict=True,
+    )
+    return {"processed": ok, "name": tx_doc.name, **(tx or {})}
