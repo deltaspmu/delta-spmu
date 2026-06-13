@@ -3226,7 +3226,7 @@ def _signup_portal_url():
     return frappe.conf.get("signup_portal_url") or "https://learn.deltaspmu.com"
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
-def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
+def custom_sign_up(email=None, full_name=None, password=None, phone=None, redirect_to=None):
     """Create a disabled user, set their password, and email a verification link.
 
     Returns:
@@ -3234,6 +3234,7 @@ def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
           code=0  → email already registered
           code=1  → account created, verification email queued
     """
+    import re
     from frappe.utils import validate_email_address, escape_html
     from frappe.utils.password import update_password as set_password
     from lms.lms.email_templates import email_verification
@@ -3241,11 +3242,15 @@ def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
     email = (email or "").strip().lower()
     full_name = (full_name or "").strip()
     password = (password or "").strip()
+    phone = (phone or "").strip()
 
-    if not email or not full_name or not password:
-        frappe.throw(_("Email, full name, and password are required."), frappe.MandatoryError)
+    if not email or not full_name or not password or not phone:
+        frappe.throw(_("Email, full name, phone number, and password are required."), frappe.MandatoryError)
     if not validate_email_address(email):
         frappe.throw(_("Please enter a valid email address."), frappe.ValidationError)
+    # Allow leading +, digits, spaces, dashes, and parens; require at least 7 digits.
+    if len(re.sub(r"\D", "", phone)) < 7 or not re.match(r"^\+?[\d\s\-()]+$", phone):
+        frappe.throw(_("Please enter a valid phone number."), frappe.ValidationError)
     if len(password) < 8:
         frappe.throw(_("Password must be at least 8 characters."), frappe.ValidationError)
 
@@ -3254,7 +3259,9 @@ def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
         existing_enabled = frappe.db.get_value("User", email, "enabled")
         if existing_enabled:
             return [0, _("Already Registered")]
-        # User exists but isn't verified yet — re-send the verification email
+        # User exists but isn't verified yet — refresh their phone and re-send
+        # the verification email.
+        frappe.db.set_value("User", email, "mobile_no", phone)
         user = frappe.get_doc("User", email)
     else:
         # Split full name into first/last for Frappe
@@ -3267,6 +3274,7 @@ def custom_sign_up(email=None, full_name=None, password=None, redirect_to=None):
             "email": email,
             "first_name": first_name,
             "last_name": last_name,
+            "mobile_no": phone,
             "enabled": 0,                # disabled until they verify
             "user_type": "Website User",
             "send_welcome_email": 0,     # we send our own branded email

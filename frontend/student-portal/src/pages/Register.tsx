@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
 import { signUp } from '@/api/client';
 
 export default function Register() {
@@ -12,6 +12,7 @@ export default function Register() {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -56,6 +57,9 @@ export default function Register() {
   const validateEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+  const validatePhone = (value: string) =>
+    /^\+?[\d\s\-()]+$/.test(value) && value.replace(/\D/g, '').length >= 7;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -72,6 +76,14 @@ export default function Register() {
       setError('Please enter a valid email address.');
       return;
     }
+    if (!phone.trim()) {
+      setError('Please enter your phone number.');
+      return;
+    }
+    if (!validatePhone(phone)) {
+      setError('Please enter a valid phone number.');
+      return;
+    }
     if (!password) {
       setError('Please enter a password.');
       return;
@@ -83,7 +95,7 @@ export default function Register() {
 
     setIsLoading(true);
     try {
-      const result = await signUp(email, fullName, password);
+      const result = await signUp(email, fullName, password, phone);
 
       // Frappe sign_up returns [code, message]
       // 0 = email already exists, 1 = verification sent, 2 = account created
@@ -112,7 +124,7 @@ export default function Register() {
     if (resendCooldown > 0) return;
     setIsLoading(true);
     try {
-      await signUp(email, fullName, password);
+      await signUp(email, fullName, password, phone);
       startCooldown();
     } catch {
       // Silently handle — email may already have been resent
@@ -226,6 +238,28 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
+                className="w-full rounded-lg border border-dark/10 bg-white py-2.5 pl-10 pr-4 text-dark placeholder:text-dark/30 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label
+              htmlFor="phone"
+              className="block text-sm font-medium text-dark/80 mb-1.5"
+            >
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+251 91 234 5678"
+                autoComplete="tel"
                 className="w-full rounded-lg border border-dark/10 bg-white py-2.5 pl-10 pr-4 text-dark placeholder:text-dark/30 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
             </div>

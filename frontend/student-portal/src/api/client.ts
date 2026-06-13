@@ -92,12 +92,18 @@ export const login = (email: string, password: string) =>
 export const logout = () =>
   api.get('/api/method/logout').then(unwrap);
 
-export const signUp = (email: string, fullName: string, password: string) =>
+export const signUp = (
+  email: string,
+  fullName: string,
+  password: string,
+  phone: string
+) =>
   api
     .post('/api/method/lms.lms.api.custom_sign_up', {
       email,
       full_name: fullName,
       password,
+      phone,
     })
     .then(unwrap);
 
