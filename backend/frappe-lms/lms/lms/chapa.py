@@ -121,6 +121,20 @@ def initialize_transaction(transaction_doc, currency="ETB"):
     callback_url = _get_config("chapa_callback_url")
     return_url = _get_config("chapa_return_url")
 
+    # Carry the course slug + our DS- transaction id through to the SPA success
+    # page so it can identify the purchase and route the learner straight to the
+    # course (/learn/<slug>). Chapa appends its own trx_ref/status on redirect;
+    # our params are preserved. Without this the success page has no course
+    # context and its "Go to Course" link dead-ends.
+    if return_url:
+        from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+
+        _parts = urlparse(return_url)
+        _query = dict(parse_qsl(_parts.query))
+        _query["course"] = txn.course or ""
+        _query["transaction"] = txn.transaction_id or ""
+        return_url = urlunparse(_parts._replace(query=urlencode(_query)))
+
     payload = {
         "amount": str(txn.amount),
         "currency": currency,

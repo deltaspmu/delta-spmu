@@ -208,7 +208,7 @@ export default function PaymentSuccess() {
         >
           {isBundle ? (
             <Link
-              to="/learn"
+              to="/my-courses"
               className="w-full sm:flex-1 py-3 bg-dark text-white rounded-lg text-sm font-medium text-center hover:bg-primary/90 transition-colors inline-flex items-center justify-center gap-2"
             >
               <BookOpen className="w-4 h-4" />
