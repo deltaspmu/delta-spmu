@@ -1,9 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { getUserTransactions } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
-import type { PaymentTransaction } from '@/types';
 import {
   formatDate,
   formatPrice,
@@ -12,7 +10,7 @@ import {
   truncateText,
   cn,
 } from '@/lib/utils';
-import { Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Receipt, ChevronLeft, ChevronRight, X, FileText, Loader2 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -72,9 +70,10 @@ function TableSkeleton() {
 
 interface TransactionCardProps {
   transaction: PaymentTransaction;
+  onViewInvoice?: (transactionId: string) => void;
 }
 
-function TransactionCard({ transaction }: TransactionCardProps) {
+function TransactionCard({ transaction, onViewInvoice }: TransactionCardProps) {
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm space-y-3">
       {/* Top row: course + status */}
@@ -119,6 +118,15 @@ function TransactionCard({ transaction }: TransactionCardProps) {
           </div>
         )}
       </div>
+
+      {transaction.status === 'Completed' && onViewInvoice && (
+        <button
+          onClick={() => onViewInvoice(transaction.transaction_id)}
+          className="w-full mt-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-dark hover:bg-gray-50 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -127,7 +135,7 @@ function TransactionCard({ transaction }: TransactionCardProps) {
 // Desktop Table Row
 // ---------------------------------------------------------------------------
 
-function TransactionRow({ transaction }: TransactionCardProps) {
+function TransactionRow({ transaction, onViewInvoice }: TransactionCardProps) {
   return (
     <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
       <td className="px-4 py-3.5 text-sm text-gray-600 whitespace-nowrap">
@@ -152,7 +160,134 @@ function TransactionRow({ transaction }: TransactionCardProps) {
       <td className="px-4 py-3.5">
         <StatusBadge status={transaction.status} />
       </td>
+      <td className="px-4 py-3.5">
+        {transaction.status === 'Completed' && onViewInvoice && (
+          <button
+            onClick={() => onViewInvoice(transaction.transaction_id)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-dark hover:bg-gray-50 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Invoice
+          </button>
+        )}
+      </td>
     </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
+  transactionId,
+  onClose,
+}: {
+  transactionId: string;
+  onClose: () => void;
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['invoice', transactionId],
+  });
+
+
+  // Open the print-ready A4 invoice in a new window. The window is opened
+  // synchronously on click (so it isn't blocked) and filled once the HTML
+  // arrives from the API.
+  const handlePrint = async () => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(
+      '<p style="font-family:sans-serif;padding:24px;color:#555;">Preparing your invoice…</p>'
+    );
+    try {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } catch {
+      win.document.body.innerHTML =
+        '<p style="font-family:sans-serif;padding:24px;color:#b00;">Could not load the invoice. Please try again.</p>';
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-sm w-full p-6 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-dark"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="text-center mb-4">
+        </div>
+
+        {isLoading ? (
+          <div className="py-12 flex justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : isError ? (
+          <p className="text-center text-sm text-gray-500 py-8">
+            Could not load the invoice. Please try again.
+          </p>
+        ) : !registered ? (
+          <p className="text-center text-sm text-gray-500 py-8">
+                ? 'This invoice has been cancelled.'
+          </p>
+        ) : (
+          <>
+            <img
+              src={`data:image/png;base64,${invoice!.qr}`}
+              className="w-44 h-44 mx-auto border border-gray-100 rounded"
+            />
+            <div className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Amount</span>
+                <span className="font-heading font-bold text-dark">
+                  {formatPrice(invoice!.amount, invoice!.currency)}
+                </span>
+              </div>
+              {invoice!.document_number && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Document No.</span>
+                  <span className="text-dark">{invoice!.document_number}</span>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-400 mb-1">IRN</p>
+                <p className="font-mono text-[11px] break-all bg-alabaster p-2 rounded">
+                  {invoice!.irn}
+                </p>
+              </div>
+            </div>
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Scan with the official MoR app to verify.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={handlePrint}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 bg-dark text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                Print / PDF
+              </button>
+              <a
+                href={`data:image/png;base64,${invoice!.qr}`}
+                className="flex items-center justify-center px-4 py-2 border border-dark text-dark rounded-lg text-sm hover:bg-alabaster transition-colors"
+              >
+                Download QR
+              </a>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -164,6 +299,7 @@ export default function Transactions() {
   const { t } = useTranslation(['common', 'pages']);
   const { user } = useAuth();
   const [page, setPage] = useState(1);
+  const [invoiceTxId, setInvoiceTxId] = useState<string | null>(null);
 
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -280,11 +416,18 @@ export default function Transactions() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Invoice
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {transactions.map((tx) => (
-                    <TransactionRow key={tx.name} transaction={tx} />
+                    <TransactionRow
+                      key={tx.name}
+                      transaction={tx}
+                      onViewInvoice={setInvoiceTxId}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -293,7 +436,11 @@ export default function Transactions() {
             {/* Mobile Cards (< lg) */}
             <div className="lg:hidden space-y-3">
               {transactions.map((tx) => (
-                <TransactionCard key={tx.name} transaction={tx} />
+                <TransactionCard
+                  key={tx.name}
+                  transaction={tx}
+                  onViewInvoice={setInvoiceTxId}
+                />
               ))}
             </div>
 
@@ -357,6 +504,12 @@ export default function Transactions() {
           </>
         )}
       </div>
+
+      {invoiceTxId && (
+          transactionId={invoiceTxId}
+          onClose={() => setInvoiceTxId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -73,8 +73,10 @@ export default function PaymentSuccess() {
   }, [isBundle, transaction, course]);
 
   const amountPaid = useMemo(() => {
-    if (transaction?.final_amount != null && transaction?.currency) {
-      return formatPrice(transaction.final_amount, transaction.currency);
+    // check_payment_status returns `amount`; fall back to final_amount for safety.
+    const amt = transaction?.amount ?? transaction?.final_amount;
+    if (amt != null && transaction?.currency) {
+      return formatPrice(amt, transaction.currency);
     }
     return null;
   }, [transaction]);

@@ -4,6 +4,18 @@ import { useAuth } from '@/context/AuthContext';
 
 type PaymentStatus = 'idle' | 'initiating' | 'polling' | 'success' | 'failed' | 'expired';
 
+/** Out-of-band payment instructions (telebirr C2B Pay Bill, etc.) */
+export interface PaymentInstructions {
+  provider?: string;
+  method?: string;
+  short_code?: string;
+  bill_reference?: string;
+  amount?: number;
+  currency?: string;
+  steps?: string[];
+  note?: string;
+}
+
 interface StoredTransaction {
   transactionId: string;
   courseId: string;
@@ -19,6 +31,7 @@ interface PendingPayment {
   courseId: string;
   paymentMethod: string;
   checkoutUrl?: string;
+  instructions?: PaymentInstructions;
   startedAt: string;
 }
 
@@ -26,6 +39,7 @@ interface UsePaymentReturn {
   status: PaymentStatus;
   transactionId: string | null;
   checkoutUrl: string | null;
+  instructions: PaymentInstructions | null;
   error: string | null;
   startPayment: (
     courseId: string,
@@ -38,6 +52,9 @@ interface UsePaymentReturn {
 }
 
 const MAX_POLL_ATTEMPTS = 60;
+// telebirr C2B: the customer pays out-of-band in their own app, so we poll
+// far longer (30 min on-page; the bill itself stays valid for 24h server-side).
+const INSTRUCTION_MAX_POLL_ATTEMPTS = 360;
 const POLL_INTERVAL_MS = 5000;
 const MAX_HISTORY_ENTRIES = 50;
 
@@ -56,6 +73,7 @@ export function usePayment(): UsePaymentReturn {
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -140,11 +158,15 @@ export function usePayment(): UsePaymentReturn {
   // Poll payment status
   // ---------------------------------------------------------------------------
   const pollPaymentStatus = useCallback(
-    (txId: string) => {
+    (txId: string, isInstructionPayment = false) => {
       // Clear any existing interval
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
+
+      const maxAttempts = isInstructionPayment
+        ? INSTRUCTION_MAX_POLL_ATTEMPTS
+        : MAX_POLL_ATTEMPTS;
 
       pollCountRef.current = 0;
       setStatus('polling');
@@ -152,14 +174,17 @@ export function usePayment(): UsePaymentReturn {
       pollIntervalRef.current = setInterval(async () => {
         pollCountRef.current += 1;
 
-        if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
-          // 5-minute timeout
+        if (pollCountRef.current > maxAttempts) {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
           setStatus('expired');
-          setError('Payment verification timed out. Please check your transaction history.');
+          setError(
+            isInstructionPayment
+              ? "We haven't seen your payment yet. If you've already paid in telebirr, your course will unlock automatically — check My Courses in a few minutes."
+              : 'Payment verification timed out. Please check your transaction history.'
+          );
           clearPendingPayment();
           addTransactionToHistory({
             transactionId: txId,
@@ -232,6 +257,7 @@ export function usePayment(): UsePaymentReturn {
       setError(null);
       setTransactionId(null);
       setCheckoutUrl(null);
+      setInstructions(null);
 
       try {
         const result = (await initiatePayment(
@@ -243,6 +269,7 @@ export function usePayment(): UsePaymentReturn {
 
         const txId = result?.transaction_id as string;
         const url = result?.checkout_url as string | undefined;
+        const instr = (result?.instructions as PaymentInstructions | undefined) ?? undefined;
 
         if (!txId) {
           throw new Error('No transaction ID returned from payment initiation.');
@@ -253,6 +280,9 @@ export function usePayment(): UsePaymentReturn {
         if (url) {
           setCheckoutUrl(url);
         }
+        if (instr) {
+          setInstructions(instr);
+        }
 
         // Save pending payment to localStorage
         savePendingPayment({
@@ -260,16 +290,24 @@ export function usePayment(): UsePaymentReturn {
           courseId,
           paymentMethod,
           checkoutUrl: url,
+          instructions: instr,
           startedAt: new Date().toISOString(),
         });
 
-        // Open checkout URL if provided
+        // Redirect-based providers (Chapa / EthSwitch) return a checkout_url.
+        // Navigate the CURRENT tab to it — a same-tab redirect is immune to
+        // popup blockers (window.open after an await is blocked on Safari and
+        // can strand the learner with no checkout page). On return, the backend
+        // return_url lands on /payment/success and recoverPendingPayment()
+        // re-attaches the poller. This matches the live Afritutors flow.
         if (url) {
-          window.open(url, '_blank');
+          window.location.href = url;
+          return;
         }
 
-        // Start polling
-        pollPaymentStatus(txId);
+        // Instruction-based providers (telebirr Pay Bill / CBE): stay on the
+        // page and poll while the learner pays out-of-band.
+        pollPaymentStatus(txId, !!instr);
       } catch (err: unknown) {
         setStatus('failed');
         const message =
@@ -287,17 +325,21 @@ export function usePayment(): UsePaymentReturn {
     const pending = loadPendingPayment();
     if (!pending) return;
 
-    // Check if the pending payment is older than 5 minutes
+    // Recovery window matches the polling window for the method
+    const isInstructionPayment = !!pending.instructions;
     const startedAt = new Date(pending.startedAt).getTime();
-    const fiveMinutes = MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS;
-    if (Date.now() - startedAt > fiveMinutes) {
+    const windowMs =
+      (isInstructionPayment ? INSTRUCTION_MAX_POLL_ATTEMPTS : MAX_POLL_ATTEMPTS) *
+      POLL_INTERVAL_MS;
+    if (Date.now() - startedAt > windowMs) {
       clearPendingPayment();
       return;
     }
 
     setTransactionId(pending.transactionId);
     setCheckoutUrl(pending.checkoutUrl ?? null);
-    pollPaymentStatus(pending.transactionId);
+    setInstructions(pending.instructions ?? null);
+    pollPaymentStatus(pending.transactionId, isInstructionPayment);
   }, [loadPendingPayment, clearPendingPayment, pollPaymentStatus]);
 
   useEffect(() => {
@@ -310,6 +352,7 @@ export function usePayment(): UsePaymentReturn {
     status,
     transactionId,
     checkoutUrl,
+    instructions,
     error,
     startPayment,
     clearPendingPayment,

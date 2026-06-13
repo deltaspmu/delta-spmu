@@ -19,14 +19,16 @@ import {
   Globe,
   Landmark,
   Building2,
-  Phone,
   Loader2,
   AlertCircle,
   RefreshCw,
   Clock,
   ShieldCheck,
   ChevronRight,
+  Copy,
+  Check,
 } from 'lucide-react';
+import type { PaymentInstructions } from '@/hooks/usePayment';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,7 +49,7 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
   {
     id: 'telebirr',
     label: 'Pay with telebirr',
-    description: 'Mobile money payment',
+    description: 'Pay Bill from your telebirr app',
     icon: <Smartphone className="w-5 h-5" />,
   },
   {
@@ -77,8 +79,6 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
 ];
 
 const BUNDLE_ID = 'all-courses-bundle';
-
-const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)?(9|7)\d{8}$/;
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -159,6 +159,98 @@ function CBETransferInstructions({
         </li>
         <li>After transferring, submit your bank reference number below.</li>
       </ol>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// telebirr C2B "Pay Bill" instructions card
+// ---------------------------------------------------------------------------
+
+function CopyValue({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable — user can select manually
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg p-3 border border-gray-200 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className="font-mono font-bold text-dark text-lg tracking-wider truncate">
+          {value || '—'}
+        </p>
+      </div>
+      {value && (
+        <button
+          onClick={handleCopy}
+          className="flex-shrink-0 w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-dark hover:border-gray-300 transition-colors"
+          aria-label={`Copy ${label}`}
+        >
+          {copied ? (
+            <Check className="w-4 h-4 text-green-600" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TelebirrPayBillCard({
+  instructions,
+  isWaiting,
+}: {
+  instructions: PaymentInstructions;
+  isWaiting: boolean;
+}) {
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Smartphone className="w-4 h-4 text-green-700" />
+        <h3 className="font-heading font-semibold text-dark text-sm">
+          Pay with telebirr — Pay Bill
+        </h3>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <CopyValue
+          label="Merchant short code"
+          value={instructions.short_code || ''}
+        />
+        <CopyValue
+          label="Bill reference"
+          value={instructions.bill_reference || ''}
+        />
+      </div>
+
+      <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1.5">
+        {(instructions.steps || []).map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
+      </ol>
+
+      {instructions.note && (
+        <p className="text-xs text-gray-500">{instructions.note}</p>
+      )}
+
+      {isWaiting && (
+        <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-green-100">
+          <Loader2 className="w-4 h-4 text-green-600 animate-spin flex-shrink-0" />
+          <p className="text-sm text-gray-600">
+            Waiting for your payment — this page updates automatically once
+            telebirr confirms.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -256,8 +348,6 @@ export default function Payment() {
 
   // State
   const [selectedMethod, setSelectedMethod] = useState<string>('');
-  const [phone, setPhone] = useState('');
-  const [phoneError, setPhoneError] = useState('');
   const [currency, setCurrency] = useState<'ETB' | 'USD'>('ETB');
   const [cbeReference, setCbeReference] = useState('');
   const [showCbeSubmit, setShowCbeSubmit] = useState(false);
@@ -266,6 +356,7 @@ export default function Payment() {
   const {
     status: paymentStatus,
     transactionId,
+    instructions: paymentInstructions,
     error: paymentError,
     startPayment,
     clearPendingPayment,
@@ -328,31 +419,13 @@ export default function Payment() {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  function validatePhone(value: string): boolean {
-    if (!value.trim()) {
-      setPhoneError('Phone number is required');
-      return false;
-    }
-    if (!ETHIOPIAN_PHONE_REGEX.test(value.replace(/\s/g, ''))) {
-      setPhoneError('Enter a valid Ethiopian phone number (e.g. 09XXXXXXXX)');
-      return false;
-    }
-    setPhoneError('');
-    return true;
-  }
-
   async function handlePay() {
     if (!courseId || !selectedMethod) return;
-
-    // Validate phone for telebirr
-    if (selectedMethod === 'telebirr') {
-      if (!validatePhone(phone)) return;
-    }
 
     await startPayment(
       courseId,
       selectedMethod,
-      selectedMethod === 'telebirr' ? phone : undefined,
+      undefined,
       selectedMethod === 'chapa_international' ? currency : undefined
     );
 
@@ -370,8 +443,6 @@ export default function Payment() {
   function handleRestart() {
     clearPendingPayment();
     setSelectedMethod('');
-    setPhone('');
-    setPhoneError('');
     setShowCbeSubmit(false);
     setCbeReference('');
   }
@@ -401,8 +472,12 @@ export default function Payment() {
 
   const isStep2 = !!selectedMethod;
   const isInitiating = paymentStatus === 'initiating';
+  // telebirr C2B shows inline Pay Bill instructions while polling — the
+  // blocking "Verifying..." overlay would hide the short code + reference.
+  const showTelebirrInstructions =
+    selectedMethod === 'telebirr' && !!paymentInstructions;
   const showOverlay =
-    paymentStatus === 'polling' ||
+    (paymentStatus === 'polling' && !showTelebirrInstructions) ||
     paymentStatus === 'failed' ||
     paymentStatus === 'expired';
 
@@ -457,7 +532,6 @@ export default function Payment() {
                       key={method.id}
                       onClick={() => {
                         setSelectedMethod(method.id);
-                        setPhoneError('');
                         setShowCbeSubmit(false);
                         setCbeReference('');
                       }}
@@ -537,45 +611,24 @@ export default function Payment() {
                   </div>
                 )}
 
-                {/* telebirr: Phone input */}
-                {selectedMethod === 'telebirr' && (
-                  <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium text-dark mb-2"
-                    >
-                      Phone Number
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        id="phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => {
-                          setPhone(e.target.value);
-                          if (phoneError) validatePhone(e.target.value);
-                        }}
-                        onBlur={() => {
-                          if (phone) validatePhone(phone);
-                        }}
-                        placeholder="09XXXXXXXX"
-                        className={cn(
-                          'w-full pl-10 pr-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                          phoneError
-                            ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
-                            : 'border-gray-200 focus:ring-primary/30 focus:border-primary'
-                        )}
-                      />
-                    </div>
-                    {phoneError && (
-                      <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {phoneError}
+                {/* telebirr: Pay Bill instructions (after initiation) or info note */}
+                {selectedMethod === 'telebirr' &&
+                  (showTelebirrInstructions && paymentInstructions ? (
+                    <TelebirrPayBillCard
+                      instructions={paymentInstructions}
+                      isWaiting={paymentStatus === 'polling'}
+                    />
+                  ) : (
+                    <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
+                      <Smartphone className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      <p className="text-sm text-gray-600">
+                        You will pay from your own telebirr app using{' '}
+                        <span className="font-medium text-dark">Pay Bill</span>.
+                        We&apos;ll show you the merchant short code and your
+                        bill reference on the next step.
                       </p>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  ))}
 
                 {/* CBE: Transfer instructions */}
                 {selectedMethod === 'cbe' && !showCbeSubmit && (
@@ -625,8 +678,9 @@ export default function Payment() {
                   </div>
                 )}
 
-                {/* Pay button (hide if CBE reference form is showing) */}
-                {!(selectedMethod === 'cbe' && showCbeSubmit) && (
+                {/* Pay button (hide if CBE reference form or telebirr Pay Bill card is showing) */}
+                {!(selectedMethod === 'cbe' && showCbeSubmit) &&
+                  !showTelebirrInstructions && (
                   <button
                     onClick={handlePay}
                     disabled={isInitiating || !selectedMethod}
@@ -639,6 +693,8 @@ export default function Payment() {
                       </>
                     ) : selectedMethod === 'cbe' ? (
                       'I Have Transferred'
+                    ) : selectedMethod === 'telebirr' ? (
+                      `Get Payment Instructions — ${formatPrice(finalAmount, displayCurrency)}`
                     ) : (
                       `Pay ${formatPrice(finalAmount, displayCurrency)}`
                     )}
