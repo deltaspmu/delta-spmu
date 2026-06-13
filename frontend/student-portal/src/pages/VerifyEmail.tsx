@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { verifyEmail } from '@/api/client';
+import { extractFrappeError } from '@/lib/errors';
 
 type Status = 'loading' | 'success' | 'error' | 'invalid';
 
@@ -21,11 +22,7 @@ export default function VerifyEmail() {
       setStatus('success');
     } catch (err: unknown) {
       setStatus('error');
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : 'Verification failed. The link may have expired.'
-      );
+      setErrorMessage(extractFrappeError(err));
     }
   }, []);
 

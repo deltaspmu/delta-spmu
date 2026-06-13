@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
 import { signUp } from '@/api/client';
+import { extractFrappeError } from '@/lib/errors';
 
 export default function Register() {
   const { t } = useTranslation(['common', 'pages']);
@@ -112,9 +113,7 @@ export default function Register() {
       setStep('success');
       startCooldown();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Registration failed. Please try again.';
-      setError(message);
+      setError(extractFrappeError(err));
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { resetPassword } from '@/api/client';
+import { extractFrappeError } from '@/lib/errors';
 
 export default function ResetPassword() {
   const { t } = useTranslation(['common', 'pages']);
@@ -103,11 +104,7 @@ export default function ResetPassword() {
       await resetPassword(key, password);
       setIsSuccess(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Failed to reset password. The link may have expired.';
-      setError(message);
+      setError(extractFrappeError(err));
     } finally {
       setIsLoading(false);
     }
