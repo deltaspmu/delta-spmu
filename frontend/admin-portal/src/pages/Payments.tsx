@@ -113,6 +113,14 @@ export default function Payments() {
 
   const methods = [...new Set(transactions.map((t) => t.payment_method).filter(Boolean))];
 
+  // admin_get_revenue_stats returns total_revenue_etb + transaction_counts{Status:n}.
+  // (Earlier this page read total_revenue / pending_count / completed_count /
+  // avg_order_value — keys the endpoint never returns — so every card showed 0.)
+  const completedCount = stats?.transaction_counts?.Completed ?? 0;
+  const pendingCount = stats?.transaction_counts?.Pending ?? 0;
+  const totalRevenueEtb = Number(stats?.total_revenue_etb || 0);
+  const avgOrderValue = completedCount ? Math.round(totalRevenueEtb / completedCount) : 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -130,25 +138,25 @@ export default function Payments() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Revenue"
-            value={`${Number(stats?.total_revenue || 0).toLocaleString()} ETB`}
+            value={`${totalRevenueEtb.toLocaleString()} ETB`}
             icon={<DollarSign className="w-6 h-6 text-emerald-600" />}
             color="bg-emerald-50"
           />
           <StatCard
             title="Pending Payments"
-            value={stats?.pending_count ?? 0}
+            value={pendingCount}
             icon={<Clock className="w-6 h-6 text-amber-600" />}
             color="bg-amber-50"
           />
           <StatCard
             title="Completed Payments"
-            value={stats?.completed_count ?? 0}
+            value={completedCount}
             icon={<CheckCircle className="w-6 h-6 text-green-600" />}
             color="bg-green-50"
           />
           <StatCard
             title="Average Order Value"
-            value={`${Number(stats?.avg_order_value || 0).toLocaleString()} ETB`}
+            value={`${avgOrderValue.toLocaleString()} ETB`}
             icon={<TrendingUp className="w-6 h-6 text-blue-600" />}
             color="bg-blue-50"
           />

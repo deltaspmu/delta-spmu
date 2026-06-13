@@ -373,7 +373,17 @@ export async function deleteReview(name: string) {
 // ---------------------------------------------------------------------------
 
 export async function getPaymentTransactions(params?: Record<string, any>) {
-  const res = await api.get(resource('Payment Transaction'), { params });
+  // Frappe's generic /api/resource endpoint returns ONLY `name` unless fields
+  // are requested — which left every row without status/amount, so the status
+  // filter matched nothing ("No transactions found"). Request all fields.
+  const res = await api.get(resource('Payment Transaction'), {
+    params: {
+      fields: JSON.stringify(['*']),
+      order_by: 'creation desc',
+      limit_page_length: 200,
+      ...params,
+    },
+  });
   return unwrap(res);
 }
 
