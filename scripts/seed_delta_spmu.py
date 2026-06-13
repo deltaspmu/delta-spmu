@@ -48,9 +48,9 @@ def _frappe_init():
 # Configuration
 # ---------------------------------------------------------------------------
 INSTRUCTOR_EMAIL = "instructor@deltaspmu.com"
-INSTRUCTOR_FIRST = "Dr. Meron"
-INSTRUCTOR_LAST = "Tadesse"
-INSTRUCTOR_PASSWORD = "Meron@Delta2026!"
+INSTRUCTOR_FIRST = "Eden"
+INSTRUCTOR_LAST = "Kassahun"
+INSTRUCTOR_PASSWORD = "Eden@Delta2026!"
 
 STUDENT_EMAIL = "student@deltaspmu.com"
 STUDENT_FIRST = "Hanna"

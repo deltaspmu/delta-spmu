@@ -506,32 +506,36 @@ export default function Courses() {
         )}
       </div>
 
-      {/* Meet Your Instructor — anchored to Dr. Meron Tadesse, the
-          academy lead. Static for now; later pull from a real
-          instructor profile when we expose one. */}
+      {/* Meet Your Instructor — anchored to Eden Kassahun, the academy
+          founder & lead educator. Static for now; later pull from a
+          real instructor profile when we expose one. */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-[280px_1fr]">
-          <div
-            className="aspect-square md:aspect-auto md:min-h-[260px] bg-cover bg-center"
-            style={{ backgroundImage: "url('/images/instructor.jpg')" }}
-          />
+          {/* Placeholder until Eden's real photo is dropped in at
+              /images/instructor.jpg — then swap this block back to a
+              bg-cover div using that image. */}
+          <div className="aspect-square md:aspect-auto md:min-h-[260px] flex items-center justify-center bg-primary/15">
+            <span className="font-heading text-6xl font-bold tracking-wide text-primary-dark/70 select-none">
+              EK
+            </span>
+          </div>
           <div className="p-6 sm:p-8 flex flex-col justify-center">
             <div className="flex items-center gap-2 text-primary-dark text-xs uppercase tracking-[0.2em] font-medium mb-2">
               <Award className="w-3.5 h-3.5" />
               <span>Meet Your Instructor</span>
             </div>
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-dark mb-2">
-              Dr. Meron Tadesse
+              Eden Kassahun
             </h2>
             <p className="text-sm text-dark-light mb-4">
               Founder &amp; Lead Educator, Delta SPMU Academy
             </p>
             <p className="text-sm text-dark-light leading-relaxed">
-              With deep expertise in cosmetic dermatology and a passion for the
-              craft of permanent makeup, Dr. Meron has trained hundreds of
-              practitioners across East Africa in the signature techniques
-              taught here — from foundational hygiene through advanced
-              brow artistry and instructor-level pedagogy.
+              As the founder and lead educator of Delta SPMU Academy, Eden
+              guides students through the academy&rsquo;s signature curriculum
+              with a deep passion for the craft of permanent makeup — from
+              foundational hygiene and safety through advanced brow artistry and
+              instructor-level training.
             </p>
           </div>
         </div>
