@@ -511,13 +511,12 @@ export default function Courses() {
           real instructor profile when we expose one. */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-[280px_1fr]">
-          {/* Placeholder until Eden's real photo is dropped in at
-              /images/instructor.jpg — then swap this block back to a
-              bg-cover div using that image. */}
-          <div className="aspect-square md:aspect-auto md:min-h-[260px] flex items-center justify-center bg-primary/15">
-            <span className="font-heading text-6xl font-bold tracking-wide text-primary-dark/70 select-none">
-              EK
-            </span>
+          <div className="aspect-square md:aspect-auto md:min-h-[260px] bg-primary/15">
+            <img
+              src="/images/eden-kassahun.jpg"
+              alt="Eden Kassahun, Founder & Lead Educator of Delta SPMU Academy"
+              className="w-full h-full object-cover object-top"
+            />
           </div>
           <div className="p-6 sm:p-8 flex flex-col justify-center">
             <div className="flex items-center gap-2 text-primary-dark text-xs uppercase tracking-[0.2em] font-medium mb-2">
