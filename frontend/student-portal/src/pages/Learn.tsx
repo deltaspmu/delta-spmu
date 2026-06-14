@@ -428,7 +428,8 @@ export default function Learn() {
     enabled: !!courseId && !!lessonId,
   });
 
-  const lessonAccess = lessonAccessData as { has_access: boolean; message?: string } | undefined;
+  // Backend check_lesson_access returns { access, reason } (NOT has_access/message).
+  const lessonAccess = lessonAccessData as { access: boolean; reason?: string } | undefined;
 
   // Build accessible lessons set
   const accessibleLessons = useMemo(() => {
@@ -585,7 +586,7 @@ export default function Learn() {
   }
 
   // Sequential gating: lesson locked
-  if (lessonAccess && !lessonAccess.has_access) {
+  if (lessonAccess && !lessonAccess.access) {
     return (
       <div className="min-h-screen bg-alabaster flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
@@ -594,7 +595,7 @@ export default function Learn() {
             Lesson Locked
           </h2>
           <p className="text-gray-500 mb-6">
-            {lessonAccess.message || 'Complete the previous lesson to unlock this one.'}
+            {lessonAccess.reason || 'Complete the previous lesson to unlock this one.'}
           </p>
           <Link
             to={`/learn/${courseId}`}
