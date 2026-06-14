@@ -688,6 +688,8 @@ export default function CourseEditor() {
   const [price, setPrice] = useState(0);
   const [currency, setCurrency] = useState('ETB');
   const [published, setPublished] = useState(false);
+  // "Coming Soon" — course is visible in the catalogue but not purchasable.
+  const [upcoming, setUpcoming] = useState(false);
   // Learning outcomes (newline-separated, stored in Custom Field on LMS Course)
   const [learningOutcomes, setLearningOutcomes] = useState<string[]>([]);
   const [newOutcome, setNewOutcome] = useState('');
@@ -716,6 +718,7 @@ export default function CourseEditor() {
     setPrice(d.course_price || 0);
     setCurrency(d.currency || 'ETB');
     setPublished(!!d.published);
+    setUpcoming(!!d.upcoming);
     // Split outcomes by newline, trim, drop blanks
     const outcomesRaw: string = d.learning_outcomes || '';
     setLearningOutcomes(
@@ -770,6 +773,7 @@ export default function CourseEditor() {
         course_price: price,
         currency,
         published: published ? 1 : 0,
+        upcoming: upcoming ? 1 : 0,
         learning_outcomes: learningOutcomes.join('\n'),
       };
 
@@ -1076,6 +1080,14 @@ export default function CourseEditor() {
             <div className="w-9 h-5 bg-gray-200 peer-checked:bg-dark rounded-full peer-focus:ring-2 peer-focus:ring-primary-dark after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
           </label>
           <span className="text-sm text-gray-700">Published</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={upcoming} onChange={(e) => setUpcoming(e.target.checked)} className="sr-only peer" />
+            <div className="w-9 h-5 bg-gray-200 peer-checked:bg-amber-500 rounded-full peer-focus:ring-2 peer-focus:ring-amber-400 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+          </label>
+          <span className="text-sm text-gray-700">Coming Soon (visible but not purchasable)</span>
         </div>
       </div>
       </>

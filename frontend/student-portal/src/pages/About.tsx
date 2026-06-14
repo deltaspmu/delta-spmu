@@ -72,30 +72,31 @@ export default function About() {
               What We Offer
             </h2>
             <p className="text-dark/70 leading-relaxed mb-6">
-              Our curriculum is structured into four progressive certification
-              levels, each designed to build on the last:
+              Our certificate programs cover the most in-demand semi-permanent
+              makeup and beauty specialisms &mdash; each blending online theory
+              with in-person practical training:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 {
                   icon: BookOpen,
-                  title: 'Foundation',
-                  desc: 'Core theory, color science, hygiene standards, and introductory techniques.',
+                  title: 'Ombré Brows Artistry',
+                  desc: 'Soft, gradient ombré brows — from skin science and brow mapping to a full live procedure.',
                 },
                 {
                   icon: Award,
-                  title: 'Advanced',
-                  desc: 'Specialized brow, lip, and eyeliner techniques with live model practice.',
+                  title: 'Bridal Makeup Artistry',
+                  desc: 'Camera-ready bridal looks, consultation and trials, and the business of bridal beauty.',
                 },
                 {
                   icon: Users,
-                  title: 'Master Artist',
-                  desc: 'Advanced corrections, color migration, and complex skin-type challenges.',
+                  title: 'Nano Brows Artistry',
+                  desc: 'Ultra-fine machine hairstrokes that mimic natural brow hair. (Coming soon)',
                 },
                 {
                   icon: Shield,
-                  title: 'Instructor Licensing',
-                  desc: 'Pedagogy, curriculum design, and certification to teach SPMU.',
+                  title: 'Lip Blush & Lip Neutralization',
+                  desc: 'Natural lip-colour enhancement and correction of dark or cool lips. (Coming soon)',
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div

@@ -126,9 +126,9 @@ export default function Login() {
 
         {/* Bottom — credit strip */}
         <div className="relative z-10 flex items-center gap-6 text-xs text-white/40 border-t border-white/10 pt-6">
-          <span>16 chapters</span>
+          <span>Video lessons</span>
           <span className="w-px h-3 bg-white/20" />
-          <span>5 certification courses</span>
+          <span>4 certificate programs</span>
           <span className="w-px h-3 bg-white/20" />
           <span>Addis Ababa</span>
         </div>

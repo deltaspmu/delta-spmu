@@ -422,17 +422,24 @@ export default function CourseDetail() {
   // CTA logic
   // ---------------------------------------------------------------------------
 
+  // "Coming soon" courses are visible in the catalogue but not yet purchasable.
+  const isUpcoming = course.upcoming === 1;
+
   let ctaLabel = '';
   let ctaAction: () => void = () => {};
   let ctaVariant: 'primary' | 'secondary' = 'primary';
+  let ctaDisabled = false;
 
-  if (!isAuthenticated) {
-    ctaLabel = 'Log In to Enroll';
-    ctaAction = () => navigate('/login');
-  } else if (hasAccess) {
+  if (hasAccess) {
     ctaLabel = 'Continue Learning';
     ctaAction = () => navigate(`/learn/${courseId}`);
     ctaVariant = 'secondary';
+  } else if (isUpcoming) {
+    ctaLabel = 'Coming Soon';
+    ctaDisabled = true;
+  } else if (!isAuthenticated) {
+    ctaLabel = 'Log In to Enroll';
+    ctaAction = () => navigate('/login');
   } else {
     ctaLabel = `Buy Now \u2014 ${formatPrice(priceInfo.final_price, priceInfo.currency)}`;
     ctaAction = () => navigate(`/payment/${courseId}`);
@@ -726,6 +733,16 @@ export default function CourseDetail() {
               <div className="bg-white rounded-xl p-5 border border-gray-100">
                 {priceLoading ? (
                   <div className="h-8 bg-gray-200 rounded w-1/3 animate-pulse" />
+                ) : isUpcoming ? (
+                  <div className="mb-4">
+                    <span className="font-heading text-2xl font-bold text-dark">
+                      Coming Soon
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      This course isn&rsquo;t available for purchase yet &mdash; check
+                      back soon.
+                    </p>
+                  </div>
                 ) : (
                   <div className="flex items-baseline gap-3 mb-4">
                     <span className="font-heading text-3xl font-bold text-dark">
@@ -749,12 +766,14 @@ export default function CourseDetail() {
                 {/* CTA */}
                 <button
                   onClick={ctaAction}
-                  disabled={accessLoading}
+                  disabled={accessLoading || ctaDisabled}
                   className={cn(
                     'w-full py-3 rounded-lg font-medium text-sm transition-colors',
-                    ctaVariant === 'primary'
-                      ? 'bg-dark text-white hover:bg-primary/90'
-                      : 'bg-dark text-white hover:bg-dark/90'
+                    ctaDisabled
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : ctaVariant === 'primary'
+                        ? 'bg-dark text-white hover:bg-primary/90'
+                        : 'bg-dark text-white hover:bg-dark/90'
                   )}
                 >
                   {accessLoading ? 'Loading...' : ctaLabel}
@@ -779,7 +798,7 @@ export default function CourseDetail() {
                     </h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">
-                    Get all 5 courses for{' '}
+                    Get all courses for{' '}
                     <span className="font-bold text-dark">
                       {formatPrice(priceInfo.bundle_price, priceInfo.currency)}
                     </span>

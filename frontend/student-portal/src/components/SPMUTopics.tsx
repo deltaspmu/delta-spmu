@@ -107,7 +107,7 @@ export default function SPMUTopics({ onTopicClick }: Props) {
         </h2>
         <p className="text-dark-light text-base mt-3 leading-relaxed">
           Every program at Delta SPMU is built from these foundational skill
-          areas, drawn directly from our 16-chapter training manual. Dig
+          areas, drawn directly from our professional training manuals. Dig
           deeper into the topic that's calling you next.
         </p>
       </div>

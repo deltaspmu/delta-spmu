@@ -8,7 +8,8 @@ const FALLBACK_PRICE: PaymentInfo = {
   discount_amount: 0,
   final_price: 12500,
   currency: 'ETB',
-  bundle_available: true,
+  // Bundle is disabled while the catalogue is rebuilt (see payments_api.BUNDLE_ENABLED).
+  bundle_available: false,
   bundle_price: 20000,
 };
 

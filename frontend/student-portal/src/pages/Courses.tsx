@@ -123,6 +123,12 @@ function CourseCard({ course }: CourseCardProps) {
         >
           <Heart className="w-4 h-4" fill={wishlisted ? 'currentColor' : 'none'} />
         </button>
+        {/* Coming soon badge */}
+        {course.upcoming === 1 && (
+          <span className="absolute bottom-3 left-3 bg-dark/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+            Coming Soon
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -174,9 +180,11 @@ function CourseCard({ course }: CourseCardProps) {
             </span>
           </div>
           <span className="font-heading font-bold text-primary text-sm">
-            {course.course_price > 0
-              ? formatPrice(course.course_price, course.currency)
-              : 'Free'}
+            {course.upcoming === 1
+              ? 'Coming Soon'
+              : course.course_price > 0
+                ? formatPrice(course.course_price, course.currency)
+                : 'Free'}
           </span>
         </div>
       </div>
@@ -303,8 +311,8 @@ export default function Courses() {
               {t('common:courses', 'Courses')}
             </h1>
             <p className="text-primary-light text-lg max-w-2xl">
-              Professional permanent makeup training programs &mdash; from
-              foundation to instructor licensing.
+              Professional permanent makeup &amp; beauty certificates &mdash;
+              from ombré brows to bridal artistry.
             </p>
           </div>
         </div>
@@ -319,7 +327,7 @@ export default function Courses() {
             </div>
             <div>
               <p className="text-xs text-dark-light">Programs</p>
-              <p className="text-base font-semibold text-dark">4 tiers</p>
+              <p className="text-base font-semibold text-dark">4 certificates</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -328,7 +336,7 @@ export default function Courses() {
             </div>
             <div>
               <p className="text-xs text-dark-light">Curriculum</p>
-              <p className="text-base font-semibold text-dark">16 chapters</p>
+              <p className="text-base font-semibold text-dark">Video + theory</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">

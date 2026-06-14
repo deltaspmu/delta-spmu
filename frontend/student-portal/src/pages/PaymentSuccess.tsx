@@ -66,7 +66,7 @@ export default function PaymentSuccess() {
   // ---------------------------------------------------------------------------
 
   const courseTitle = useMemo(() => {
-    if (isBundle) return 'All 5 Courses Bundle';
+    if (isBundle) return 'All Courses Bundle';
     if (transaction?.course_title) return transaction.course_title;
     if (course?.title) return course.title;
     return 'Course';

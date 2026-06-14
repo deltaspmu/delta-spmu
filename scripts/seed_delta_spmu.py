@@ -4,10 +4,13 @@ Delta SPMU Academy — canonical seed script.
 Seeds:
 - Categories (Permanent Makeup + supporting)
 - Instructor + test student users
-- 5 courses: Foundation, Advanced, Master Artist, Instructor Licensing,
-  Professional Bridal Makeup
+- 4 "Professional Certificate in …" courses:
+    * Ombre Brows Artistry            (LIVE — full curriculum, videos ready)
+    * Bridal Makeup Artistry          (LIVE — full curriculum, videos in progress)
+    * Nano Brows Artistry             (COMING SOON — locked placeholder)
+    * Lip Blush & Lip Neutralization  (COMING SOON — locked placeholder)
 - All chapters and lessons (text bodies — videos uploaded later via admin)
-- One quiz per chapter (SingleChoice + MultipleChoice mix)
+- One quiz per chapter on the live courses (SingleChoice + MultipleChoice mix)
 
 Idempotent: wipes existing courses and re-seeds. Safe to re-run.
 
@@ -22,8 +25,14 @@ Or from a workstation:
 Do NOT pipe this into ``bench console`` — IPython treats each top-level line
 as its own cell and global variables get torn down between definitions.
 
-Pricing: every course is 12,500 ETB. The "all courses" bundle is 20,000 ETB
-(see lms.lms.payments_api.BUNDLE_PRICE).
+Pricing: the Ombre Brows certificate is 17,000 ETB; the other three courses
+are 12,500 ETB (set per-course via the ``price`` key below; falls back to
+COURSE_PRICE). The "all courses" bundle is currently disabled
+(see lms.lms.payments_api.BUNDLE_ENABLED).
+
+Coming-soon courses are seeded published=1, upcoming=1 so they appear in the
+catalogue marked "Coming Soon" but cannot be purchased (the student portal and
+payments_api.initiate_payment both gate on ``upcoming``).
 """
 
 import os
@@ -487,45 +496,143 @@ BRIDAL_BODIES = {
 # Course definitions
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Ombre course supplementary bodies — intro, equipment, and the two hands-on
+# practice lessons. Text drawn from the 2026 "Professional Certificate in
+# Ombre Brows Artistry" training manual (the other lesson bodies are reused
+# from LESSON_BODIES above).
+# ---------------------------------------------------------------------------
+
+OMBRE_EXTRA_BODIES = {
+    "intro_spmu": """<p>Semi-permanent makeup (SPMU), also known as cosmetic tattooing, is an advanced aesthetic procedure that involves the controlled implantation of pigment into the upper layers of the skin to enhance natural facial features. It is commonly used to improve the appearance of eyebrows, lips, and eyeliner, creating a long-lasting yet natural-looking result.</p>
+<p>Unlike traditional body tattooing, semi-permanent makeup uses specialised pigments and professional techniques designed to fade gradually over time as the skin naturally renews itself. This allows treatments to be refreshed and adjusted to maintain a balanced, aesthetically pleasing appearance.</p>
+<p>Within the beauty and aesthetics industry, SPMU has become increasingly popular because it simplifies daily beauty routines while enhancing facial symmetry and definition. Among the most requested procedures is the <strong>ombré brow</strong> technique, which creates a soft gradient effect that mimics professionally filled-in brows while keeping a natural finish.</p>""",
+
+    "equipment": """<p>Beyond the machine itself, an ombré brow artist must understand the equipment and consumables used in every procedure — and how the needle-cartridge configuration changes the result.</p>
+<p>The PMU machine frame is separate from the grip, which lets the inner machine be cleaned easily and a fresh, sterile cartridge be fitted for each client. Cartridges are single-use and discarded after every treatment.</p>
+<h4>Common needle cartridge configurations</h4>
+<ul>
+<li><strong>1R (1 round):</strong> ultra-fine detail — crisp lip liner, eyeliner, and precise work.</li>
+<li><strong>3R (3 round):</strong> lip liner, eyebrow detail, and small areas.</li>
+<li><strong>5R / 7R (round shaders):</strong> thicker lip line, labial shadow, eyeliner, and brow shading.</li>
+<li><strong>5F / 7F (flat / magnum):</strong> soft shading and pixelated gradients for ombré and powder brows, plus labial/lip surface work.</li>
+</ul>
+<p>Round liners and 1-prong nano needles are best for hair-stroke work, while shaders and magnums are best for the soft, layered shading used in ombré and powder brows. Choosing the correct configuration is essential for smooth pigment distribution and a clean healed result.</p>""",
+
+    "hands_on_fake_skin": """<p>Before working on a live model, students rehearse the full ombré sequence on artificial (latex) practice skin. This hands-on drill bridges theory and a real procedure — you practise machine handling, needle depth, and gradient layering on a surface that responds like skin.</p>
+<h4>What this drill covers</h4>
+<ul>
+<li>Setting up the machine, cartridge, and pigment for a full brow.</li>
+<li>Building the ombré gradient — lighter at the front, denser through the arch and tail — in gradual, controlled layers.</li>
+<li>Maintaining consistent spacing, pressure, and machine speed across the whole brow.</li>
+<li>Pacing the procedure and checking saturation as you go to avoid oversaturating.</li>
+</ul>
+<p>Repeat full-brow simulations on fake skin until the gradient heals smooth and even in your practice before progressing to live models.</p>""",
+
+    "hands_on_paper": """<p>Trial drawing on paper develops the hand control, symmetry, and shading consistency every ombré brow depends on — without a machine or pigment. It is the fastest, cheapest way to build muscle memory.</p>
+<h4>Practice exercises</h4>
+<ul>
+<li><strong>Brow outlines:</strong> draw matched left/right brow shapes from mapped start, arch, and tail points.</li>
+<li><strong>Gradient shading:</strong> shade light-to-dark across the brow to rehearse the ombré transition.</li>
+<li><strong>Symmetry drills:</strong> draw paired brows and check them against facial-landmark measurements.</li>
+<li><strong>Pixel / dot work:</strong> build density with small, even marks to mimic the pixelated shading pattern.</li>
+</ul>
+<p>Daily paper drills — outlines, shading, and symmetry — translate directly into cleaner work on artificial skin and, ultimately, on live models.</p>""",
+}
+
+
 def L(title, body_key):
-    """Shortcut for building a lesson record."""
-    body = (
-        LESSON_BODIES.get(body_key)
-        or SUPPLEMENTARY_BODIES.get(body_key)
-        or BRIDAL_BODIES.get(body_key)
-    )
-    if body is None:
-        raise KeyError(f"No body for key '{body_key}'")
-    return {"title": title, "body": body}
+    """Shortcut for building a lesson record.
+
+    ``body_key`` may be a single key or a tuple/list of keys; when several keys
+    are given the referenced bodies are concatenated. This is used where one
+    recorded video / lesson covers more than one manual section (e.g.
+    "Introduction & Skin Anatomy").
+    """
+    keys = body_key if isinstance(body_key, (list, tuple)) else (body_key,)
+    parts = []
+    for k in keys:
+        body = (
+            LESSON_BODIES.get(k)
+            or SUPPLEMENTARY_BODIES.get(k)
+            or BRIDAL_BODIES.get(k)
+            or OMBRE_EXTRA_BODIES.get(k)
+        )
+        if body is None:
+            raise KeyError(f"No body for key '{k}'")
+        parts.append(body)
+    return {"title": title, "body": "\n".join(parts)}
+
+
+def PL(title, summary):
+    """Build a placeholder lesson for a course that is still being prepared.
+
+    Used by the COMING-SOON courses (Nano Brows, Lip Blush) whose manuals and
+    videos are still in production. The body carries a short real summary plus a
+    clear "coming soon" note, and will be edited via the admin portal later.
+    """
+    return {
+        "title": title,
+        "body": (
+            f"<p>{summary}</p>"
+            "<p><em>This course is coming soon. The full written lesson and "
+            "training video are being prepared and will be available shortly.</em></p>"
+        ),
+    }
 
 
 COURSES = [
     # -----------------------------------------------------------------------
-    # 1. Foundation Certification
+    # 1. Professional Certificate in Ombre Brows Artistry  (LIVE)
+    #
+    # Chapter / lesson layout follows the 2026 "Professional Certificate in
+    # Ombre Brows Artistry" manual + the recorded video lessons, so each Vimeo
+    # video pairs cleanly to a lesson. Attach the uploaded video to the lesson
+    # in the admin portal. Suggested video -> lesson mapping:
+    #   Ch1 L1  <- "Chapter 1 Introduction and Skin Anatomy"
+    #   Ch1 L2  <- "Chapter 1 Lesson 2 Skin Types"
+    #   Ch1 L3  <- "Chapter 1 Lesson 3 Healing Science"
+    #   Ch2 L2  <- "Chapter 2 Medical PPE"
+    #   Ch3 L1  <- "Chapter 3 Color Theory and Pigment Selection"
+    #   Ch4 L1  <- "Chapter 4 Lesson 1 Face Shape and Brow Mapping"
+    #   Ch4 L4  <- "Chapter 4 Lesson 2 Face / Brow Mapping (Hands-On)"
+    #   Ch5 L1  <- "Chapter 5 Lesson 1 Machine and Needle Knowledge"
+    #   Ch5 L2  <- "Chapter 5 Lesson 2 Equipments"
+    #   Ch6 L1  <- "Chapter 6 Lesson 1-4 Types of Brow Techniques"
+    #   Ch6 L5  <- "Chapter 6 Lesson 5 Artificial Skin"
+    #   Ch6 L6  <- "Chapter 6 Lesson 6 Client Consultation"
+    #   Ch6 L7  <- "Chapter 6 Lesson 7 Drawing on Fake Skin (Hands-On)"
+    #   Ch6 L8  <- "Chapter 6 Lesson 8 Trial Drawing on Paper (Hands-On)"
+    #   Ch7 L1  <- "Chapter 7 Tattoo Full Procedure (Hands-On)"
+    #   Ch8 L1  <- "Chapter 8 Business and Branding Fundamentals"
     # -----------------------------------------------------------------------
     {
-        "title": "Foundation Certification",
-        "image": "/images/course-foundation.jpg",
+        "title": "Professional Certificate in Ombre Brows Artistry",
+        "price": 17000,
+        "category": "Permanent Makeup",
         "short_introduction": (
-            "Build the core knowledge every SPMU artist needs before touching skin: "
-            "anatomy, hygiene, color theory, brow mapping, and machine fundamentals."
+            "The complete ombré brow certification — skin science, hygiene, "
+            "colour theory, brow mapping, machine work, and the ombré technique, "
+            "with hands-on drills and a full live procedure."
         ),
-        "description": """<p><strong>Foundation Certification</strong> is the entry point for new SPMU artists. No prior experience is required.</p>
+        "description": """<p><strong>Professional Certificate in Ombre Brows Artistry</strong> is Delta SPMU Academy's complete, video-led ombré brow program. It takes you from the science of the skin all the way to a full live procedure, following the official 2026 training manual.</p>
 <p>By the end of this course you will:</p>
 <ul>
-<li>Understand the three layers of the skin and the depth at which pigment must be implanted.</li>
-<li>Identify all six Fitzpatrick skin types and adjust technique accordingly.</li>
-<li>Maintain a fully compliant sterile workstation.</li>
+<li>Understand skin anatomy, the Fitzpatrick scale, and the healing cycle.</li>
+<li>Run a fully compliant hygiene and infection-control workflow.</li>
 <li>Select pigments that harmonise with the client's undertone.</li>
-<li>Map a balanced brow on any of the six face shapes.</li>
-<li>Operate a PMU machine with the correct settings and needle configurations.</li>
-<li>Recognise and avoid the four most common beginner mistakes.</li>
+<li>Map a balanced brow on any of the six face shapes using the golden ratio.</li>
+<li>Set up the machine and choose the right needle cartridge for shading.</li>
+<li>Perform the ombré brow technique and understand nano, combo, and powder brows.</li>
+<li>Practise on paper and artificial skin before working on a live model.</li>
+<li>Run a professional consultation, a live procedure, and a healing / touch-up plan.</li>
+<li>Price, brand, and market your ombré brow services.</li>
 </ul>""",
         "chapters": [
             {
                 "title": "Skin Anatomy & Healing Science",
                 "lessons": [
-                    L("Skin Anatomy", "skin_anatomy"),
+                    L("Introduction & Skin Anatomy", ("intro_spmu", "skin_anatomy")),
                     L("Fitzpatrick Skin Types", "fitzpatrick"),
                     L("Healing Science", "healing_science"),
                 ],
@@ -562,23 +669,13 @@ COURSES = [
                                 {"option": "Bleeding heavier than menstrual flow", "is_correct": 0},
                             ],
                         },
-                        {
-                            "question": "Why is the upper dermis specifically the target depth?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "It heals faster than other layers.", "is_correct": 0},
-                                {"option": "It retains pigment visibly while still allowing gradual fade.", "is_correct": 1},
-                                {"option": "It has the most blood vessels.", "is_correct": 0},
-                                {"option": "It is the only sterile layer of the skin.", "is_correct": 0},
-                            ],
-                        },
                     ],
                 },
             },
             {
                 "title": "Hygiene & Infection Control Protocol",
                 "lessons": [
-                    L("Hygiene Standards", "hygiene"),
+                    L("Hygiene Fundamentals", "hygiene"),
                     L("Infection Control Protocol", "infection_control"),
                 ],
                 "quiz": {
@@ -662,7 +759,7 @@ COURSES = [
             {
                 "title": "Face Shape & Brow Mapping",
                 "lessons": [
-                    L("Face Shapes", "face_shapes"),
+                    L("Face Shapes & Brow Design", "face_shapes"),
                     L("The Golden Ratio Mapping System", "golden_ratio"),
                     L("Personalization & Facial Asymmetry Correction", "asymmetry"),
                     L("Mapping Tools & Pre-Drawing Process", "mapping_tools"),
@@ -716,7 +813,8 @@ COURSES = [
             {
                 "title": "Machine & Needle Knowledge",
                 "lessons": [
-                    L("Machine & Needle Fundamentals", "machine_needle"),
+                    L("Machine & Needle Knowledge", "machine_needle"),
+                    L("Equipment & Needle Cartridges", "equipment"),
                 ],
                 "quiz": {
                     "title": "Machine & Needle Quiz",
@@ -745,62 +843,19 @@ COURSES = [
                 },
             },
             {
-                "title": "Common Beginner Mistakes",
+                "title": "Types of Brow Techniques",
                 "lessons": [
-                    L("Common Mistakes & How to Avoid Them", "beginner_mistakes"),
+                    L("Ombré Brows", "ombre_theory"),
+                    L("Nano Brows", "nano_theory"),
+                    L("Combo Brows", "combo_theory"),
+                    L("Powder Brows", "powder_theory"),
+                    L("Artificial Skin Practice Drills", "artificial_skin"),
+                    L("Client Consultation & Documentation", "consultation"),
+                    L("Drawing on Fake Skin — Hands-On", "hands_on_fake_skin"),
+                    L("Trial Drawing on Paper — Hands-On", "hands_on_paper"),
                 ],
                 "quiz": {
-                    "title": "Common Mistakes Quiz",
-                    "questions": [
-                        {
-                            "question": "Pigment placed too superficially in the epidermis tends to:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Stay visible for life", "is_correct": 0},
-                                {"option": "Fade quickly as the skin exfoliates", "is_correct": 1},
-                                {"option": "Spread and blur", "is_correct": 0},
-                                {"option": "Become permanently darker", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "What is the recommended approach to building pigment density?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Saturate the skin in one heavy pass", "is_correct": 0},
-                                {"option": "Build colour through gradual, controlled layering", "is_correct": 1},
-                                {"option": "Press as hard as possible on the first pass", "is_correct": 0},
-                                {"option": "Skip layering on darker skin types", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-        ],
-    },
-
-    # -----------------------------------------------------------------------
-    # 2. Advanced Certification
-    # -----------------------------------------------------------------------
-    {
-        "title": "Advanced Certification",
-        "image": "/images/course-advanced.jpg",
-        "short_introduction": (
-            "Master the four signature brow techniques — ombré, nano, combo, and powder — "
-            "and refine your hand control through structured artificial-skin practice."
-        ),
-        "description": """<p><strong>Advanced Certification</strong> picks up where Foundation leaves off. You will study the theory of all four signature brow looks and develop hand control through structured drills before progressing to live models.</p>
-<p>By the end of this course you will:</p>
-<ul>
-<li>Explain the underlying technique behind ombré, nano, combo, and powder brows.</li>
-<li>Match each technique to the appropriate skin type and client preference.</li>
-<li>Perform daily artificial-skin drills targeting line work, shading, and gradient control.</li>
-</ul>""",
-        "chapters": [
-            {
-                "title": "Ombré Brow Technique Theory",
-                "lessons": [L("Ombré Brow Theory", "ombre_theory")],
-                "quiz": {
-                    "title": "Ombré Brow Quiz",
+                    "title": "Brow Techniques Quiz",
                     "questions": [
                         {
                             "question": "Ombré brows produce their gradient effect through:",
@@ -813,25 +868,6 @@ COURSES = [
                             ],
                         },
                         {
-                            "question": "Where on the brow is pigment saturation kept lightest?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "The inner / front portion", "is_correct": 1},
-                                {"option": "The arch", "is_correct": 0},
-                                {"option": "The tail", "is_correct": 0},
-                                {"option": "Above the arch", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Nano Brows Theory",
-                "lessons": [L("Nano Brow Theory", "nano_theory")],
-                "quiz": {
-                    "title": "Nano Brow Quiz",
-                    "questions": [
-                        {
                             "question": "How do nano brows differ from traditional microblading?",
                             "type": "SingleChoice",
                             "options": [
@@ -841,25 +877,6 @@ COURSES = [
                                 {"option": "Nano brows can only be done on dry skin.", "is_correct": 0},
                             ],
                         },
-                        {
-                            "question": "Nano brows tend to be more suitable than manual microblading for which clients?",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Oily skin", "is_correct": 1},
-                                {"option": "Sensitive skin", "is_correct": 1},
-                                {"option": "Skin types that struggle to retain manual-blade strokes", "is_correct": 1},
-                                {"option": "Skin with active infection", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Combo Brows Theory",
-                "lessons": [L("Combo Brow Theory", "combo_theory")],
-                "quiz": {
-                    "title": "Combo Brow Quiz",
-                    "questions": [
                         {
                             "question": "Combo brows combine which two techniques?",
                             "type": "SingleChoice",
@@ -871,25 +888,6 @@ COURSES = [
                             ],
                         },
                         {
-                            "question": "In a combo brow, where are the hairstrokes typically placed?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Only along the tail", "is_correct": 0},
-                                {"option": "In the front / upper section of the brow", "is_correct": 1},
-                                {"option": "Below the arch only", "is_correct": 0},
-                                {"option": "Across the entire brow uniformly", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Powder Brows Theory",
-                "lessons": [L("Powder Brow Theory", "powder_theory")],
-                "quiz": {
-                    "title": "Powder Brow Quiz",
-                    "questions": [
-                        {
                             "question": "What kind of finish do powder brows produce when fully healed?",
                             "type": "SingleChoice",
                             "options": [
@@ -900,108 +898,29 @@ COURSES = [
                             ],
                         },
                         {
-                            "question": "Powder brows are particularly suitable for clients with: (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Oily skin", "is_correct": 1},
-                                {"option": "Mature skin", "is_correct": 1},
-                                {"option": "Skin that does not retain individual hairstrokes well", "is_correct": 1},
-                                {"option": "Active acne in the brow area", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Artificial Skin Practice Drills",
-                "lessons": [L("Practice Drill Fundamentals", "artificial_skin")],
-                "quiz": {
-                    "title": "Practice Drills Quiz",
-                    "questions": [
-                        {
-                            "question": "Which skills are developed by artificial-skin practice? (Select all that apply.)",
+                            "question": "Which skills are developed by artificial-skin and paper practice drills? (Select all that apply.)",
                             "type": "MultipleChoice",
                             "options": [
                                 {"option": "Line control", "is_correct": 1},
-                                {"option": "Shading patterns", "is_correct": 1},
-                                {"option": "Pixel placement and gradient building", "is_correct": 1},
+                                {"option": "Shading patterns and gradient building", "is_correct": 1},
+                                {"option": "Symmetry and consistent spacing", "is_correct": 1},
                                 {"option": "Tax accounting for the studio", "is_correct": 0},
                             ],
                         },
-                        {
-                            "question": "Artificial-skin practice should happen:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Only on the first day of training", "is_correct": 0},
-                                {"option": "Daily during the foundation phase to build muscle memory", "is_correct": 1},
-                                {"option": "Once a year as a refresher", "is_correct": 0},
-                                {"option": "Only after the first live model", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-        ],
-    },
-
-    # -----------------------------------------------------------------------
-    # 3. Master Artist Program
-    # -----------------------------------------------------------------------
-    {
-        "title": "Master Artist Program",
-        "image": "/images/course-master.jpg",
-        "short_introduction": (
-            "Real-client mastery: consultation, live models, healing protocols, advanced "
-            "colour correction, and complex case management."
-        ),
-        "description": """<p><strong>Master Artist</strong> is for certified practitioners who already work on clients and want to take on the difficult cases that defeat less-experienced artists.</p>
-<p>By the end of this course you will:</p>
-<ul>
-<li>Conduct a thorough, legally-compliant client consultation.</li>
-<li>Perform supervised live-model procedures with confidence.</li>
-<li>Guide clients through healing and touch-up cycles.</li>
-<li>Correct mis-aged PMU work — blue-grey, red, green discolouration.</li>
-<li>Handle complex cases including severe asymmetry, scar tissue, and alopecia.</li>
-<li>Treat every annual touch-up as a refinement opportunity, not just a refresh.</li>
-</ul>""",
-        "chapters": [
-            {
-                "title": "Client Consultation & Documentation",
-                "lessons": [L("Consultation & Documentation", "consultation")],
-                "quiz": {
-                    "title": "Consultation Quiz",
-                    "questions": [
-                        {
-                            "question": "Before beginning treatment, the client must complete and sign: (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Medical history form", "is_correct": 1},
-                                {"option": "Informed consent form", "is_correct": 1},
-                                {"option": "Treatment record", "is_correct": 1},
-                                {"option": "A non-disclosure agreement about the studio's pigment brand", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "Maintaining accurate treatment records supports:",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Consistency for future touch-ups", "is_correct": 1},
-                                {"option": "Professional accountability", "is_correct": 1},
-                                {"option": "Legal record-keeping requirements", "is_correct": 1},
-                                {"option": "Public social-media bragging", "is_correct": 0},
-                            ],
-                        },
                     ],
                 },
             },
             {
-                "title": "Live Model Procedure Guide",
-                "lessons": [L("Live Model Procedure", "live_model")],
+                "title": "Live Demo Procedures",
+                "lessons": [
+                    L("Live Model Procedure Guide", "live_model"),
+                    L("Healing & Touch-Up Protocol", "healing_touchup"),
+                ],
                 "quiz": {
-                    "title": "Live Model Quiz",
+                    "title": "Live Demo Quiz",
                     "questions": [
                         {
-                            "question": "What must be completed before pigment implantation begins on a live model?",
+                            "question": "What must be completed before pigment implantation begins on a live model? (Select all that apply.)",
                             "type": "MultipleChoice",
                             "options": [
                                 {"option": "Signed consent and medical history review", "is_correct": 1},
@@ -1010,25 +929,6 @@ COURSES = [
                                 {"option": "Posting before-and-after photos publicly", "is_correct": 0},
                             ],
                         },
-                        {
-                            "question": "An instructor supervising a student's live-model procedure should primarily:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Take over the machine the moment the student hesitates", "is_correct": 0},
-                                {"option": "Coach with voice cues first, hand redirects second, takeover only as a last resort", "is_correct": 1},
-                                {"option": "Leave the room so the student can build independence", "is_correct": 0},
-                                {"option": "Make jokes about the client to reduce tension", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Healing & Touch-Up Protocol",
-                "lessons": [L("Healing & Touch-Up", "healing_touchup")],
-                "quiz": {
-                    "title": "Healing & Touch-Up Quiz",
-                    "questions": [
                         {
                             "question": "Why is a touch-up session typically recommended several weeks after the initial procedure?",
                             "type": "SingleChoice",
@@ -1044,7 +944,7 @@ COURSES = [
                             "type": "MultipleChoice",
                             "options": [
                                 {"option": "Keep the area clean and dry", "is_correct": 1},
-                                {"option": "Avoid excessive moisture (hot showers, sweating, swimming) until healed", "is_correct": 1},
+                                {"option": "Avoid excessive moisture until healed", "is_correct": 1},
                                 {"option": "Do not pick or scratch scabbing", "is_correct": 1},
                                 {"option": "Rub the brows daily to settle the pigment", "is_correct": 0},
                             ],
@@ -1053,126 +953,17 @@ COURSES = [
                 },
             },
             {
-                "title": "Advanced Color Correction",
-                "lessons": [L("Correcting Mis-Aged PMU Work", "advanced_color_correction")],
-                "quiz": {
-                    "title": "Color Correction Quiz",
-                    "questions": [
-                        {
-                            "question": "Brows that have healed to a blue-grey tone are usually best neutralised with a modifier in which family?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Cool blue", "is_correct": 0},
-                                {"option": "Warm orange", "is_correct": 1},
-                                {"option": "Green", "is_correct": 0},
-                                {"option": "Pink", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "Realistic expectations for colour correction work include: (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Multiple sessions spaced several weeks apart", "is_correct": 1},
-                                {"option": "Patch testing before a full correction", "is_correct": 1},
-                                {"option": "A single perfect result in one session", "is_correct": 0},
-                                {"option": "Documenting every stage with photographs", "is_correct": 1},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Complex Cases",
-                "lessons": [L("Severe Asymmetry, Scarring & Alopecia", "complex_cases")],
-                "quiz": {
-                    "title": "Complex Cases Quiz",
-                    "questions": [
-                        {
-                            "question": "When mapping severe facial asymmetry, the artist should:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Follow whatever brow hair the client has", "is_correct": 0},
-                                {"option": "Reference facial bone landmarks, then design for the illusion of symmetry", "is_correct": 1},
-                                {"option": "Use identical measurements on both sides regardless of structure", "is_correct": 0},
-                                {"option": "Refuse to treat the client", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "Which technique tends to look most natural on an alopecia client with no native brow hairs?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Pure hairstroke", "is_correct": 0},
-                                {"option": "Soft powder or ombré", "is_correct": 1},
-                                {"option": "Microblading only", "is_correct": 0},
-                                {"option": "Aggressive saturation on the first pass", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Touch-Up Mastery",
-                "lessons": [L("Annual Touch-Up Assessment & Refinement", "touchup_mastery")],
-                "quiz": {
-                    "title": "Touch-Up Mastery Quiz",
-                    "questions": [
-                        {
-                            "question": "The annual touch-up assessment should include:",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Standardised-lighting photographs", "is_correct": 1},
-                                {"option": "Colour-shift assessment vs the original healed result", "is_correct": 1},
-                                {"option": "Client conversation about aesthetic changes desired", "is_correct": 1},
-                                {"option": "Re-pigmenting the entire brow regardless of retention", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "What is the master's rule for touch-up density?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Always saturate fully — it heals 50% lighter anyway", "is_correct": 0},
-                                {"option": "Less is more — re-pass density only where it has actually faded", "is_correct": 1},
-                                {"option": "Replace the entire brow design every visit", "is_correct": 0},
-                                {"option": "Never re-pigment, only refresh shape", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-        ],
-    },
-
-    # -----------------------------------------------------------------------
-    # 4. Instructor Licensing
-    # -----------------------------------------------------------------------
-    {
-        "title": "Instructor Licensing",
-        "image": "/images/course-instructor.jpg",
-        "short_introduction": (
-            "Train to become a Delta SPMU Academy educator. Adult-learning theory, "
-            "curriculum design, demonstration craft, student assessment, mentorship, "
-            "business fundamentals, and educator ethics."
-        ),
-        "description": """<p><strong>Instructor Licensing</strong> qualifies senior practitioners to teach the next generation of SPMU artists. This course assumes you have already mastered the technical craft — its focus is the discipline of <em>teaching</em>.</p>
-<p>By the end of this course you will:</p>
-<ul>
-<li>Apply adult-learning principles to your classroom.</li>
-<li>Design backward-engineered curricula and individual lesson plans.</li>
-<li>Demonstrate procedures in a way students can actually replicate.</li>
-<li>Supervise live-model procedures with minimal but well-timed intervention.</li>
-<li>Assess student competency fairly and reliably.</li>
-<li>Build long-term alumni networks and ongoing mentorship.</li>
-<li>Operate a profitable SPMU academy in line with educator ethics.</li>
-</ul>""",
-        "chapters": [
-            {
                 "title": "Business & Branding Fundamentals",
-                "lessons": [L("Business & Branding", "business_branding")],
+                "lessons": [
+                    L("Business & Branding", "business_branding"),
+                    L("Common Beginner Mistakes", "beginner_mistakes"),
+                    L("Assessment & Certification Standards", "assessment_cert"),
+                ],
                 "quiz": {
-                    "title": "Business & Branding Quiz",
+                    "title": "Business & Certification Quiz",
                     "questions": [
                         {
-                            "question": "Which of the following contribute most to long-term client trust?",
+                            "question": "Which of the following contribute most to long-term client trust? (Select all that apply.)",
                             "type": "MultipleChoice",
                             "options": [
                                 {"option": "Consistently high hygiene standards", "is_correct": 1},
@@ -1191,207 +982,14 @@ COURSES = [
                                 {"option": "Random walk-ins", "is_correct": 0},
                             ],
                         },
-                    ],
-                },
-            },
-            {
-                "title": "Adult Learning Theory",
-                "lessons": [L("How Adults Learn (Andragogy)", "adult_learning")],
-                "quiz": {
-                    "title": "Adult Learning Quiz",
-                    "questions": [
                         {
-                            "question": "Adult learners differ from school-age learners in which of these ways? (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "They bring significant prior life experience", "is_correct": 1},
-                                {"option": "They need to see practical relevance quickly", "is_correct": 1},
-                                {"option": "They are often self-directed", "is_correct": 1},
-                                {"option": "They prefer being told exactly what to think", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "The instructor's role in an adult-learning classroom is best described as:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "A pure content-delivery channel", "is_correct": 0},
-                                {"option": "A facilitator of the learner's own construction of competence", "is_correct": 1},
-                                {"option": "An authority figure who punishes mistakes", "is_correct": 0},
-                                {"option": "A passive observer", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Curriculum Design & Lesson Planning",
-                "lessons": [L("Backward Design & Lesson Templates", "curriculum_design")],
-                "quiz": {
-                    "title": "Curriculum Design Quiz",
-                    "questions": [
-                        {
-                            "question": "What is the correct order of steps in backward design?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Plan instruction → identify outcomes → define assessments", "is_correct": 0},
-                                {"option": "Identify outcomes → define assessments → plan instruction", "is_correct": 1},
-                                {"option": "Define assessments → plan instruction → identify outcomes", "is_correct": 0},
-                                {"option": "Plan instruction → define assessments → identify outcomes", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "A well-structured single lesson typically includes: (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Hook / motivation", "is_correct": 1},
-                                {"option": "Instructor demonstration", "is_correct": 1},
-                                {"option": "Guided practice with coaching", "is_correct": 1},
-                                {"option": "Three hours of uninterrupted lecture", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Demonstration & Supervision Techniques",
-                "lessons": [L("Demonstrating Craft & Supervising Practice", "demonstration_supervision")],
-                "quiz": {
-                    "title": "Demonstration & Supervision Quiz",
-                    "questions": [
-                        {
-                            "question": "At what speed should the first demonstration of a new technique typically be performed?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Full working speed so the student sees it real", "is_correct": 0},
-                                {"option": "About 50% of working speed, with narration", "is_correct": 1},
-                                {"option": "As fast as possible to save time", "is_correct": 0},
-                                {"option": "Without narration so the student stays focused", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "When a student begins to struggle mid-procedure, the supervising instructor should:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Immediately take over the machine", "is_correct": 0},
-                                {"option": "Coach with voice first; physical redirect second; takeover only as a last resort", "is_correct": 1},
-                                {"option": "Leave the student to figure it out alone", "is_correct": 0},
-                                {"option": "Reprimand the student in front of the client", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Student Assessment & Feedback",
-                "lessons": [L("Rubrics & Effective Feedback", "student_assessment")],
-                "quiz": {
-                    "title": "Student Assessment Quiz",
-                    "questions": [
-                        {
-                            "question": "A fair practical assessment should be: (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Transparent — the student knows what's being measured", "is_correct": 1},
-                                {"option": "Reliable — two assessors would score similarly", "is_correct": 1},
-                                {"option": "Valid — it actually measures the competency in question", "is_correct": 1},
-                                {"option": "Secret — students must not know the rubric in advance", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "The 'two-stars-and-a-wish' feedback model means:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Two random compliments and a generic warning", "is_correct": 0},
-                                {"option": "Two specific things the student did well, then one specific improvement for next time", "is_correct": 1},
-                                {"option": "Two failing scores and one passing score", "is_correct": 0},
-                                {"option": "Two lessons of lecture per practical wish", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Mentorship & Ongoing Development",
-                "lessons": [L("Alumni Networks & Continuing Support", "mentorship")],
-                "quiz": {
-                    "title": "Mentorship Quiz",
-                    "questions": [
-                        {
-                            "question": "Which structures support a healthy alumni network? (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Scheduled 30-60-90-day post-graduation check-ins", "is_correct": 1},
-                                {"option": "Annual one-day refresher courses", "is_correct": 1},
-                                {"option": "A moderated private community for alumni-only discussion", "is_correct": 1},
-                                {"option": "Cutting all contact after certification day", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "What is the primary marketing channel of a healthy training academy?",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "Cold paid advertising", "is_correct": 0},
-                                {"option": "Word-of-mouth referrals from satisfied alumni", "is_correct": 1},
-                                {"option": "Email blasts to purchased lists", "is_correct": 0},
-                                {"option": "Random social-media virality", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Educator Ethics & Responsibility",
-                "lessons": [L("Professional Ethics for SPMU Educators", "instructor_ethics")],
-                "quiz": {
-                    "title": "Educator Ethics Quiz",
-                    "questions": [
-                        {
-                            "question": "An educator who passes a clearly incompetent student is committing:",
-                            "type": "SingleChoice",
-                            "options": [
-                                {"option": "A minor administrative oversight", "is_correct": 0},
-                                {"option": "A fraud on the public, who will be served by that graduate", "is_correct": 1},
-                                {"option": "An act of mercy", "is_correct": 0},
-                                {"option": "A neutral, victimless decision", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "Which of the following are core ethical obligations of SPMU educators? (Select all that apply.)",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Disclose any conflicts of interest (e.g. pigments the school sells)", "is_correct": 1},
-                                {"option": "Maintain student records for the legal retention period", "is_correct": 1},
-                                {"option": "Pursue annual continuing professional development", "is_correct": 1},
-                                {"option": "Inflate pass rates to attract more enrolments", "is_correct": 0},
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "title": "Assessment & Certification Standards",
-                "lessons": [L("Delta Academy Certification Framework", "assessment_cert")],
-                "quiz": {
-                    "title": "Certification Standards Quiz",
-                    "questions": [
-                        {
-                            "question": "Delta SPMU certification is awarded only when the student has:",
+                            "question": "Delta SPMU certification is awarded only when the student has: (Select all that apply.)",
                             "type": "MultipleChoice",
                             "options": [
                                 {"option": "Completed all theoretical modules", "is_correct": 1},
                                 {"option": "Participated in required practical training", "is_correct": 1},
                                 {"option": "Demonstrated competency in the techniques taught", "is_correct": 1},
                                 {"option": "Paid an extra fee on top of the course price", "is_correct": 0},
-                            ],
-                        },
-                        {
-                            "question": "Portfolio documentation submitted by students for certification typically includes:",
-                            "type": "MultipleChoice",
-                            "options": [
-                                {"option": "Treatment practice records", "is_correct": 1},
-                                {"option": "Before-and-after images from supervised procedures", "is_correct": 1},
-                                {"option": "Signed consent forms", "is_correct": 1},
-                                {"option": "Personal social-media analytics", "is_correct": 0},
                             ],
                         },
                     ],
@@ -1401,11 +999,106 @@ COURSES = [
     },
 
     # -----------------------------------------------------------------------
+    # 2. Professional Certificate in Nano Brows Artistry  (COMING SOON)
+    #    Locked placeholder — manual + videos in production. Chapters/lessons
+    #    are a sensible outline to be edited via the admin portal later.
+    # -----------------------------------------------------------------------
+    {
+        "title": "Professional Certificate in Nano Brows Artistry",
+        "category": "Permanent Makeup",
+        "upcoming": 1,
+        "short_introduction": (
+            "Coming soon — master ultra-fine, machine hairstroke nano brows that "
+            "mimic natural hair, from consultation through healing and touch-up."
+        ),
+        "description": """<p><strong>Professional Certificate in Nano Brows Artistry</strong> is coming soon to Delta SPMU Academy.</p>
+<p>This certificate covers the nano hairstroke technique end to end — using a permanent makeup machine with an ultra-fine needle to create crisp, natural-looking hair strokes. The full curriculum and training videos are in production.</p>
+<p>The outline below is a preview and will be expanded before the course goes live.</p>""",
+        "chapters": [
+            {
+                "title": "Introduction to Nano Brows",
+                "lessons": [
+                    PL("What Are Nano Brows?", "Nano brows are an advanced semi-permanent makeup technique that uses a permanent makeup machine with an ultra-fine needle to implant crisp, hair-like strokes that mimic natural brow hair."),
+                    PL("Nano vs Microblading vs Machine Hairstrokes", "How nano brows differ from manual microblading and other hairstroke methods — and why a machine gives greater precision, control, and suitability across more skin types."),
+                ],
+            },
+            {
+                "title": "Skin, Suitability & Consultation",
+                "lessons": [
+                    PL("Skin Types & Candidacy", "Assessing skin type and condition to decide whether a client is a good candidate for nano hairstrokes, including oily and mature-skin considerations."),
+                    PL("Consultation & Contraindications", "Running a thorough consultation, capturing medical history and consent, and identifying contraindications before any procedure."),
+                ],
+            },
+            {
+                "title": "Nano Hairstroke Technique",
+                "lessons": [
+                    PL("Stroke Direction & Pattern Mapping", "Mapping a natural hair-growth pattern and planning stroke direction, spacing, and density for a realistic result."),
+                    PL("Depth, Spacing & Pressure Control", "Controlling needle depth, spacing, and pressure to place clean strokes that heal crisp without blurring or overcrowding."),
+                ],
+            },
+            {
+                "title": "Healing, Touch-Up & Aftercare",
+                "lessons": [
+                    PL("Healing Stages", "What to expect through the healing cycle and how stroke definition settles as the skin recovers."),
+                    PL("Touch-Up Protocol & Aftercare", "The follow-up touch-up that refines strokes and reinforces retention, plus the aftercare that protects the healing result."),
+                ],
+            },
+        ],
+    },
+
+    # -----------------------------------------------------------------------
+    # 3. Professional Certificate in Lip Blush & Lip Neutralization (COMING SOON)
+    #    Locked placeholder — manual + videos in production.
+    # -----------------------------------------------------------------------
+    {
+        "title": "Professional Certificate in Lip Blush & Lip Neutralization",
+        "category": "Permanent Makeup",
+        "upcoming": 1,
+        "short_introduction": (
+            "Coming soon — enhance natural lip colour and shape with lip blush, "
+            "and correct dark or cool lips with lip neutralization."
+        ),
+        "description": """<p><strong>Professional Certificate in Lip Blush &amp; Lip Neutralization</strong> is coming soon to Delta SPMU Academy.</p>
+<p>This certificate covers soft lip blush colour, lip mapping, and the neutralization techniques used to correct dark, cool, or hyperpigmented lips. The full curriculum and training videos are in production.</p>
+<p>The outline below is a preview and will be expanded before the course goes live.</p>""",
+        "chapters": [
+            {
+                "title": "Introduction to Lip Blush",
+                "lessons": [
+                    PL("What Is Lip Blush?", "Lip blush is a semi-permanent makeup technique that implants soft pigment into the lips to enhance their natural colour, shape, and definition for a healthy, tinted finish."),
+                    PL("Lip Anatomy & Skin Considerations", "Understanding lip anatomy, how lip skin differs from brow skin, and the factors that influence pigment retention on the lips."),
+                ],
+            },
+            {
+                "title": "Colour Theory for Lips",
+                "lessons": [
+                    PL("Choosing Lip Pigments", "Selecting lip pigments that harmonise with the client's natural lip tone and the desired result, accounting for how lip colour heals."),
+                    PL("Lip Neutralization (Correcting Dark or Cool Lips)", "Neutralizing dark, cool, or hyperpigmented lips with warm corrective tones before building the final colour, for a balanced healed result."),
+                ],
+            },
+            {
+                "title": "Lip Blush Technique",
+                "lessons": [
+                    PL("Lip Mapping & Outline", "Mapping a balanced lip shape and outlining the border before shading, with client approval of the design."),
+                    PL("Shading, Saturation & Blending", "Building soft, even colour through gradual layering, controlling saturation, and blending toward the centre for a natural gradient."),
+                ],
+            },
+            {
+                "title": "Healing & Aftercare",
+                "lessons": [
+                    PL("Healing Stages", "How lip blush heals — initial intensity, light flaking, then the softer healed colour — and what is normal at each stage."),
+                    PL("Touch-Up & Aftercare", "The touch-up that perfects colour and evenness, plus the aftercare that protects the lips during healing."),
+                ],
+            },
+        ],
+    },
+
+    # -----------------------------------------------------------------------
     # 5. Professional Bridal Makeup
     # -----------------------------------------------------------------------
     {
-        "title": "Professional Bridal Makeup",
-        "image": "/images/course-bridal.jpg",
+        "title": "Professional Certificate in Bridal Makeup Artistry",
+        "category": "Beauty & Aesthetics",
         "short_introduction": (
             "Become a professional bridal makeup artist: skin prep, colour matching, "
             "sculpting, eyes, brows, bridal styles, consultation, photography, and "
@@ -1950,6 +1643,11 @@ def wipe_existing_courses():
     # partial runs). Safe because we control the entire course catalogue from
     # this seed; nothing else creates these rows.
     orphan_quiz_titles = (
+        # Current (post-2026-restructure) Ombre-course quizzes
+        "Brow Techniques Quiz",
+        "Live Demo Quiz",
+        "Business & Certification Quiz",
+        # Legacy / shared titles (harmless to clean if absent)
         "Skin Anatomy & Healing Quiz",
         "Hygiene & Infection Control Quiz",
         "Color Theory & Pigment Quiz",
@@ -2067,11 +1765,15 @@ def seed_courses():
             "image": course.get("image"),
             "short_introduction": course["short_introduction"],
             "description": course["description"],
-            "course_price": COURSE_PRICE,
+            # Per-course price (Ombre = 17,000); falls back to COURSE_PRICE (12,500).
+            "course_price": course.get("price", COURSE_PRICE),
             "currency": "ETB",
             "paid_course": 1,
             "published": 1,
-            "category": "Permanent Makeup",
+            # Coming-soon courses are published (visible) but flagged upcoming so
+            # the portal shows "Coming Soon" and blocks purchase.
+            "upcoming": course.get("upcoming", 0),
+            "category": course.get("category", "Permanent Makeup"),
             "status": "Approved",
             "instructors": [{"instructor": INSTRUCTOR_EMAIL}],
         })
