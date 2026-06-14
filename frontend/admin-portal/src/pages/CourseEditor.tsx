@@ -892,10 +892,22 @@ export default function CourseEditor() {
     );
   };
 
-  const removeLessonFromChapter = (chapterKey: string, lessonKey: string) => {
+  const removeLessonFromChapter = async (chapterKey: string, lessonKey: string) => {
     const ch = chapters.find((c) => c._key === chapterKey);
     const ls = ch?._lessons.find((l) => l._key === lessonKey);
-    if (ls?.name) deleteLesson(ls.name);
+    // Only saved lessons (with a server name) need a backend delete. Await it so
+    // a failure surfaces instead of the lesson vanishing from the editor while
+    // still living in the DB (and on the learn page).
+    if (ls?.name) {
+      try {
+        await deleteLesson(ls.name);
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Failed to delete lesson.';
+        setError(String(msg));
+        return;
+      }
+    }
+    setError(null);
     setChapters((prev) =>
       prev.map((c) =>
         c._key === chapterKey

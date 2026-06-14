@@ -217,8 +217,10 @@ export async function updateLesson(name: string, data: Record<string, any>) {
 }
 
 export async function deleteLesson(name: string) {
-  const res = await api.delete(`${resource('Course Lesson')}/${name}`);
-  return unwrap(res);
+  // Use a server endpoint that first clears dependent records (student progress)
+  // which otherwise make Frappe reject the delete (LinkExistsError). A raw
+  // resource DELETE silently fails for any lesson a student has completed.
+  return call('lms.lms.api.admin_delete_lesson', { lesson: name });
 }
 
 // ---------------------------------------------------------------------------
