@@ -623,6 +623,12 @@ function ChapterSection({
   onAddLesson,
   onDeleteLesson,
   quizzes,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  isDragging,
+  isOver,
 }: {
   chapter: ChapterState;
   onUpdate: (data: Partial<Chapter> & { _expanded?: boolean }) => void;
@@ -631,11 +637,51 @@ function ChapterSection({
   onAddLesson: () => void;
   onDeleteLesson: (lessonKey: string) => void;
   quizzes: any[];
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isOver: boolean;
 }) {
+  // Drag is enabled only while the grip handle is held, so the title input and
+  // other controls stay clickable/selectable the rest of the time.
+  const [grabbing, setGrabbing] = useState(false);
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
+    <div
+      draggable={grabbing}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart();
+      }}
+      onDragEnd={() => {
+        setGrabbing(false);
+        onDragEnd();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setGrabbing(false);
+        onDrop();
+      }}
+      className={`rounded-xl overflow-hidden border transition-shadow ${
+        isOver ? 'border-primary ring-2 ring-primary/40' : 'border-gray-200'
+      } ${isDragging ? 'opacity-50' : ''}`}
+    >
       <div className="flex items-center gap-2 p-3 bg-white">
-        <GripVertical className="w-4 h-4 text-gray-300" />
+        <span
+          onMouseDown={() => setGrabbing(true)}
+          onMouseUp={() => setGrabbing(false)}
+          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 touch-none"
+          title="Drag to reorder chapter"
+          aria-label="Drag to reorder chapter"
+        >
+          <GripVertical className="w-4 h-4" />
+        </span>
         <button type="button" onClick={() => onUpdate({ _expanded: !chapter._expanded })} className="p-1">
           {chapter._expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
@@ -872,6 +918,27 @@ export default function CourseEditor() {
     setChapters((prev) => prev.filter((c) => c._key !== key));
   };
 
+  // Chapter drag-and-drop reorder. Reordering the array is all that's needed —
+  // handleSave writes each chapter's idx from its array position, so the new
+  // order persists when the user clicks Save.
+  const [dragChapterKey, setDragChapterKey] = useState<string | null>(null);
+  const [overChapterKey, setOverChapterKey] = useState<string | null>(null);
+  // Surfaces failures from inline actions (e.g. lesson delete) outside the save flow.
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const moveChapter = (fromKey: string, toKey: string) => {
+    if (fromKey === toKey) return;
+    setChapters((prev) => {
+      const from = prev.findIndex((c) => c._key === fromKey);
+      const to = prev.findIndex((c) => c._key === toKey);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
   const addLessonToChapter = (chapterKey: string) => {
     setChapters((prev) =>
       prev.map((ch) =>
@@ -903,11 +970,11 @@ export default function CourseEditor() {
         await deleteLesson(ls.name);
       } catch (err: any) {
         const msg = err?.response?.data?.message || err?.message || 'Failed to delete lesson.';
-        setError(String(msg));
+        setActionError(String(msg));
         return;
       }
     }
-    setError(null);
+    setActionError(null);
     setChapters((prev) =>
       prev.map((c) =>
         c._key === chapterKey
@@ -957,6 +1024,11 @@ export default function CourseEditor() {
       {saveMutation.isError && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
           Failed to save course. Please try again.
+        </div>
+      )}
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+          {actionError}
         </div>
       )}
       {saveMutation.isSuccess && (
@@ -1213,6 +1285,12 @@ export default function CourseEditor() {
           </button>
         </div>
 
+        {chapters.length > 1 && (
+          <p className="text-xs text-gray-400">
+            Drag the <GripVertical className="inline w-3 h-3 -mt-0.5" /> handle to reorder chapters. The new order is saved when you click Save.
+          </p>
+        )}
+
         {chapters.length === 0 ? (
           <div className="text-center py-12 px-4">
             <div className="w-16 h-16 bg-primary-light/40 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1243,6 +1321,19 @@ export default function CourseEditor() {
                 onAddLesson={() => addLessonToChapter(ch._key)}
                 onDeleteLesson={(lk) => removeLessonFromChapter(ch._key, lk)}
                 quizzes={quizzes}
+                isDragging={dragChapterKey === ch._key}
+                isOver={overChapterKey === ch._key && dragChapterKey !== ch._key}
+                onDragStart={() => setDragChapterKey(ch._key)}
+                onDragOver={() => setOverChapterKey(ch._key)}
+                onDrop={() => {
+                  if (dragChapterKey) moveChapter(dragChapterKey, ch._key);
+                  setDragChapterKey(null);
+                  setOverChapterKey(null);
+                }}
+                onDragEnd={() => {
+                  setDragChapterKey(null);
+                  setOverChapterKey(null);
+                }}
               />
             ))}
           </div>
