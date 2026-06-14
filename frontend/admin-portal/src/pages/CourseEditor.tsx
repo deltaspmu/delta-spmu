@@ -686,6 +686,9 @@ export default function CourseEditor() {
   const [image, setImage] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState(0);
+  // Promo discount %: the price above is what's charged; a higher "original"
+  // price is shown struck through (e.g. 50 => "was 34,000, now 17,000").
+  const [discountPct, setDiscountPct] = useState(0);
   const [currency, setCurrency] = useState('ETB');
   const [published, setPublished] = useState(false);
   // "Coming Soon" — course is visible in the catalogue but not purchasable.
@@ -716,6 +719,7 @@ export default function CourseEditor() {
     setImage(d.image || '');
     setCategory(d.category || '');
     setPrice(d.course_price || 0);
+    setDiscountPct(Number(d.discount_percentage) || 0);
     setCurrency(d.currency || 'ETB');
     setPublished(!!d.published);
     setUpcoming(!!d.upcoming);
@@ -771,6 +775,7 @@ export default function CourseEditor() {
         image,
         category,
         course_price: price,
+        discount_percentage: discountPct,
         currency,
         published: published ? 1 : 0,
         upcoming: upcoming ? 1 : 0,
@@ -1071,6 +1076,11 @@ export default function CourseEditor() {
               <option value="ETB">ETB</option>
               <option value="USD">USD</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label>
+            <input type="number" value={discountPct} onChange={(e) => setDiscountPct(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" min={0} max={99} />
+            <p className="mt-1 text-xs text-gray-400">Promo only — Price above is what's charged; a higher "original" price is shown struck through with a "% OFF" badge. 0 = no discount.</p>
           </div>
         </div>
 

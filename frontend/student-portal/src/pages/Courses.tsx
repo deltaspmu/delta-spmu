@@ -194,10 +194,10 @@ function CourseCard({ course }: CourseCardProps) {
           ) : !!course.discount_percent && course.discount_percent > 0 ? (
             <span className="flex items-baseline gap-1.5">
               <span className="font-heading font-bold text-primary text-sm">
-                {formatPrice(course.final_price ?? course.course_price, course.currency)}
+                {formatPrice(course.course_price, course.currency)}
               </span>
               <span className="text-gray-400 line-through text-xs">
-                {formatPrice(course.course_price, course.currency)}
+                {formatPrice(course.original_price ?? course.course_price, course.currency)}
               </span>
             </span>
           ) : (

@@ -20,10 +20,12 @@ export interface Course {
   image: string | null;
   course_price: number;
   currency: string;
-  // Promotional pricing surfaced by get_courses (0 / equal to course_price when
-  // there is no active promo).
+  // Promotional pricing surfaced by get_courses. course_price is the price
+  // actually charged; original_price is a higher compare-at price shown struck
+  // through when discount_percent > 0 (final_price === course_price).
   discount_percent?: number;
   final_price?: number;
+  original_price?: number;
   published: number;
   upcoming: number;
   instructor: string;
