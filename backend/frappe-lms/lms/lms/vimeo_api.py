@@ -23,6 +23,18 @@ DEFAULT_EMBED_DOMAINS = [
     "localhost",
 ]
 
+# Player chrome stripped from every managed video for a clean training-video
+# look: no Vimeo logo, no like / watch-later / share / embed buttons.
+DEFAULT_EMBED_SETTINGS = {
+    "logos": {"vimeo": False},
+    "buttons": {
+        "like": False,
+        "watchlater": False,
+        "share": False,
+        "embed": False,
+    },
+}
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -354,6 +366,19 @@ def vimeo_complete_upload(video_id):
 
     # Set embed domain whitelist
     _set_embed_domains_internal(video_id, DEFAULT_EMBED_DOMAINS)
+
+    # Strip the Vimeo logo and social buttons for a clean player.
+    try:
+        _vimeo_request(
+            "PATCH",
+            f"/videos/{video_id}",
+            data={"embed": DEFAULT_EMBED_SETTINGS},
+        )
+    except Exception:
+        frappe.log_error(
+            title="Vimeo embed appearance failed",
+            message=f"Could not set embed appearance for video {video_id}.",
+        )
 
     # Ensure tag exists
     try:
