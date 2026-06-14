@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { parseVimeoVideo, cn } from '@/lib/utils';
 import VimeoPlayer from './VimeoPlayer';
 import { Play, X } from 'lucide-react';
 
 interface CoursePreviewPlayerProps {
   videoValue: string | null;
+  /** Fallback poster (e.g. the course image) used only if the video's own
+   *  Vimeo thumbnail can't be fetched. */
   thumbnailUrl?: string;
   courseTitle: string;
 }
@@ -15,9 +17,37 @@ export default function CoursePreviewPlayer({
   courseTitle,
 }: CoursePreviewPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [videoThumb, setVideoThumb] = useState<string | null>(null);
 
   const hasVideo = videoValue != null && videoValue.trim() !== '';
   const parsed = hasVideo ? parseVimeoVideo(videoValue!) : null;
+  const videoId = parsed?.id ?? null;
+  const videoHash = parsed?.hash ?? null;
+
+  // Use the preview video's OWN Vimeo thumbnail as the poster (fetched via
+  // oEmbed — public, no token) rather than repeating the course image.
+  useEffect(() => {
+    if (!videoId) {
+      setVideoThumb(null);
+      return;
+    }
+    let cancelled = false;
+    const link = videoHash
+      ? `https://vimeo.com/${videoId}/${videoHash}`
+      : `https://vimeo.com/${videoId}`;
+    fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(link)}&width=1280`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.thumbnail_url) setVideoThumb(data.thumbnail_url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, videoHash]);
+
+  // Video thumbnail takes priority; course image is only a fallback.
+  const poster = videoThumb || thumbnailUrl || null;
 
   if (isPlaying && parsed) {
     return (
@@ -49,10 +79,10 @@ export default function CoursePreviewPlayer({
         if (hasVideo) setIsPlaying(true);
       }}
     >
-      {/* Thumbnail / background */}
-      {thumbnailUrl ? (
+      {/* Poster: the video's own thumbnail (falls back to course image) */}
+      {poster ? (
         <img
-          src={thumbnailUrl}
+          src={poster}
           alt={courseTitle}
           className="absolute inset-0 w-full h-full object-cover"
         />
