@@ -17,8 +17,6 @@ import {
   Smartphone,
   CreditCard,
   Globe,
-  Landmark,
-  Building2,
   Loader2,
   AlertCircle,
   RefreshCw,
@@ -45,13 +43,10 @@ interface PaymentMethodOption {
 // Constants
 // ---------------------------------------------------------------------------
 
+// Only Chapa is live right now: local (ETB card/mobile) and international
+// (Visa/Mastercard). telebirr, EthSwitch and CBE are code-complete but gated on
+// Ethio Telecom provisioning — keep them here, commented, to re-enable later.
 const PAYMENT_METHODS: PaymentMethodOption[] = [
-  {
-    id: 'telebirr',
-    label: 'Pay with telebirr',
-    description: 'Pay Bill from your telebirr app',
-    icon: <Smartphone className="w-5 h-5" />,
-  },
   {
     id: 'chapa',
     label: 'Pay with Chapa',
@@ -64,18 +59,24 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
     description: 'International card payment',
     icon: <Globe className="w-5 h-5" />,
   },
-  {
-    id: 'ethswitch',
-    label: 'Pay via Bank',
-    description: 'EthSwitch bank transfer',
-    icon: <Landmark className="w-5 h-5" />,
-  },
-  {
-    id: 'cbe',
-    label: 'CBE Bank Transfer',
-    description: 'Manual bank transfer to CBE',
-    icon: <Building2 className="w-5 h-5" />,
-  },
+  // {
+  //   id: 'telebirr',
+  //   label: 'Pay with telebirr',
+  //   description: 'Pay Bill from your telebirr app',
+  //   icon: <Smartphone className="w-5 h-5" />,
+  // },
+  // {
+  //   id: 'ethswitch',
+  //   label: 'Pay via Bank',
+  //   description: 'EthSwitch bank transfer',
+  //   icon: <Landmark className="w-5 h-5" />,
+  // },
+  // {
+  //   id: 'cbe',
+  //   label: 'CBE Bank Transfer',
+  //   description: 'Manual bank transfer to CBE',
+  //   icon: <Building2 className="w-5 h-5" />,
+  // },
 ];
 
 const BUNDLE_ID = 'all-courses-bundle';
