@@ -184,7 +184,9 @@ export async function cloneCourse(name: string) {
 // Chapters
 
 export async function getCourseChapters(course: string) {
-  return call('lms.lms.api.get_course_chapters', { course });
+  // Backend signature is get_course_chapters(course_name=...); passing `course`
+  // throws "Course name is required." and the editor shows 0 chapters.
+  return call('lms.lms.api.get_course_chapters', { course_name: course });
 }
 
 export async function createChapter(data: Record<string, any>) {
