@@ -7,6 +7,7 @@ import SiteGate from "./components/SiteGate";
 /* ── Sections ── */
 import Hero from "./components/Hero";
 import About from "./components/About";
+import Founder from "./components/Founder";
 import BusinessEdge from "./components/BusinessEdge";
 import HowItWorks from "./components/HowItWorks";
 import Programs from "./components/Programs";
@@ -29,6 +30,7 @@ function App() {
         <main>
           <Hero />
           <About />
+          <Founder />
           <BusinessEdge />
           <HowItWorks />
           <Programs />
