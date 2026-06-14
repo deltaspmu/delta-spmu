@@ -162,13 +162,27 @@ def _format_video(video):
 
     privacy = video.get("privacy", {})
 
+    # Vimeo's unlisted "privacy hash" is the path segment after the video ID in
+    # the share link (https://vimeo.com/<id>/<hash>). It is required to embed
+    # unlisted videos. Public videos have no hash. The frontend stores videos
+    # as "id/hash" so the player can reference unlisted videos.
+    vid = _extract_video_id(video.get("uri"))
+    link = video.get("link") or ""
+    video_hash = None
+    if vid and f"/{vid}/" in link:
+        video_hash = link.split(f"/{vid}/", 1)[1].strip("/").split("/")[0] or None
+
     return {
-        "id": _extract_video_id(video.get("uri")),
+        "id": vid,
+        "hash": video_hash,
         "uri": video.get("uri"),
         "name": video.get("name"),
         "description": video.get("description"),
         "duration": video.get("duration"),
         "thumbnail": thumbnail,
+        # Pass the raw pictures structure through too — the admin grid reads
+        # ``pictures.sizes`` to render thumbnails.
+        "pictures": video.get("pictures"),
         "status": video.get("status"),
         "privacy": privacy.get("view") if privacy else None,
         "created_time": video.get("created_time"),
@@ -203,7 +217,7 @@ def vimeo_list_videos(page=1, per_page=25, query=None):
     params = {
         "page": page,
         "per_page": per_page,
-        "fields": "uri,name,description,duration,pictures,status,privacy,created_time,modified_time,link,embed",
+        "fields": "uri,name,description,duration,pictures,status,privacy,created_time,modified_time,link,embed,tags.tag",
         "sort": "date",
         "direction": "desc",
     }
@@ -228,6 +242,9 @@ def vimeo_list_videos(page=1, per_page=25, query=None):
     total = result.get("total", len(videos))
 
     return {
+        # ``data`` is what the admin portal reads (VimeoListResponse.data);
+        # ``videos`` is kept as an alias for any other consumer.
+        "data": videos,
         "videos": videos,
         "total": total,
         "page": page,
