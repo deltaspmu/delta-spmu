@@ -62,6 +62,7 @@ export interface Lesson {
   quiz_id: string | null;
   duration: number;
   is_completed?: boolean;
+  is_preview?: number; // 1 if the lesson is viewable as a public preview
 }
 
 export interface Quiz {

@@ -15,6 +15,8 @@ import {
   getCategories,
   getQuizzes,
   uploadFile,
+  getInstructors,
+  setCourseInstructor,
 } from '@/api/client';
 import { vimeoService } from '@/api/vimeo';
 import type { Chapter, Lesson } from '@/types';
@@ -286,10 +288,15 @@ function VideoPickerModal({
               {videos.map((v: any) => {
                 const videoId = v.uri ? v.uri.replace(/^\/videos\//, '') : '';
                 const thumb = v.pictures?.sizes?.slice(-1)[0]?.link || null;
+                // Real Vimeo privacy hash — exposed by the proxy as v.hash, or
+                // parsed from the share link (vimeo.com/<id>/<hash>) in direct
+                // mode. Stored as "id/hash" so unlisted videos can be embedded.
+                const videoHash = v.hash || (v.link ? (v.link.split(`/${videoId}/`)[1] || '').split('/')[0] : '');
+                const videoValue = videoHash ? `${videoId}/${videoHash}` : videoId;
                 return (
                 <button
                   key={videoId}
-                  onClick={() => { onSelect(`${videoId}/${videoId}`); onClose(); }}
+                  onClick={() => { onSelect(videoValue); onClose(); }}
                   className="text-left border rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-dark transition-all"
                 >
                   <div className="aspect-video bg-gray-100">
@@ -690,6 +697,7 @@ export default function CourseEditor() {
   // price is shown struck through (e.g. 50 => "was 34,000, now 17,000").
   const [discountPct, setDiscountPct] = useState(0);
   const [currency, setCurrency] = useState('ETB');
+  const [instructor, setInstructor] = useState('');
   const [published, setPublished] = useState(false);
   // "Coming Soon" — course is visible in the catalogue but not purchasable.
   const [upcoming, setUpcoming] = useState(false);
@@ -721,6 +729,8 @@ export default function CourseEditor() {
     setPrice(d.course_price || 0);
     setDiscountPct(Number(d.discount_percentage) || 0);
     setCurrency(d.currency || 'ETB');
+    // Instructors live in the `instructors` child table; we manage a single one.
+    setInstructor(d.instructors?.[0]?.instructor || '');
     setPublished(!!d.published);
     setUpcoming(!!d.upcoming);
     // Split outcomes by newline, trim, drop blanks
@@ -758,6 +768,13 @@ export default function CourseEditor() {
   });
   const categories = Array.isArray(categoriesData) ? categoriesData : categoriesData?.data || [];
 
+  // Load assignable instructors (Course Creator / Instructor users)
+  const { data: instructorsData } = useQuery({
+    queryKey: ['instructors'],
+    queryFn: () => getInstructors(),
+  });
+  const instructors = Array.isArray(instructorsData) ? instructorsData : instructorsData?.data || [];
+
   // Load quizzes for dropdown
   const { data: quizzesData } = useQuery({
     queryKey: ['quizzes-list'],
@@ -788,6 +805,11 @@ export default function CourseEditor() {
         courseName = res.name;
       } else {
         await updateCourse(id!, courseData);
+      }
+
+      // Persist the selected instructor (Course Instructor child table).
+      if (courseName) {
+        await setCourseInstructor(courseName, instructor);
       }
 
       // Save chapters & lessons. NOTE: Course Chapter and Course Lesson
@@ -1063,6 +1085,15 @@ export default function CourseEditor() {
               <option value="">Select category</option>
               {categories.map((c: any) => (
                 <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
+            <select value={instructor} onChange={(e) => setInstructor(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="">No instructor</option>
+              {instructors.map((u: any) => (
+                <option key={u.name} value={u.name}>{u.full_name || u.name}</option>
               ))}
             </select>
           </div>

@@ -19,10 +19,10 @@ import {
   formatPrice,
   formatDuration,
   formatDate,
-  parseVimeoVideo,
   cn,
 } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
+import CoursePreviewPlayer from '@/components/CoursePreviewPlayer';
 import {
   Star,
   Clock,
@@ -360,15 +360,18 @@ export default function CourseDetail() {
     [chapters]
   );
 
-  // Preview video
-  const previewVideo = useMemo(() => {
-    if (!course) return null;
-    // Check first lesson of first chapter for a preview
-    if (chapters.length > 0 && chapters[0].lessons?.length > 0) {
-      return parseVimeoVideo(chapters[0].lessons[0].youtube);
+  // Public preview video: the first preview-flagged lesson that has a video.
+  // Stored as "id/hash"; CoursePreviewPlayer parses and plays it on click.
+  const previewVideoValue = useMemo(() => {
+    for (const ch of chapters) {
+      for (const lesson of ch.lessons || []) {
+        if (lesson.is_preview && lesson.youtube && lesson.youtube.trim()) {
+          return lesson.youtube;
+        }
+      }
     }
     return null;
-  }, [course, chapters]);
+  }, [chapters]);
 
   const wishlisted = isInWishlist(courseId || '');
 
@@ -529,24 +532,26 @@ export default function CourseDetail() {
               </div>
             </div>
 
-            {/* Preview video placeholder */}
-            <div className="relative aspect-video bg-gray-900 rounded-xl overflow-hidden group cursor-pointer">
-              <img
-                src={getCourseImageUrl(course)}
-                alt={`${course.title} preview`}
-                className="w-full h-full object-cover opacity-80"
+            {/* Course preview — plays the first preview-flagged lesson video */}
+            {previewVideoValue ? (
+              <CoursePreviewPlayer
+                videoValue={previewVideoValue}
+                thumbnailUrl={getCourseImageUrl(course)}
+                courseTitle={course.title}
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <Play className="w-7 h-7 text-dark ml-1" fill="currentColor" />
-                </div>
-              </div>
-              {!previewVideo && (
+            ) : (
+              <div className="relative aspect-video bg-gray-900 rounded-xl overflow-hidden">
+                <img
+                  src={getCourseImageUrl(course)}
+                  alt={`${course.title} preview`}
+                  className="w-full h-full object-cover opacity-80"
+                />
+                <div className="absolute inset-0 bg-black/30" />
                 <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
                   Preview coming soon
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="border-b border-gray-200">
