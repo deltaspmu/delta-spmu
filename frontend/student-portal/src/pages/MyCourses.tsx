@@ -66,14 +66,27 @@ export default function MyCourses() {
     queryFn: () => getEnrolledCourses(),
   });
 
-  // Parse enrolled courses
+  // Parse enrolled courses.
+  // get_enrolled_courses returns LMS Enrollment rows: the top-level `name` is
+  // the ENROLLMENT id (a hash like "b3jppnuqso"), while the real course lives
+  // under `course` (slug) and `course_data` (metadata). Normalise each row to a
+  // Course keyed by the course slug, otherwise links resolve to /learn/<enrollment-id>
+  // ("Course not found") and progress/access are queried with the wrong id.
   const enrolledCourses: Course[] = useMemo(() => {
-    if (!enrolledData) return [];
-    if (Array.isArray(enrolledData)) return enrolledData as Course[];
-    if (typeof enrolledData === 'object' && 'data' in (enrolledData as Record<string, unknown>)) {
-      return (enrolledData as { data: Course[] }).data;
-    }
-    return [];
+    const rows = Array.isArray(enrolledData)
+      ? enrolledData
+      : enrolledData &&
+          typeof enrolledData === 'object' &&
+          'data' in (enrolledData as Record<string, unknown>)
+        ? (enrolledData as { data: unknown[] }).data
+        : [];
+    return (rows as Array<Record<string, unknown>>).map((row) => {
+      const cd = (row.course_data as Record<string, unknown>) ?? row;
+      return {
+        ...cd,
+        name: (row.course as string) ?? (cd.name as string),
+      } as unknown as Course;
+    });
   }, [enrolledData]);
 
   // Fetch progress + access for all enrolled courses

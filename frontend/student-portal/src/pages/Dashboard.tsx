@@ -128,14 +128,26 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Parse enrolled courses
+  // Parse enrolled courses.
+  // get_enrolled_courses returns LMS Enrollment rows: the top-level `name` is
+  // the ENROLLMENT id, the real course is under `course` (slug) + `course_data`.
+  // Normalise to a Course keyed by the course slug so links and progress
+  // lookups don't use the enrollment id.
   const enrolledCourses: Course[] = useMemo(() => {
-    if (!enrolledData) return [];
-    if (Array.isArray(enrolledData)) return enrolledData as Course[];
-    if (typeof enrolledData === 'object' && 'data' in (enrolledData as Record<string, unknown>)) {
-      return (enrolledData as { data: Course[] }).data;
-    }
-    return [];
+    const rows = Array.isArray(enrolledData)
+      ? enrolledData
+      : enrolledData &&
+          typeof enrolledData === 'object' &&
+          'data' in (enrolledData as Record<string, unknown>)
+        ? (enrolledData as { data: unknown[] }).data
+        : [];
+    return (rows as Array<Record<string, unknown>>).map((row) => {
+      const cd = (row.course_data as Record<string, unknown>) ?? row;
+      return {
+        ...cd,
+        name: (row.course as string) ?? (cd.name as string),
+      } as unknown as Course;
+    });
   }, [enrolledData]);
 
   // Fetch progress for each enrolled course
