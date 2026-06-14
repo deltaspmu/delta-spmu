@@ -3396,8 +3396,29 @@ def custom_reset_password(user=None, email=None):
     if not enabled:
         return {"sent": True}
 
+    # Stock Frappe's update_password() (the endpoint the SPA reset page calls)
+    # hashes the key from the link with sha256 and looks up
+    # reset_password_key == sha256_hash(key). So we must store the HASH in the
+    # DB while emailing the PLAINTEXT key. Storing the plaintext key here (the
+    # old behaviour) made every reset link fail with HTTP 410
+    # "link has either been used before or is invalid".
+    #
+    # last_reset_password_key_generated_on must be set too: when
+    # reset_password_link_expiry_duration is configured,
+    # _get_user_for_update_password adds a timedelta to it and would raise on
+    # a NULL value.
+    from frappe.utils import now_datetime
+    from frappe.utils.data import sha256_hash
+
     key = frappe.generate_hash(length=32)
-    frappe.db.set_value("User", target, "reset_password_key", key)
+    frappe.db.set_value(
+        "User",
+        target,
+        {
+            "reset_password_key": sha256_hash(key),
+            "last_reset_password_key_generated_on": now_datetime(),
+        },
+    )
     frappe.db.commit()
 
     student_name = frappe.db.get_value("User", target, "full_name") or target
