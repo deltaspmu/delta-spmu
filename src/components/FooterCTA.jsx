@@ -221,7 +221,15 @@ export default function FooterCTA() {
                 &copy; {config.year} {config.siteName}. All rights reserved.
               </p>
               <p className="font-body text-[11px] font-light text-white/20">
-                Powered by Philocom
+                Powered by{" "}
+                <a
+                  href="https://philocom.co"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline-offset-2 transition-colors duration-300 hover:text-nude hover:underline"
+                >
+                  Philocom
+                </a>
               </p>
             </div>
             <button
