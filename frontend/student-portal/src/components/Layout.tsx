@@ -500,7 +500,15 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
             &copy; 2026 Delta SPMU Academy. All rights reserved.
           </p>
           <p className="mt-1 text-xs text-white/30">
-            Powered by Philocom
+            Powered by{' '}
+            <a
+              href="https://philocom.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 transition-colors hover:text-primary hover:underline"
+            >
+              Philocom
+            </a>
           </p>
         </div>
       </div>
