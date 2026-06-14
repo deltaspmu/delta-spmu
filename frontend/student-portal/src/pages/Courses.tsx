@@ -129,6 +129,14 @@ function CourseCard({ course }: CourseCardProps) {
             Coming Soon
           </span>
         )}
+        {/* Promo badge */}
+        {course.upcoming !== 1 &&
+          !!course.discount_percent &&
+          course.discount_percent > 0 && (
+            <span className="absolute bottom-3 left-3 bg-primary text-dark text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+              {course.discount_percent}% OFF
+            </span>
+          )}
       </div>
 
       {/* Content */}
@@ -179,13 +187,26 @@ function CourseCard({ course }: CourseCardProps) {
               {formatDuration(course.total_duration)}
             </span>
           </div>
-          <span className="font-heading font-bold text-primary text-sm">
-            {course.upcoming === 1
-              ? 'Coming Soon'
-              : course.course_price > 0
+          {course.upcoming === 1 ? (
+            <span className="font-heading font-bold text-primary text-sm">
+              Coming Soon
+            </span>
+          ) : !!course.discount_percent && course.discount_percent > 0 ? (
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-heading font-bold text-primary text-sm">
+                {formatPrice(course.final_price ?? course.course_price, course.currency)}
+              </span>
+              <span className="text-gray-400 line-through text-xs">
+                {formatPrice(course.course_price, course.currency)}
+              </span>
+            </span>
+          ) : (
+            <span className="font-heading font-bold text-primary text-sm">
+              {course.course_price > 0
                 ? formatPrice(course.course_price, course.currency)
                 : 'Free'}
-          </span>
+            </span>
+          )}
         </div>
       </div>
     </Link>

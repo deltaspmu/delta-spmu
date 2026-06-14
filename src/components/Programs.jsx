@@ -5,33 +5,30 @@ import { ArrowRight } from "lucide-react";
 const PROGRAMS = [
   {
     number: "01",
-    title: "Foundation Certification",
+    title: "Ombré Brows Artistry",
     description:
-      "No prior experience required. Learn the core scientific and technical basics: infection control, brow mapping, safe machine handling, and simulated practice.",
+      "Our flagship certification. Master soft, gradient ombré brows — from skin science and color theory through brow mapping, machine work, and a full live procedure.",
+    promo: "50% Off",
   },
   {
     number: "02",
-    title: "Advanced Certification",
+    title: "Bridal Makeup Artistry",
     description:
-      "Deepen your artistry. Master specialized techniques like nano hairstrokes, shading gradients, and complex case management.",
+      "Long-lasting, camera-ready bridal artistry: skin prep, flawless base, sculpting, eyes and brows, client consultation, and the business of bridal beauty.",
   },
   {
     number: "03",
-    title: "Master Artist Program",
+    title: "Nano Brows Artistry",
     description:
-      "The highest level. Refine precision, tackle severe asymmetry, and develop industry leadership.",
+      "Ultra-fine, machine hairstrokes that mimic natural brow hair for precise, realistic definition across a wide range of skin types.",
+    comingSoon: true,
   },
   {
     number: "04",
-    title: "Instructor Licensing",
+    title: "Lip Blush & Lip Neutralization",
     description:
-      "Cultivate your skills to become an educator. Learn to train the next generation of artists.",
-  },
-  {
-    number: "05",
-    title: "Professional Bridal Makeup",
-    description:
-      "Master long-lasting, camera-ready bridal artistry: skin prep, flawless base, sculpting, eyes and brows, client consultation, and the business of bridal beauty.",
+      "Enhance natural lip color and shape with soft lip blush, and correct dark or cool lips with professional neutralization techniques.",
+    comingSoon: true,
   },
 ];
 
@@ -57,6 +54,20 @@ function ProgramCard({ program, index }) {
         <div className="pointer-events-none absolute inset-0 border border-transparent transition-colors duration-700 group-hover:border-nude/20" />
         {/* Top accent line */}
         <div className="absolute left-0 top-0 h-[1.5px] w-0 bg-gradient-to-r from-nude via-nude-dark to-transparent transition-all duration-700 ease-out group-hover:w-full" />
+
+        {/* Status / promo badge */}
+        {(program.comingSoon || program.promo) && (
+          <span
+            className={
+              "absolute right-8 top-8 z-10 px-3 py-1 font-body text-[10px] font-semibold uppercase tracking-wide md:right-10 md:top-10 " +
+              (program.comingSoon
+                ? "border border-white/15 bg-charcoal/70 text-white/55"
+                : "border border-nude/40 bg-nude/10 text-nude")
+            }
+          >
+            {program.comingSoon ? "Coming Soon" : program.promo}
+          </span>
+        )}
 
         <div>
           {/* Number badge */}
@@ -166,7 +177,7 @@ export default function Programs() {
               }}
               className="max-w-xl font-heading text-[clamp(1.8rem,3.8vw,3rem)] leading-[1.12] tracking-tight text-white"
             >
-              Progressive Training for{" "}
+              Professional Training for{" "}
               <span className="italic text-nude">Every Stage</span>{" "}
               of Your Career
             </motion.h2>
@@ -179,17 +190,17 @@ export default function Programs() {
             transition={{ duration: 0.7, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="max-w-xs font-body text-[13px] font-light leading-relaxed text-white/35"
           >
-            Five professional certifications spanning permanent makeup and bridal artistry — from fundamentals to mastery.
+            Four professional certifications spanning permanent makeup and bridal beauty — two open for enrollment now, with more coming soon.
           </motion.p>
         </div>
 
-        {/* ── Grid — 5 program cards + 1 image tile in a 3×2 layout ──
+        {/* ── Grid — 4 program cards + 1 image tile ──
              Desktop:
              ┌──────────┬──────────┬──────────┐
              │ Card 01  │ Card 02  │ Card 03  │
-             ├──────────┼──────────┼──────────┤
-             │ Card 04  │ Card 05  │  IMAGE   │
-             └──────────┴──────────┴──────────┘
+             ├──────────┼──────────┴──────────┤
+             │ Card 04  │        IMAGE        │
+             └──────────┴─────────────────────┘
         */}
         <div className="grid gap-2 md:grid-cols-12 md:auto-rows-[minmax(320px,1fr)]">
           {/* Row 1 */}
@@ -207,10 +218,7 @@ export default function Programs() {
           <div className="md:col-span-4">
             <ProgramCard program={PROGRAMS[3]} index={3} />
           </div>
-          <div className="md:col-span-4">
-            <ProgramCard program={PROGRAMS[4]} index={4} />
-          </div>
-          <div className="md:col-span-4">
+          <div className="md:col-span-8">
             <ImageTile />
           </div>
         </div>

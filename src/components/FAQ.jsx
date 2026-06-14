@@ -19,13 +19,13 @@ const faqs = [
     id: "experience",
     question: "Do I need prior experience to enroll?",
     answer:
-      "No prior cosmetic or beauty experience is required for our Foundation Certification program. Our curriculum is designed to take you from fundamentals through to clinical-level proficiency with structured, hands-on training.",
+      "No prior cosmetic or beauty experience is required for our core brow certifications. Our curriculum is designed to take you from fundamentals through to clinical-level proficiency with structured, hands-on training.",
   },
   {
     id: "duration",
     question: "How long are the training programs?",
     answer:
-      "Program duration varies by certification level. The Foundation Certification is an intensive course completed over several weeks, while Advanced and Master Artist programs build upon prior training with additional clinical hours and specialized modules.",
+      "Program duration varies by certification. Our Ombré Brows Artistry certification is an intensive, video-led course you begin online and complete with in-person practical training; other certifications add their own clinical hours and specialized modules.",
   },
   {
     id: "online",

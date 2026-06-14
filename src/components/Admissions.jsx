@@ -20,13 +20,13 @@ const items = [
     id: "eligibility",
     title: "Eligibility Requirements",
     content:
-      "Applicants must be at least 18 years of age. No prior cosmetic experience is required for entry into our Foundation Certification program.",
+      "Applicants must be at least 18 years of age. No prior cosmetic experience is required to begin our certification programs.",
   },
   {
     id: "advanced",
-    title: "Advanced Program Entry",
+    title: "Choosing Your Certification",
     content:
-      "Enrollment in Advanced or Master Artist programs requires demonstrated prior completion of relevant foundational training or equivalent professional clinical experience.",
+      "Each certification is a complete, standalone program — start with the specialism that fits your goals. Some advanced specialisms benefit from prior permanent-makeup experience; our admissions team can advise on the right starting point.",
   },
   {
     id: "process",
