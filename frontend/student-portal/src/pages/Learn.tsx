@@ -42,11 +42,11 @@ import {
 function PageSkeleton() {
   return (
     <div className="min-h-screen bg-alabaster animate-pulse">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="h-5 bg-gray-200 rounded w-48 mb-4" />
         <div className="h-2 bg-gray-200 rounded w-full mb-6" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-9 space-y-4">
             <div className="aspect-video bg-gray-200 rounded-xl" />
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -54,7 +54,7 @@ function PageSkeleton() {
               ))}
             </div>
           </div>
-          <div className="space-y-3">
+          <div className="lg:col-span-3 space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-10 bg-gray-200 rounded" />
             ))}
@@ -637,7 +637,7 @@ export default function Learn() {
 
       {/* Top bar */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3 min-w-0">
               <Link
@@ -679,12 +679,12 @@ export default function Learn() {
       </div>
 
       {/* Main layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* =============================================================== */}
           {/* MAIN AREA                                                       */}
           {/* =============================================================== */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-9 space-y-6">
             {/* Video or content area */}
             {videoData ? (
               <div className="relative">
@@ -854,7 +854,7 @@ export default function Learn() {
 
           <div
             className={cn(
-              'lg:col-span-1',
+              'lg:col-span-3',
               // Mobile: slide-in drawer
               'fixed lg:static inset-y-0 right-0 z-40 w-80 lg:w-auto',
               'transform transition-transform duration-300 lg:transform-none',

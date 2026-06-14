@@ -110,7 +110,13 @@ export default function MyCourses() {
         ...c,
         progress,
         accessDaysRemaining: daysRemaining,
-        accessExpired: daysRemaining <= 0 && !(data?.access?.has_access ?? true),
+        // Only treat as "expired" when an access window actually existed (a
+        // non-null access_end). A roster entry with no granted window should
+        // not show the alarming "Expired — Renew" CTA.
+        accessExpired:
+          daysRemaining <= 0 &&
+          !(data?.access?.has_access ?? true) &&
+          !!data?.access?.access_end,
       };
     });
   }, [enrolledCourses, enrichmentData]);
