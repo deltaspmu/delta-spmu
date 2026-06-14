@@ -47,7 +47,6 @@ export default function VimeoPlayer({
     if (!containerRef.current) return;
 
     const options: Record<string, unknown> = {
-      id: parseInt(videoId, 10),
       responsive: true,
       autoplay: autoplay || false,
       title: false,
@@ -55,8 +54,13 @@ export default function VimeoPlayer({
       portrait: false,
     };
 
+    // Unlisted videos must be referenced by their full private URL
+    // (vimeo.com/<id>/<hash>). Vimeo's oEmbed 404s when given the bare id with
+    // the hash as a separate ?h param, which breaks playback.
     if (hash) {
-      options.h = hash;
+      options.url = `https://vimeo.com/${videoId}/${hash}`;
+    } else {
+      options.id = parseInt(videoId, 10);
     }
 
     try {
