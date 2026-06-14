@@ -489,6 +489,15 @@ export async function saveInstructorProfile(data: Record<string, any>) {
   return call('lms.lms.custom_api.save_instructor_profile', data);
 }
 
+// Assignable instructors (Course Creator / Instructor users) + per-course assignment
+export async function getInstructors() {
+  return call('lms.lms.api.get_instructors');
+}
+
+export async function setCourseInstructor(course: string, instructor: string) {
+  return call('lms.lms.api.set_course_instructor', { course, instructor });
+}
+
 // ---------------------------------------------------------------------------
 // Default export
 // ---------------------------------------------------------------------------
