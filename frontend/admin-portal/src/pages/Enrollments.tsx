@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getEnrollments, getCourses, createEnrollment } from '@/api/client';
+import { getEnrollments, getCourses, manualEnroll } from '@/api/client';
 import {
   Search,
   Loader2,
@@ -8,6 +8,26 @@ import {
   X,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Pull a human-readable message out of a Frappe error response so the modal can
+// show the real reason (e.g. "No account found for ...") instead of a generic one.
+function enrollErrorMsg(err: any): string {
+  const data = err?.response?.data;
+  try {
+    if (data?._server_messages) {
+      const arr = JSON.parse(data._server_messages);
+      const first = typeof arr[0] === 'string' ? JSON.parse(arr[0]) : arr[0];
+      if (first?.message) return String(first.message).replace(/<[^>]+>/g, '');
+    }
+  } catch {
+    /* fall through */
+  }
+  if (data?.exception) {
+    const msg = String(data.exception).split(':').slice(1).join(':').trim();
+    if (msg) return msg;
+  }
+  return 'Failed to create enrollment. Please check the student email and try again.';
+}
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -65,7 +85,8 @@ export default function Enrollments() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, any>) => createEnrollment(data),
+    mutationFn: (data: { student: string; course: string }) =>
+      manualEnroll(data.student, data.course),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-enrollments'] });
       setShowCreateModal(false);
@@ -219,7 +240,7 @@ export default function Enrollments() {
               </div>
               {createMutation.isError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-                  Failed to create enrollment. Please check the student email and try again.
+                  {enrollErrorMsg(createMutation.error)}
                 </div>
               )}
               <div className="flex justify-end gap-3 pt-2">

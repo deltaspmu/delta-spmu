@@ -296,6 +296,12 @@ export async function createEnrollment(data: Record<string, any>) {
   return unwrap(res);
 }
 
+// Manually enrol an existing (already signed-up) student in a course, bypassing
+// payment. Grants Course Access + LMS Enrollment server-side.
+export async function manualEnroll(student: string, course: string) {
+  return call('lms.lms.api.admin_manual_enroll', { student, course });
+}
+
 export async function deleteEnrollment(name: string) {
   const res = await api.delete(`${resource('LMS Enrollment')}/${name}`);
   return unwrap(res);
