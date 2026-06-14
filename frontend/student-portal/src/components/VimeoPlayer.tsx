@@ -10,6 +10,7 @@ interface VimeoPlayerProps {
   lessonId?: string;
   className?: string;
   autoplay?: boolean;
+  muted?: boolean;
 }
 
 export default function VimeoPlayer({
@@ -21,6 +22,7 @@ export default function VimeoPlayer({
   lessonId,
   className,
   autoplay = false,
+  muted = false,
 }: VimeoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
@@ -49,6 +51,7 @@ export default function VimeoPlayer({
     const options: Record<string, unknown> = {
       responsive: true,
       autoplay: autoplay || false,
+      muted: muted || false,
       title: false,
       byline: false,
       portrait: false,
@@ -122,7 +125,7 @@ export default function VimeoPlayer({
       setError('Failed to initialize video player.');
       setIsLoading(false);
     }
-  }, [videoId, hash, autoplay, storageKey, completionThreshold, onProgress, onComplete]);
+  }, [videoId, hash, autoplay, muted, storageKey, completionThreshold, onProgress, onComplete]);
 
   useEffect(() => {
     completionTriggeredRef.current = false;
