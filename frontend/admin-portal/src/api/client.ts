@@ -328,18 +328,17 @@ export async function getQuizQuestions(quiz: string) {
 }
 
 export async function createQuiz(data: Record<string, any>) {
-  const res = await api.post(resource('LMS Quiz'), data);
-  return unwrap(res);
+  // Routed through custom_api: maps portal fields onto the real LMS Quiz schema
+  // (duration, enable_negative_marking) and sets the mandatory total_marks.
+  return call('lms.lms.custom_api.create_quiz', data);
 }
 
 export async function updateQuiz(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('LMS Quiz')}/${name}`, data);
-  return unwrap(res);
+  return call('lms.lms.custom_api.update_quiz', { quiz: name, ...data });
 }
 
 export async function deleteQuiz(name: string) {
-  const res = await api.delete(`${resource('LMS Quiz')}/${name}`);
-  return unwrap(res);
+  return call('lms.lms.custom_api.delete_quiz', { quiz: name });
 }
 
 export async function addQuizQuestion(quiz: string, data: Record<string, any>) {

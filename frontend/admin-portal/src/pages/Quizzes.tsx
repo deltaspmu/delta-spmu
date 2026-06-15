@@ -46,8 +46,8 @@ function QuizModal({
   const [course, setCourse] = useState(quiz?.course || '');
   const [passingPct, setPassingPct] = useState(quiz?.passing_percentage || 50);
   const [maxAttempts, setMaxAttempts] = useState(quiz?.max_attempts || 3);
-  const [timeLimit, setTimeLimit] = useState(quiz?.time_limit || 0);
-  const [negativeMarking, setNegativeMarking] = useState(!!quiz?.negative_marking);
+  const [timeLimit, setTimeLimit] = useState(Number(quiz?.duration) || 0);
+  const [negativeMarking, setNegativeMarking] = useState(!!quiz?.enable_negative_marking);
 
   React.useEffect(() => {
     if (quiz) {
@@ -55,8 +55,8 @@ function QuizModal({
       setCourse(quiz.course || '');
       setPassingPct(quiz.passing_percentage || 50);
       setMaxAttempts(quiz.max_attempts || 3);
-      setTimeLimit(quiz.time_limit || 0);
-      setNegativeMarking(!!quiz.negative_marking);
+      setTimeLimit(Number(quiz.duration) || 0);
+      setNegativeMarking(!!quiz.enable_negative_marking);
     } else {
       setTitle('');
       setCourse('');
@@ -114,7 +114,7 @@ function QuizModal({
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={onClose} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
             <button
-              onClick={() => onSave({ title, course, passing_percentage: passingPct, max_attempts: maxAttempts, time_limit: timeLimit, negative_marking: negativeMarking ? 1 : 0 })}
+              onClick={() => onSave({ title, course, passing_percentage: passingPct, max_attempts: maxAttempts, duration: timeLimit, negative_marking: negativeMarking ? 1 : 0 })}
               disabled={!title || saving}
               className="px-4 py-2 text-sm bg-dark text-white rounded-lg hover:bg-dark-light disabled:opacity-50"
             >
@@ -323,7 +323,7 @@ export default function Quizzes() {
     queryKey: ['admin-quizzes'],
     queryFn: () =>
       getQuizzes({
-        fields: JSON.stringify(['name', 'title', 'course', 'max_attempts', 'passing_percentage', 'time_limit', 'negative_marking', 'creation']),
+        fields: JSON.stringify(['name', 'title', 'course', 'max_attempts', 'passing_percentage', 'duration', 'enable_negative_marking', 'creation']),
         limit_page_length: 0,
         order_by: 'creation desc',
       }),
@@ -419,7 +419,7 @@ export default function Quizzes() {
                 <div className="hidden sm:flex items-center gap-4 text-xs text-gray-500">
                   <span>Pass: {quiz.passing_percentage}%</span>
                   <span>Attempts: {quiz.max_attempts}</span>
-                  {quiz.time_limit > 0 && <span>{quiz.time_limit} min</span>}
+                  {Number(quiz.duration) > 0 && <span>{quiz.duration} min</span>}
                 </div>
                 <div className="flex gap-1">
                   <button

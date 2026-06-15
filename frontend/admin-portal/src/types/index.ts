@@ -77,10 +77,12 @@ export interface Quiz {
   name: string;
   title: string;
   course: string;
+  lesson?: string;
   max_attempts: number;
   passing_percentage: number;
-  negative_marking: number;
-  time_limit: number;
+  // Real LMS Quiz schema field names on this fork:
+  enable_negative_marking: number;
+  duration: number | string; // Data field — minutes, stored as string
   questions: QuizQuestion[];
   creation: string;
   modified: string;
