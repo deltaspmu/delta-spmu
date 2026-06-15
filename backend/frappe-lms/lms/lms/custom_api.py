@@ -78,7 +78,7 @@ def _all_lessons(course):
     global_idx = 0
     for ch in chapters:
         ch_lessons = frappe.db.get_all(
-            "Lesson",
+            "Course Lesson",
             filters={"chapter": ch.name},
             fields=["name", "title", "idx"],
             order_by="idx asc",
@@ -206,19 +206,88 @@ def get_course_progress(course, member=None):
     member = member or _current_member()
     if not member:
         return {"course": course, "member": None, "progress": 0,
+                "progress_percentage": 0,
                 "completed_lessons": [], "total_lessons": 0}
 
     all_ls = _all_lessons(course)
     total = len(all_ls)
     if not total:
         return {"course": course, "member": member, "progress": 0,
+                "progress_percentage": 0,
                 "completed_lessons": [], "total_lessons": 0}
 
     done = _completed_set(course, member)
     done_list = [l["lesson"] for l in all_ls if l["lesson"] in done]
+    pct = math.floor(len(done_list) / total * 100)
+    # Frontend (My Courses / Dashboard) reads `progress_percentage`; keep
+    # `progress` too for any other consumer.
     return {"course": course, "member": member,
-            "progress": math.floor(len(done_list) / total * 100),
+            "progress": pct, "progress_percentage": pct,
             "completed_lessons": done_list, "total_lessons": total}
+
+
+# ---------------------------------------------------------------------------
+# Quiz helpers — this fork stores options INLINE on LMS Question
+# (option_1..4 / is_correct_1..4); there is no "LMS Quiz Option" table, and the
+# quiz negative-marking fields are enable_negative_marking / marks_to_cut.
+# ---------------------------------------------------------------------------
+
+def _quiz_questions(quiz, with_correct=False):
+    """Build a quiz's question list from the inline-option schema.
+
+    Each ``LMS Quiz Question`` child row links (``question``) to a standalone
+    ``LMS Question`` that holds the text + option_1..4 / is_correct_1..4.
+    Questions are keyed by the child row ``name`` (the key the client answers
+    by); ``option`` carries the option *text*. ``is_correct`` is included only
+    when ``with_correct`` is True (admin review / grading).
+    """
+    rows = frappe.db.get_all(
+        "LMS Quiz Question", filters={"parent": quiz},
+        fields=["name", "question", "marks", "idx"], order_by="idx asc")
+    out = []
+    for r in rows:
+        lq = frappe.db.get_value(
+            "LMS Question", r.question,
+            ["question", "multiple",
+             "option_1", "is_correct_1", "option_2", "is_correct_2",
+             "option_3", "is_correct_3", "option_4", "is_correct_4"],
+            as_dict=True)
+        if not lq:
+            continue
+        is_multi = cint(lq.get("multiple"))
+        options = []
+        for i in (1, 2, 3, 4):
+            text = lq.get("option_%d" % i)
+            if text is None or str(text).strip() == "":
+                continue
+            o = {"name": str(i), "option": text, "idx": i}
+            if with_correct:
+                o["is_correct"] = cint(lq.get("is_correct_%d" % i))
+            options.append(o)
+        out.append({
+            "name": r.name,
+            "question": lq.get("question"),
+            "type": "MultipleChoice" if is_multi else "SingleChoice",
+            "question_type": "Multiple Choice" if is_multi else "Single Choice",
+            "marks": flt(r.marks) or 1,
+            "idx": r.idx,
+            "options": options,
+        })
+    return out
+
+
+def _quiz_correct_set(question_name):
+    """Return (is_multiple, set_of_correct_option_texts) for an LMS Question."""
+    lq = frappe.db.get_value(
+        "LMS Question", question_name,
+        ["multiple", "option_1", "is_correct_1", "option_2", "is_correct_2",
+         "option_3", "is_correct_3", "option_4", "is_correct_4"],
+        as_dict=True) or {}
+    cor = set()
+    for i in (1, 2, 3, 4):
+        if cint(lq.get("is_correct_%d" % i)) and lq.get("option_%d" % i):
+            cor.add(str(lq.get("option_%d" % i)).strip())
+    return cint(lq.get("multiple")), cor
 
 
 # ---------------------------------------------------------------------------
@@ -246,28 +315,19 @@ def get_quiz(quiz):
     qf = frappe.db.get_value("LMS Quiz", quiz,
         ["name", "title", "max_attempts", "passing_percentage",
          "show_answers", "show_submission_history",
-         "negative_marking", "negative_marking_percentage"], as_dict=True)
+         "enable_negative_marking", "marks_to_cut", "duration"], as_dict=True)
     if not qf:
         frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
 
-    raw = frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
-        fields=["name", "question", "type", "marks", "idx"], order_by="idx asc")
-    questions = []
-    for q in raw:
-        opts = frappe.db.get_all("LMS Quiz Option", filters={"parent": q.name},
-            fields=["name", "option", "idx"], order_by="idx asc")
-        questions.append({"name": q.name, "question": q.question,
-            "type": q.get("type", "SingleChoice"), "marks": flt(q.marks) or 1,
-            "idx": q.idx,
-            "options": [{"name": o.name, "option": o.option, "idx": o.idx} for o in opts]})
+    questions = _quiz_questions(quiz, with_correct=False)
 
     return {"name": qf.name, "title": qf.title,
             "max_attempts": cint(qf.max_attempts) or 0,
             "passing_percentage": flt(qf.passing_percentage) or 70,
             "show_answers": cint(qf.show_answers),
             "show_submission_history": cint(qf.show_submission_history),
-            "negative_marking": cint(qf.negative_marking),
-            "negative_marking_percentage": flt(qf.negative_marking_percentage),
+            "negative_marking": cint(qf.enable_negative_marking),
+            "duration": cint(qf.duration) or 0,
             "total_questions": len(questions), "questions": questions}
 
 
@@ -294,19 +354,7 @@ def get_quiz_questions(quiz):
     if not quiz or not frappe.db.exists("LMS Quiz", quiz):
         frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
 
-    raw = frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
-        fields=["name", "question", "type", "marks", "negative_marks", "idx"],
-        order_by="idx asc")
-    questions = []
-    for q in raw:
-        opts = frappe.db.get_all("LMS Quiz Option", filters={"parent": q.name},
-            fields=["name", "option", "is_correct", "idx"], order_by="idx asc")
-        questions.append({"name": q.name, "question": q.question,
-            "type": q.get("type", "SingleChoice"),
-            "marks": flt(q.marks) or 1, "negative_marks": flt(q.get("negative_marks", 0)),
-            "idx": q.idx,
-            "options": [{"name": o.name, "option": o.option,
-                         "is_correct": cint(o.is_correct), "idx": o.idx} for o in opts]})
+    questions = _quiz_questions(quiz, with_correct=True)
     return {"quiz": quiz, "questions": questions}
 
 
@@ -519,21 +567,21 @@ def submit_quiz(quiz, answers):
 
     qf = frappe.db.get_value("LMS Quiz", quiz,
         ["name", "title", "max_attempts", "passing_percentage",
-         "negative_marking", "negative_marking_percentage"], as_dict=True)
+         "enable_negative_marking", "marks_to_cut"], as_dict=True)
     if not qf:
         frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
 
     max_att = cint(qf.max_attempts)
     pass_pct = flt(qf.passing_percentage) or 70
-    neg_on = cint(qf.negative_marking)
-    neg_pct = flt(qf.negative_marking_percentage)
+    neg_on = cint(qf.enable_negative_marking)
+    neg_marks = flt(qf.marks_to_cut)
 
     att = _quiz_attempts(quiz, member)
     if max_att > 0 and att >= max_att:
         frappe.throw(_("Max attempts ({0}) reached.").format(max_att))
 
     raw_qs = frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
-        fields=["name", "question", "type", "marks", "negative_marks", "idx"],
+        fields=["name", "question", "marks", "idx"],
         order_by="idx asc")
 
     total_marks, earned, correct_count, wrong_count = 0, 0, 0, 0
@@ -542,47 +590,58 @@ def submit_quiz(quiz, answers):
     for q in raw_qs:
         qm = flt(q.marks) or 1
         total_marks += qm
-        qt = q.get("type", "SingleChoice")
-        cor_raw = frappe.db.get_all("LMS Quiz Option",
-            filters={"parent": q.name, "is_correct": 1}, fields=["option"])
-        cor_set = {o.option.strip() for o in cor_raw}
+        lq = frappe.db.get_value(
+            "LMS Question", q.question,
+            ["question", "multiple", "option_1", "is_correct_1",
+             "option_2", "is_correct_2", "option_3", "is_correct_3",
+             "option_4", "is_correct_4"], as_dict=True) or {}
+        is_multi = cint(lq.get("multiple"))
+        cor_set = set()
+        for i in (1, 2, 3, 4):
+            if cint(lq.get("is_correct_%d" % i)) and lq.get("option_%d" % i):
+                cor_set.add(str(lq.get("option_%d" % i)).strip())
+
         sa = answers.get(q.name)
         ok = False
-
-        if qt in ("SingleChoice", "Single Choice"):
+        if not is_multi:
             ok = isinstance(sa, str) and sa.strip() in cor_set
         else:
             ss = ({a.strip() for a in sa if isinstance(a, str)} if isinstance(sa, list)
                   else {sa.strip()} if isinstance(sa, str) else set())
             ok = ss == cor_set and len(ss) > 0
 
+        gained = 0
         if ok:
-            earned += qm; correct_count += 1
+            gained = qm; earned += qm; correct_count += 1
         else:
             wrong_count += 1
-            if neg_on and neg_pct > 0:
-                earned -= qm * (neg_pct / 100)
-            elif neg_on and flt(q.get("negative_marks", 0)) > 0:
-                earned -= flt(q.negative_marks)
+            if neg_on and neg_marks > 0:
+                gained = -neg_marks; earned -= neg_marks
 
-        q_results.append({"question": q.name, "is_correct": ok})
+        ans_text = ", ".join(sa) if isinstance(sa, list) else (sa or "")
+        q_results.append({
+            "question_text": lq.get("question") or "",
+            "question_name": q.question, "answer": ans_text,
+            "marks": gained, "marks_out_of": qm, "is_correct": ok})
 
     earned = max(earned, 0)
-    score = round(earned / total_marks * 100, 2) if total_marks else 0
-    passed = score >= pass_pct
+    pct = int(round(earned / total_marks * 100)) if total_marks else 0
+    passed = pct >= pass_pct
     att_num = att + 1
 
+    course = frappe.db.get_value("LMS Quiz", quiz, "course")
     sub = frappe.new_doc("LMS Quiz Submission")
-    sub.update({"quiz": quiz, "member": member, "score": score,
-                "passing_percentage": pass_pct,
-                "result": "Pass" if passed else "Fail",
-                "attempt_number": att_num, "time": now_datetime()})
-    if hasattr(sub, "answers"):
-        for qr in q_results:
-            ag = answers.get(qr["question"], "")
-            if isinstance(ag, list): ag = ", ".join(ag)
-            sub.append("answers", {"question": qr["question"],
-                                   "answer": ag, "is_correct": cint(qr["is_correct"])})
+    sub.update({"quiz": quiz, "quiz_title": qf.title, "member": member,
+                "member_name": frappe.db.get_value("User", member, "full_name") or member,
+                "course": course,
+                "score": int(round(earned)), "score_out_of": int(round(total_marks)),
+                "percentage": pct, "passing_percentage": int(pass_pct)})
+    for qr in q_results:
+        sub.append("result", {
+            "question": qr["question_text"], "question_name": qr["question_name"],
+            "answer": qr["answer"], "marks": int(round(qr["marks"])),
+            "marks_out_of": int(round(qr["marks_out_of"])),
+            "is_correct": cint(qr["is_correct"])})
     try:
         sub.insert(ignore_permissions=True); frappe.db.commit()
     except Exception as e:
@@ -592,7 +651,7 @@ def submit_quiz(quiz, answers):
     if passed:
         _auto_complete_quiz_lesson(quiz, member)
 
-    return {"quiz": quiz, "score": score, "passed": passed,
+    return {"quiz": quiz, "score": pct, "passed": passed,
             "total_questions": len(raw_qs), "correct_count": correct_count,
             "wrong_count": wrong_count, "earned_marks": round(earned, 2),
             "total_marks": round(total_marks, 2), "attempt_number": att_num,
@@ -604,19 +663,19 @@ def _auto_complete_quiz_lesson(quiz, member):
     Auto-mark the lesson that owns *quiz* as complete for *member*.
 
     Tries two lookup strategies:
-      1. ``Lesson`` doctype with a ``quiz`` field matching the quiz name.
+      1. ``Course Lesson`` doctype with a ``quiz_id`` field matching the quiz name.
       2. ``LMS Quiz`` doctype with a ``lesson`` back-reference field.
 
     If neither yields a lesson, the function silently returns (the quiz
     may not be attached to any specific lesson — e.g. a standalone final
     course quiz).
     """
-    lesson = frappe.db.get_value("Lesson", {"quiz": quiz}, "name")
+    lesson = frappe.db.get_value("Course Lesson", {"quiz_id": quiz}, "name")
     if not lesson:
         lesson = frappe.db.get_value("LMS Quiz", quiz, "lesson")
     if not lesson:
         return
-    chapter = frappe.db.get_value("Lesson", lesson, "chapter")
+    chapter = frappe.db.get_value("Course Lesson", lesson, "chapter")
     if not chapter:
         return
     course = frappe.db.get_value("Course Chapter", chapter, "course")
@@ -762,12 +821,19 @@ def add_quiz_question(quiz, question, question_type="SingleChoice", options=None
     Args:
         quiz: LMS Quiz name.
         question: Question text (plain text or HTML).
-        question_type: ``"SingleChoice"`` or ``"MultipleChoice"``.
-        options: JSON array of option strings.
-        correct_option: The correct option text (single choice).
-        correct_options: JSON array of correct option texts (multiple choice).
+        question_type: ``"SingleChoice"`` / ``"Single Choice"`` or the Multiple
+            Choice variants.
+        options: JSON array.  Two shapes are accepted:
+            * ``[{"option": "A", "is_correct": true}, ...]`` (what the admin
+              portal sends), or
+            * ``["A", "B", ...]`` plain strings, combined with
+              ``correct_option`` / ``correct_options``.
+        correct_option: Correct option text (single choice, string shape only).
+        correct_options: JSON array of correct option texts (multiple choice,
+            string shape only).
         marks: Marks awarded for a correct answer (default 1).
-        negative_marks: Marks deducted for a wrong answer (default 0).
+        negative_marks: Deprecated / ignored — negative marking is configured
+            at the quiz level (``enable_negative_marking`` / ``marks_to_cut``).
 
     Returns:
         dict with message, question_name, quiz, idx, options_count.
@@ -788,43 +854,69 @@ def add_quiz_question(quiz, question, question_type="SingleChoice", options=None
         try: correct_options = json.loads(correct_options)
         except Exception: correct_options = None
 
-    if question_type in ("MultipleChoice", "Multiple Choice"):
-        if not correct_options or not isinstance(correct_options, list):
-            frappe.throw(_("correct_options required for multiple choice"))
-        cor = set(correct_options)
+    is_multi = 1 if question_type in ("MultipleChoice", "Multiple Choice") else 0
+
+    # Normalise both supported option shapes into a list of option texts + a
+    # set of correct texts.
+    if options and isinstance(options[0], dict):
+        opt_texts, cor = [], set()
+        for o in options:
+            t = (o.get("option") or "").strip()
+            if not t:
+                continue
+            opt_texts.append(t)
+            if o.get("is_correct"):
+                cor.add(t)
     else:
-        if not correct_option:
-            frappe.throw(_("correct_option required for single choice"))
-        cor = {correct_option}
+        opt_texts = [str(o).strip() for o in options if str(o).strip()]
+        if is_multi:
+            cor = set(correct_options or [])
+        else:
+            cor = {correct_option} if correct_option else set()
+    options = opt_texts
+
+    if not options:
+        frappe.throw(_("At least one non-empty option is required"))
+    if not cor:
+        frappe.throw(_("Mark at least one option as correct"))
 
     bad = cor - set(options)
     if bad:
         frappe.throw(_("Correct answers not in options: {0}").format(", ".join(bad)))
 
-    mx = frappe.db.sql("SELECT MAX(idx) FROM `tabLMS Quiz Question` WHERE parent=%s", quiz)
-    nidx = (cint(mx[0][0]) if mx and mx[0][0] else 0) + 1
+    options = options[:4]
+    if cor - set(options):
+        frappe.throw(_("A correct answer was dropped — max 4 options allowed."))
 
-    qd = frappe.new_doc("LMS Quiz Question")
-    qd.update({"parent": quiz, "parenttype": "LMS Quiz", "parentfield": "questions",
-               "question": question, "type": question_type,
-               "marks": flt(marks) or 1, "negative_marks": flt(negative_marks), "idx": nidx})
+    # This fork stores options INLINE on a standalone LMS Question, then links
+    # it to the quiz via an LMS Quiz Question child row.
+    payload = {"doctype": "LMS Question", "question": question, "type": "Choices",
+               "multiple": is_multi}
+    for oi, ot in enumerate(options, 1):
+        payload["option_%d" % oi] = ot
+        payload["is_correct_%d" % oi] = 1 if ot in cor else 0
+    qd = frappe.get_doc(payload)
     try:
         qd.insert(ignore_permissions=True)
     except Exception as e:
         frappe.log_error(title="Add Question Error", message=str(e))
         frappe.throw(_("Failed to add question."))
 
-    for oi, ot in enumerate(options, 1):
-        od = frappe.new_doc("LMS Quiz Option")
-        od.update({"parent": qd.name, "parenttype": "LMS Quiz Question",
-                   "parentfield": "options", "option": ot,
-                   "is_correct": 1 if ot in cor else 0, "idx": oi})
-        try: od.insert(ignore_permissions=True)
-        except Exception as e:
-            frappe.log_error(title="Add Option Error", message=str(e))
+    mx = frappe.db.sql("SELECT MAX(idx) FROM `tabLMS Quiz Question` WHERE parent=%s", quiz)
+    nidx = (cint(mx[0][0]) if mx and mx[0][0] else 0) + 1
+    link = frappe.get_doc({
+        "doctype": "LMS Quiz Question", "parent": quiz, "parenttype": "LMS Quiz",
+        "parentfield": "questions", "question": qd.name,
+        "marks": flt(marks) or 1, "idx": nidx})
+    try:
+        link.insert(ignore_permissions=True)
+    except Exception as e:
+        frappe.log_error(title="Add Question Link Error", message=str(e))
+        frappe.throw(_("Failed to attach question to quiz."))
     frappe.db.commit()
+    _recompute_quiz_marks(quiz)
 
-    return {"message": _("Question added"), "question_name": qd.name,
+    return {"message": _("Question added"), "question_name": link.name,
             "quiz": quiz, "idx": nidx, "options_count": len(options)}
 
 
@@ -850,10 +942,12 @@ def delete_quiz_question(question_name):
     if not question_name or not frappe.db.exists("LMS Quiz Question", question_name):
         frappe.throw(_("Question not found"), frappe.DoesNotExistError)
 
-    quiz = frappe.db.get_value("LMS Quiz Question", question_name, "parent")
-    for o in frappe.db.get_all("LMS Quiz Option", filters={"parent": question_name}, fields=["name"]):
-        frappe.db.delete("LMS Quiz Option", o.name)
+    quiz, lms_question = frappe.db.get_value(
+        "LMS Quiz Question", question_name, ["parent", "question"])
     frappe.db.delete("LMS Quiz Question", question_name)
+    # The linked standalone LMS Question holds the inline options; remove it too.
+    if lms_question and frappe.db.exists("LMS Question", lms_question):
+        frappe.db.delete("LMS Question", lms_question)
     frappe.db.commit()
 
     rem = frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
@@ -862,8 +956,136 @@ def delete_quiz_question(question_name):
         frappe.db.set_value("LMS Quiz Question", q.name, "idx", i)
     frappe.db.commit()
 
+    _recompute_quiz_marks(quiz)
     return {"message": _("Question deleted"), "question_name": question_name,
             "quiz": quiz, "remaining_questions": len(rem)}
+
+
+def _recompute_quiz_marks(quiz):
+    """Keep LMS Quiz.total_marks in sync with the sum of its question marks
+    (the field is mandatory and used for display)."""
+    rows = frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
+        fields=["marks"])
+    total = sum(cint(r.marks) or 1 for r in rows)
+    frappe.db.set_value("LMS Quiz", quiz, "total_marks", total)
+    frappe.db.commit()
+
+
+# ---------------------------------------------------------------------------
+# 11b. create_quiz / update_quiz / delete_quiz  (Admin)
+#
+# The admin portal previously POSTed directly to the LMS Quiz REST resource
+# with fields that don't exist on this fork (time_limit, negative_marking) and
+# omitted the mandatory total_marks — so creation always failed.  These
+# endpoints map the portal's field names onto the real schema and keep the
+# lesson<->quiz back-link (Course Lesson.quiz_id) in sync.
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def create_quiz(title, course=None, lesson=None, passing_percentage=70,
+                max_attempts=3, duration=0, negative_marking=0, marks_to_cut=0,
+                show_answers=1, show_submission_history=1):
+    """Admin endpoint: create an LMS Quiz with the correct schema."""
+    _require_admin()
+    if not title:
+        frappe.throw(_("title is required"))
+
+    doc = frappe.get_doc({
+        "doctype": "LMS Quiz",
+        "title": title,
+        "passing_percentage": cint(passing_percentage) or 70,
+        "max_attempts": cint(max_attempts) or 0,
+        "duration": str(cint(duration) or 0),
+        "enable_negative_marking": cint(negative_marking),
+        "marks_to_cut": cint(marks_to_cut),
+        "show_answers": cint(show_answers),
+        "show_submission_history": cint(show_submission_history),
+        "total_marks": 0,
+    })
+    if course and frappe.db.exists("LMS Course", course):
+        doc.course = course
+    if lesson and frappe.db.exists("Course Lesson", lesson):
+        doc.lesson = lesson
+    doc.insert(ignore_permissions=True)
+
+    # The LMSQuiz controller forces passing_percentage=100 for a question-less
+    # quiz (calculate_total_marks). Since questions are attached afterwards via
+    # add_quiz_question (direct child inserts, no parent re-save), restore the
+    # admin's chosen value here so it actually sticks.
+    want_pct = cint(passing_percentage) or 70
+    if cint(doc.passing_percentage) != want_pct:
+        frappe.db.set_value("LMS Quiz", doc.name, "passing_percentage", want_pct)
+
+    if lesson and frappe.db.exists("Course Lesson", lesson):
+        frappe.db.set_value("Course Lesson", lesson, "quiz_id", doc.name)
+    frappe.db.commit()
+
+    return {"message": _("Quiz created"), "name": doc.name, "title": doc.title,
+            "course": doc.get("course"), "lesson": doc.get("lesson")}
+
+
+@frappe.whitelist()
+def update_quiz(quiz, title=None, course=None, lesson=None,
+                passing_percentage=None, max_attempts=None, duration=None,
+                negative_marking=None, marks_to_cut=None,
+                show_answers=None, show_submission_history=None):
+    """Admin endpoint: update an existing LMS Quiz (correct schema)."""
+    _require_admin()
+    if not quiz or not frappe.db.exists("LMS Quiz", quiz):
+        frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
+
+    vals = {}
+    if title is not None:
+        vals["title"] = title
+    if passing_percentage is not None:
+        vals["passing_percentage"] = cint(passing_percentage) or 70
+    if max_attempts is not None:
+        vals["max_attempts"] = cint(max_attempts) or 0
+    if duration is not None:
+        vals["duration"] = str(cint(duration) or 0)
+    if negative_marking is not None:
+        vals["enable_negative_marking"] = cint(negative_marking)
+    if marks_to_cut is not None:
+        vals["marks_to_cut"] = cint(marks_to_cut)
+    if show_answers is not None:
+        vals["show_answers"] = cint(show_answers)
+    if show_submission_history is not None:
+        vals["show_submission_history"] = cint(show_submission_history)
+    if course is not None:
+        vals["course"] = course if (course and frappe.db.exists("LMS Course", course)) else None
+    if lesson is not None:
+        vals["lesson"] = lesson if (lesson and frappe.db.exists("Course Lesson", lesson)) else None
+
+    if vals:
+        frappe.db.set_value("LMS Quiz", quiz, vals)
+    # Keep the lesson back-link in sync when the lesson association changes.
+    if lesson is not None and lesson and frappe.db.exists("Course Lesson", lesson):
+        frappe.db.set_value("Course Lesson", lesson, "quiz_id", quiz)
+    frappe.db.commit()
+
+    return {"message": _("Quiz updated"), "name": quiz}
+
+
+@frappe.whitelist()
+def delete_quiz(quiz):
+    """Admin endpoint: delete a quiz, its linked LMS Question rows, and clear
+    any Course Lesson.quiz_id back-reference (avoids orphans / link errors)."""
+    _require_admin()
+    if not quiz or not frappe.db.exists("LMS Quiz", quiz):
+        frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
+
+    for row in frappe.db.get_all("LMS Quiz Question", filters={"parent": quiz},
+                                 fields=["question"]):
+        if row.get("question") and frappe.db.exists("LMS Question", row.question):
+            frappe.db.delete("LMS Question", row.question)
+    frappe.db.sql("DELETE FROM `tabLMS Quiz Question` WHERE parent=%s", quiz)
+
+    for ls in frappe.db.get_all("Course Lesson", filters={"quiz_id": quiz}, pluck="name"):
+        frappe.db.set_value("Course Lesson", ls, "quiz_id", None)
+
+    frappe.db.delete("LMS Quiz", quiz)
+    frappe.db.commit()
+    return {"message": _("Quiz deleted"), "name": quiz}
 
 
 # ---------------------------------------------------------------------------
@@ -980,7 +1202,7 @@ def get_student_progress_report(course):
             ld = {"lesson": l["lesson"], "lesson_title": l["lesson_title"],
                   "chapter_title": l["chapter_title"], "completed": l["lesson"] in done,
                   "quiz": None, "quiz_score": None, "quiz_result": None}
-            lq = frappe.db.get_value("Lesson", l["lesson"], "quiz")
+            lq = frappe.db.get_value("Course Lesson", l["lesson"], "quiz_id")
             if lq:
                 bs = frappe.db.get_value("LMS Quiz Submission",
                     filters={"quiz": lq, "member": m},
