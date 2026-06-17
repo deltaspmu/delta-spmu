@@ -12,6 +12,7 @@ function EasterEgg() {
   useEffect(() => {
     let buf: string[] = [];
     function onKey(e: KeyboardEvent) {
+      if (!e.key) return; // autofill / IME / synthetic events can fire without a key
       buf = [...buf, e.key].slice(-KONAMI.length);
       const ok =
         buf.length === KONAMI.length &&
