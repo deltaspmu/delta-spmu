@@ -19,6 +19,12 @@ BASE_PRICE = 12500
 ACCESS_DURATION_DAYS = 30
 BUNDLE_ID = "all-courses-bundle"
 BUNDLE_PRICE = 20000
+# The "all courses" bundle is disabled while the catalogue is being rebuilt
+# (4 courses, 2 of which are coming soon, and changed pricing). While False, the
+# bundle offer is hidden everywhere (get_course_price returns
+# bundle_available=False) and initiate_payment refuses the bundle product. Flip
+# to True and set a sensible BUNDLE_PRICE once all courses are live.
+BUNDLE_ENABLED = False
 TRANSACTION_PREFIX = "DS"
 
 # ---------------------------------------------------------------------------
@@ -89,19 +95,28 @@ def _create_course_access(user, course, transaction_name):
     access_end = now + timedelta(days=ACCESS_DURATION_DAYS)
 
     # --- Course Access record ---
-    existing_access = frappe.db.exists(
+    # Key on user+course only (NOT docstatus): Course Access autonames
+    # deterministically as CA-<user>-<course>, so a prior inactive/cancelled row
+    # would make a docstatus-filtered lookup miss and the insert below collide on
+    # the primary key, aborting the grant. Reviving any existing row (and forcing
+    # is_active=1) ensures a renewal always restores an active window even if a
+    # previous window had been auto-deactivated on expiry.
+    existing_access = frappe.db.get_value(
         "Course Access",
-        {"user": user, "course": course, "docstatus": 1},
+        {"user": user, "course": course},
+        "name",
     )
 
     if existing_access:
-        # Extend the existing access window
+        # Extend (and reactivate) the existing access window. Preserve the
+        # original access_start; only access_end drives has_access.
         frappe.db.set_value(
             "Course Access",
             existing_access,
             {
                 "access_end": access_end,
                 "payment_transaction": transaction_name,
+                "is_active": 1,
                 "modified": now,
             },
         )
@@ -310,7 +325,7 @@ def get_course_price(course, currency="ETB"):
 
     # --- Bundle logic ---
     total_courses = frappe.db.count("LMS Course", {"published": 1})
-    bundle_available = total_courses >= 2
+    bundle_available = BUNDLE_ENABLED and total_courses >= 2
     bundle_price_val = float(BUNDLE_PRICE)
 
     # Calculate per-course effective price when buying the bundle
@@ -323,6 +338,19 @@ def get_course_price(course, currency="ETB"):
         if per_course_bundle < course_price:
             discount_amount = round(course_price - per_course_bundle, 2)
             discount_percent = round((discount_amount / course_price) * 100, 2)
+
+    # --- Per-course promotional discount (admin-set "Discount %") ---
+    # The stored course_price IS the post-discount price actually charged. We
+    # present a higher compare-at "original" price struck through — e.g. a
+    # 17,000 price with Discount %=50 shows as "was 34,000, now 17,000 (50% off)".
+    promo_pct = 0
+    if frappe.db.has_column("LMS Course", "discount_percentage"):
+        promo_pct = int(frappe.db.get_value("LMS Course", course, "discount_percentage") or 0)
+    if 0 < promo_pct < 100:
+        discount_percent = float(promo_pct)
+        final_price = course_price
+        course_price = round(course_price / (1 - promo_pct / 100.0), 2)
+        discount_amount = round(course_price - final_price, 2)
 
     # --- Currency conversion ---
     if currency and currency.upper() == "USD":
@@ -383,6 +411,15 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     if not is_bundle and not frappe.db.exists("LMS Course", course):
         frappe.throw(_("Course {0} not found.").format(course), frappe.DoesNotExistError)
 
+    # The course bundle is currently disabled (see BUNDLE_ENABLED).
+    if is_bundle and not BUNDLE_ENABLED:
+        frappe.throw(_("The course bundle is not available at the moment."))
+
+    # Coming-soon courses (upcoming=1) appear in the catalogue but cannot be
+    # purchased until they go live.
+    if not is_bundle and frappe.db.get_value("LMS Course", course, "upcoming"):
+        frappe.throw(_("This course is coming soon and cannot be purchased yet."))
+
     # Check for existing valid access
     existing_access = frappe.db.get_value(
         "Course Access",
@@ -410,17 +447,31 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
         as_dict=True,
     )
     if pending_tx and not _check_transaction_expiry(pending_tx):
-        frappe.throw(
-            _("You already have a pending payment (ID: {0}). "
-              "Please complete or wait for it to expire.").format(
-                pending_tx.transaction_id
+        # Redirect-based providers (Chapa / EthSwitch): the learner is just
+        # retrying (closed the checkout tab, switched PC->mobile, re-tapped).
+        # Don't block them with a 417 — supersede the stale pending attempt and
+        # issue a fresh checkout below. Matches the live Afritutors reuse flow.
+        if payment_method in ("chapa", "chapa_international", "ethswitch"):
+            frappe.db.set_value(
+                "Payment Transaction", pending_tx.name, "status", "Expired"
             )
-        )
+            frappe.db.commit()
+        else:
+            # Instruction-based (telebirr Pay Bill / CBE): a bill/reference is
+            # already outstanding, so keep the duplicate guard.
+            frappe.throw(
+                _("You already have a pending payment (ID: {0}). "
+                  "Please complete or wait for it to expire.").format(
+                    pending_tx.transaction_id
+                )
+            )
 
     # --- Resolve price ---
     if is_bundle:
         amount = float(BUNDLE_PRICE)
     else:
+        # The stored course_price is the post-discount price actually charged;
+        # any "Discount %" is presentational only (a higher compare-at original).
         course_price = frappe.db.get_value("LMS Course", course, "course_price")
         amount = float(course_price) if course_price else float(BASE_PRICE)
 
@@ -701,8 +752,24 @@ def check_payment_status(transaction_id):
         ).lower()
 
         if remote_status in ("success", "completed", "paid"):
-            _process_successful_payment(tx.name)
-            tx.status = "Completed"
+            # Mirror the webhook's amount-match guard so the polling path can't
+            # grant access on a status alone when the verified amount disagrees.
+            amount_ok = True
+            if tx.payment_method in ("chapa", "chapa_international"):
+                verified_amount = float(provider_status.get("amount") or 0)
+                expected_amount = float(tx.amount or 0)
+                if abs(verified_amount - expected_amount) > 0.01:
+                    amount_ok = False
+                    frappe.db.set_value("Payment Transaction", tx.name, "status", "Failed")
+                    frappe.db.commit()
+                    frappe.log_error(
+                        title="Chapa Amount Mismatch (poll)",
+                        message=f"{tx.transaction_id}: expected {expected_amount}, verified {verified_amount}.",
+                    )
+                    tx.status = "Failed"
+            if amount_ok:
+                _process_successful_payment(tx.name)
+                tx.status = "Completed"
         elif remote_status in ("failed", "cancelled", "expired"):
             frappe.db.set_value("Payment Transaction", tx.name, "status", "Failed")
             frappe.db.commit()

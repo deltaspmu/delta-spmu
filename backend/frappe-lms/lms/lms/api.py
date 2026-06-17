@@ -578,6 +578,62 @@ def get_lms_settings():
 
 
 # ---------------------------------------------------------------------------
+# Instructor management (admin)
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_instructors():
+    """List users assignable as course instructors (Course Creator / Instructor role)."""
+    if frappe.session.user == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    return frappe.db.sql(
+        """
+        SELECT DISTINCT u.name, u.full_name
+        FROM `tabUser` u
+        JOIN `tabHas Role` r ON r.parent = u.name
+        WHERE r.role IN ('Course Creator', 'Instructor')
+          AND u.enabled = 1
+          AND u.name NOT IN ('Administrator', 'Guest')
+        ORDER BY u.full_name
+        """,
+        as_dict=True,
+    )
+
+
+@frappe.whitelist()
+def set_course_instructor(course=None, instructor=None):
+    """Replace a course's instructor with the given user (admin only).
+
+    The course's instructors live in the `Course Instructor` child table; this
+    sets a single instructor (clears any existing rows first).
+    """
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if not (_has_role(user, "System Manager") or _has_role(user, "Course Creator")):
+        frappe.throw(
+            _("You do not have permission to edit course instructors."),
+            frappe.PermissionError,
+        )
+    if not course or not frappe.db.exists("LMS Course", course):
+        frappe.throw(_("Course {0} not found.").format(course), frappe.DoesNotExistError)
+    if instructor and not frappe.db.exists("User", instructor):
+        frappe.throw(_("Instructor {0} not found.").format(instructor), frappe.DoesNotExistError)
+
+    frappe.db.delete("Course Instructor", {"parent": course, "parenttype": "LMS Course"})
+    if instructor:
+        frappe.get_doc({
+            "doctype": "Course Instructor",
+            "parent": course,
+            "parenttype": "LMS Course",
+            "parentfield": "instructors",
+            "instructor": instructor,
+        }).insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"course": course, "instructor": instructor}
+
+
+# ---------------------------------------------------------------------------
 # 8. get_courses  (guest)
 # ---------------------------------------------------------------------------
 
@@ -713,6 +769,9 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             "modified": "modified desc",
         }
         order_clause = allowed_orders.get(cstr(order_by).strip(), "creation desc")
+        # Always surface available courses before "coming soon" (upcoming=1)
+        # ones, whatever sort the user picked.
+        order_clause = "upcoming asc, " + order_clause
 
         # Total count.  frappe.db.count() does not accept or_filters in
         # Frappe v15, so when a search is active we count via get_all and
@@ -795,6 +854,9 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             )
             chapter_counts = {r["course"]: r["cnt"] for r in chap_rows}
 
+        # Promo "Discount %" column may not exist on older deploys.
+        _has_discount_col = frappe.db.has_column("LMS Course", "discount_percentage")
+
         # Enrich each course with frontend-facing aliases
         for course in courses:
             instructor = instructors_by_course.get(course["name"])
@@ -815,6 +877,22 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             course["enrollment_count"] = course.get("enrollments") or 0
             course["lesson_count"] = course.get("lessons") or 0
             course["chapter_count"] = chapter_counts.get(course["name"], 0)
+
+            # Per-course promotional discount (admin-set "Discount %"). The
+            # stored price is the post-discount price; show a higher compare-at
+            # "original" price struck through on the catalogue card.
+            base_price = flt(course.get("course_price") or 0)
+            pct = 0
+            if _has_discount_col:
+                pct = cint(frappe.db.get_value(
+                    "LMS Course", course["name"], "discount_percentage") or 0)
+            if not (0 < pct < 100):
+                pct = 0
+            course["discount_percent"] = float(pct)
+            course["final_price"] = base_price
+            course["original_price"] = (
+                round(base_price / (1 - pct / 100.0), 2) if pct else base_price
+            )
 
         return {
             "courses": courses,
@@ -1096,6 +1174,8 @@ def get_course_chapters(course_name=None):
                 lesson["is_preview"] = lesson.get("include_in_preview") or 0
             chapter["lessons"] = lessons
             chapter["lesson_count"] = len(lessons)
+            # Frontend reads ``chapter_number``; Course Chapter only has ``idx``.
+            chapter["chapter_number"] = chapter.get("idx")
 
             # Progress per lesson for authenticated users
             if not _is_guest():
@@ -1209,6 +1289,11 @@ def get_lesson_details(course=None, chapter_number=None, lesson_number=None):
         lesson["lesson_number"] = lesson.get("idx") or 1
         lesson["is_preview"] = lesson.get("include_in_preview") or 0
         lesson["video_link"] = lesson.get("youtube") or ""
+
+        # Lesson text is authored in the native LMS ``body`` field; the frontend
+        # reads ``content``, so fall back to ``body`` when ``content`` is empty.
+        if not (lesson.get("content") or "").strip():
+            lesson["content"] = lesson.get("body") or ""
 
         # Access control: guests can only see preview lesson content
         is_preview = cint(lesson.get("is_preview"))
@@ -3262,7 +3347,6 @@ def custom_sign_up(email=None, full_name=None, password=None, phone=None, redire
         # User exists but isn't verified yet — refresh their phone and re-send
         # the verification email.
         frappe.db.set_value("User", email, "mobile_no", phone)
-        user = frappe.get_doc("User", email)
     else:
         # Split full name into first/last for Frappe
         parts = full_name.split(" ", 1)
@@ -3336,20 +3420,20 @@ def custom_verify_email(key=None):
             frappe.ValidationError,
         )
 
-    user = frappe.get_doc("User", email)
-    user.enabled = 1
-    user.reset_password_key = ""
-    user.flags.ignore_permissions = True
-    user.flags.no_welcome_mail = True
-    user.save(ignore_permissions=True)
+    # Guest-safe activation: a logged-out visitor clicking the verification
+    # link has no read permission on the User doctype, so frappe.get_doc(...)
+    # would raise PermissionError. Write the columns directly instead —
+    # frappe.db.set_value bypasses the doctype permission check.
+    frappe.db.set_value("User", email, {"enabled": 1, "reset_password_key": ""})
     frappe.db.commit()
+    full_name = frappe.db.get_value("User", email, "full_name") or email
 
     # Welcome email — fire-and-forget; failure shouldn't block verification.
     try:
         frappe.sendmail(
             recipients=[email],
             subject=_("Welcome to Delta SPMU Academy"),
-            message=welcome(student_name=user.full_name or email),
+            message=welcome(student_name=full_name),
             now=True,
             retry=3,
         )
@@ -3463,6 +3547,151 @@ def who_am_i():
         "x_forwarded_host": frappe.request.headers.get("X-Forwarded-Host") if hasattr(frappe, 'request') and frappe.request else None,
         "origin": frappe.request.headers.get("Origin") if hasattr(frappe, 'request') and frappe.request else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# admin_manual_enroll  (admin only) — comp enrollment, bypassing payment
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def admin_manual_enroll(student=None, course=None, days=365):
+    """Manually enrol an EXISTING user in a course, bypassing payment.
+
+    Grants the same access a paid purchase would (a submitted Course Access
+    window + an LMS Enrollment), so the student can open the course right away.
+    The student must already have an account — we never create one here.
+
+    Args:
+        student: the student's email (must match an existing User).
+        course: LMS Course name.
+        days: access duration in days (default 365 for a manual/comp grant).
+    """
+    from datetime import timedelta
+
+    actor = frappe.session.user
+    if actor == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Only administrators can manually enrol students."), frappe.PermissionError)
+
+    email = (student or "").strip().lower()
+    if not email or not course:
+        frappe.throw(_("Student email and course are required."), frappe.MandatoryError)
+
+    # The student must already have an account (sign-up is not performed here).
+    member = email if frappe.db.exists("User", email) else frappe.db.get_value(
+        "User", {"email": email}, "name"
+    )
+    if not member:
+        frappe.throw(
+            _("No account found for {0}. Ask the student to sign up first, then enrol them.").format(email)
+        )
+
+    if not frappe.db.exists("LMS Course", course):
+        frappe.throw(_("Course {0} not found.").format(course), frappe.DoesNotExistError)
+
+    try:
+        days = int(days)
+    except (TypeError, ValueError):
+        days = 365
+    if days <= 0:
+        days = 365
+
+    now = datetime.now()
+    access_end = now + timedelta(days=days)
+
+    # Grant (or extend) a Course Access window — submitted so it counts as
+    # active, matching the paid flow (payments_api._create_course_access).
+    # Key on user+course only (NOT docstatus): Course Access autonames
+    # deterministically as CA-<user>-<course>, so an inactive/cancelled prior
+    # row would make a docstatus-filtered lookup miss and the insert collide on
+    # the primary key. Reviving any existing row guarantees exactly one active
+    # window and never leaves a roster entry without access.
+    existing = frappe.db.get_value(
+        "Course Access", {"user": member, "course": course}, "name"
+    )
+    if existing:
+        frappe.db.set_value(
+            "Course Access",
+            existing,
+            {"access_start": now, "access_end": access_end, "is_active": 1},
+        )
+    else:
+        access_doc = frappe.get_doc({
+            "doctype": "Course Access",
+            "user": member,
+            "course": course,
+            "access_start": now,
+            "access_end": access_end,
+            "is_active": 1,
+        })
+        access_doc.insert(ignore_permissions=True)
+        access_doc.submit()
+
+    # Roster: LMS Enrollment (create if absent).
+    if not frappe.db.exists("LMS Enrollment", {"member": member, "course": course}):
+        frappe.get_doc({
+            "doctype": "LMS Enrollment",
+            "member": member,
+            "course": course,
+            "member_type": "Student",
+        }).insert(ignore_permissions=True)
+
+    frappe.db.commit()
+    return {
+        "enrolled": True,
+        "member": member,
+        "member_name": frappe.db.get_value("User", member, "full_name") or member,
+        "course": course,
+        "access_end": str(access_end),
+    }
+
+
+# ---------------------------------------------------------------------------
+# admin_delete_lesson  (admin only) — cascade-delete a lesson + its dependents
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def admin_delete_lesson(lesson=None):
+    """Delete a Course Lesson, first clearing records that would block deletion.
+
+    Frappe raises LinkExistsError when a lesson has student progress, so a raw
+    resource DELETE silently fails for any lesson a student has completed — the
+    lesson then keeps showing on the learn page. This removes the dependent
+    LMS Course Progress rows (meaningless once the lesson is gone) and clears any
+    LMS Enrollment whose current_lesson points at it, then deletes the lesson.
+    """
+    actor = frappe.session.user
+    if actor == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Only administrators can delete lessons."), frappe.PermissionError)
+
+    if not lesson:
+        frappe.throw(_("lesson is required."), frappe.MandatoryError)
+    if not frappe.db.exists("Course Lesson", lesson):
+        return {"deleted": False, "reason": "not_found", "lesson": lesson}
+
+    # Remove dependent progress records (these trigger LinkExistsError).
+    removed_progress = 0
+    for p in frappe.get_all("LMS Course Progress", filters={"lesson": lesson}, pluck="name"):
+        frappe.delete_doc("LMS Course Progress", p, ignore_permissions=True, force=True)
+        removed_progress += 1
+
+    # Clear any enrollment "continue from" pointers at this lesson.
+    for e in frappe.get_all("LMS Enrollment", filters={"current_lesson": lesson}, pluck="name"):
+        frappe.db.set_value("LMS Enrollment", e, "current_lesson", None, update_modified=False)
+
+    # Drop any chapter child-table references (only if this install uses them).
+    try:
+        frappe.db.delete("Lesson Reference", {"lesson": lesson})
+    except Exception:
+        pass
+
+    # force=1 bypasses any residual link check after known dependents are cleared.
+    frappe.delete_doc("Course Lesson", lesson, ignore_permissions=True, force=True)
+    frappe.db.commit()
+    return {"deleted": True, "lesson": lesson, "removed_progress": removed_progress}
 
 
 # ---------------------------------------------------------------------------
