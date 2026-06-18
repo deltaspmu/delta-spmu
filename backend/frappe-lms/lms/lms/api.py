@@ -854,6 +854,24 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             )
             chapter_counts = {r["course"]: r["cnt"] for r in chap_rows}
 
+        # Bulk-load lesson counts + total duration (minutes) in one query.
+        lesson_counts = {}
+        duration_sums = {}
+        if course_names:
+            _dur_expr = "COALESCE(SUM(duration), 0)" if frappe.db.has_column("Course Lesson", "duration") else "0"
+            les_rows = frappe.db.sql(
+                """
+                SELECT course, COUNT(*) as cnt, {dur} as dur
+                FROM `tabCourse Lesson`
+                WHERE course IN %(names)s
+                GROUP BY course
+                """.format(dur=_dur_expr),
+                {"names": tuple(course_names)},
+                as_dict=True,
+            )
+            lesson_counts = {r["course"]: r["cnt"] for r in les_rows}
+            duration_sums = {r["course"]: r["dur"] for r in les_rows}
+
         # Promo "Discount %" column may not exist on older deploys.
         _has_discount_col = frappe.db.has_column("LMS Course", "discount_percentage")
 
@@ -875,8 +893,9 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             # Frontend aliases
             course["avg_rating"] = course.get("rating") or 0
             course["enrollment_count"] = course.get("enrollments") or 0
-            course["lesson_count"] = course.get("lessons") or 0
+            course["lesson_count"] = lesson_counts.get(course["name"], 0) or (course.get("lessons") or 0)
             course["chapter_count"] = chapter_counts.get(course["name"], 0)
+            course["total_duration"] = duration_sums.get(course["name"], 0) or 0
 
             # Per-course promotional discount (admin-set "Discount %"). The
             # stored price is the post-discount price; show a higher compare-at
@@ -1019,17 +1038,20 @@ def get_course_detail(course_name=None):
 
         for chapter in chapters:
             chapter_number = chapter.get("idx") or 1
+            _lesson_fields = [
+                "name",
+                "title",
+                "idx",
+                "include_in_preview",
+                "youtube",
+                "quiz_id",
+            ]
+            if frappe.db.has_column("Course Lesson", "duration"):
+                _lesson_fields.append("duration")
             lessons = frappe.get_all(
                 "Course Lesson",
                 filters={"chapter": chapter["name"]},
-                fields=[
-                    "name",
-                    "title",
-                    "idx",
-                    "include_in_preview",
-                    "youtube",
-                    "quiz_id",
-                ],
+                fields=_lesson_fields,
                 order_by="idx asc",
                 limit_page_length=0,
             )
@@ -1038,11 +1060,16 @@ def get_course_detail(course_name=None):
             for lesson in lessons:
                 lesson["lesson_number"] = lesson.get("idx") or 1
                 lesson["is_preview"] = lesson.get("include_in_preview") or 0
+                lesson["duration"] = lesson.get("duration") or 0
 
             chapter["lessons"] = lessons
             chapter["lesson_count"] = len(lessons)
 
         course["chapters"] = chapters
+        course["lesson_count"] = sum(ch.get("lesson_count", 0) for ch in chapters)
+        course["total_duration"] = sum(
+            (l.get("duration") or 0) for ch in chapters for l in ch.get("lessons", [])
+        )
 
         # Tags — stored as CSV in the `tags` Data field on LMS Course
         raw_tags = frappe.db.get_value("LMS Course", course_name, "tags") or ""
@@ -3384,7 +3411,7 @@ def custom_sign_up(email=None, full_name=None, password=None, phone=None, redire
             recipients=[email],
             subject=_("Verify your email — Delta SPMU Academy"),
             message=email_verification(student_name=full_name, verify_url=verify_url),
-            now=True,
+            now=False,  # queue + send in background so registration returns instantly
             retry=3,
         )
     except Exception:
@@ -3871,3 +3898,16 @@ def admin_get_dashboard_summary():
         "recent_enrollments": recent_enrollments,
         "recent_payments": recent_payments,
     }
+
+
+# --- Restored stock LMS hook target ---
+# frappe/lms `main` hooks.py wires has_permission -> lms.lms.api.check_app_permission.
+# Our fork api.py predates it; this self-contained version restores the hook.
+@frappe.whitelist()
+def check_app_permission():
+    """Check if the current user may access the LMS app (has_permission hook)."""
+    if frappe.session.user == "Administrator":
+        return True
+    roles = set(frappe.get_roles())
+    return bool(roles & {"LMS Student", "Course Creator", "Moderator",
+                         "Batch Evaluator", "LMS Admin", "System Manager"})
