@@ -91,8 +91,10 @@ export interface QuizOption {
 }
 
 export interface QuizSubmission {
+  // `submit_quiz` returns the percentage in `score`. `score_percentage` is kept
+  // for backward-compat but is not sent by the current backend.
   score: number;
-  score_percentage: number;
+  score_percentage?: number;
   passed: boolean;
   total_questions: number;
   correct_count: number;

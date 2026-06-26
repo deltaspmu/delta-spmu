@@ -649,7 +649,16 @@ def submit_quiz(quiz, answers):
         frappe.throw(_("Failed to save submission."))
 
     if passed:
-        _auto_complete_quiz_lesson(quiz, member)
+        completed_course = _auto_complete_quiz_lesson(quiz, member) or course
+        # If passing this quiz finished every lesson, issue the course
+        # certificate. check_and_generate_certificate is a no-op unless the
+        # whole course (and all its quizzes) is complete, so it's safe to call
+        # on every pass.
+        if completed_course:
+            try:
+                check_and_generate_certificate(completed_course, member)
+            except Exception:
+                pass
 
     return {"quiz": quiz, "score": pct, "passed": passed,
             "total_questions": len(raw_qs), "correct_count": correct_count,
@@ -691,6 +700,9 @@ def _auto_complete_quiz_lesson(quiz, member):
         d.update({"course": course, "lesson": lesson, "member": member, "status": "Complete"})
         d.insert(ignore_permissions=True)
     frappe.db.commit()
+    # Return the resolved course so the caller can check course-level completion
+    # (e.g. issue the certificate when this quiz was the final lesson).
+    return course
 
 
 # ---------------------------------------------------------------------------

@@ -84,9 +84,12 @@ function CountdownTimer({
 // ---------------------------------------------------------------------------
 
 function ScoreCircle({ percentage, passed }: { percentage: number; passed: boolean }) {
+  // Guard against non-finite values (e.g. missing/NaN score) so the ring and
+  // label never render "NaN%".
+  const pct = Number.isFinite(percentage) ? Math.max(0, Math.min(100, percentage)) : 0;
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+  const offset = circumference - (pct / 100) * circumference;
   const color = passed ? '#22C55E' : '#EF4444';
 
   return (
@@ -114,7 +117,7 @@ function ScoreCircle({ percentage, passed }: { percentage: number; passed: boole
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-dark">{Math.round(percentage)}%</span>
+        <span className="text-3xl font-bold text-dark">{Math.round(pct)}%</span>
       </div>
     </div>
   );
@@ -443,6 +446,15 @@ export default function Quiz() {
     const attemptsRemaining =
       maxAttempts > 0 ? Math.max(0, maxAttempts - attemptsUsed) : -1; // -1 = unlimited
 
+    // The backend (`submit_quiz`) returns the percentage in `score`; older code
+    // expected `score_percentage`. Prefer whichever is finite so the score never
+    // renders as "NaN%".
+    const scorePct: number = Number.isFinite(result.score_percentage)
+      ? (result.score_percentage as number)
+      : Number.isFinite(result.score)
+        ? result.score
+        : 0;
+
     return (
       <div className="min-h-screen bg-alabaster">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -458,7 +470,7 @@ export default function Quiz() {
           <div className="bg-white rounded-xl border border-gray-100 p-6 sm:p-10 text-center">
             {/* Score circle */}
             <ScoreCircle
-              percentage={result.score_percentage}
+              percentage={scorePct}
               passed={result.passed}
             />
 
@@ -480,7 +492,7 @@ export default function Quiz() {
             {/* Score details */}
             <div className="space-y-1 mb-6">
               <p className="text-sm text-gray-600">
-                Your Score: <span className="font-semibold text-dark">{Math.round(result.score_percentage)}%</span>
+                Your Score: <span className="font-semibold text-dark">{Math.round(scorePct)}%</span>
               </p>
               <p className="text-sm text-gray-600">
                 Passing Score: <span className="font-semibold text-dark">{quiz.passing_percentage}%</span>

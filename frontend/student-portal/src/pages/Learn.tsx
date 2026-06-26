@@ -11,7 +11,6 @@ import {
   getCourseProgress,
   markLessonComplete,
   saveCurrentLesson,
-  checkAndGenerateCertificate,
 } from '@/api/client';
 import { useCourseAccess } from '@/hooks/useCourseAccess';
 import { useAuth } from '@/context/AuthContext';
@@ -29,7 +28,6 @@ import {
   CheckCircle,
   AlertTriangle,
   BookOpen,
-  Award,
   Loader2,
   FileText,
   Clock,
@@ -296,7 +294,6 @@ export default function Learn() {
 
   const [videoProgress, setVideoProgress] = useState(0);
   const [hasAutoCompleted, setHasAutoCompleted] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Sentinel placed at the end of text-only lesson content. When it scrolls
@@ -461,19 +458,12 @@ export default function Learn() {
 
   const markCompleteMutation = useMutation({
     mutationFn: () => markLessonComplete(courseId!, lessonId!),
-    onSuccess: async () => {
+    onSuccess: () => {
+      // The backend (`mark_lesson_complete`) issues the course certificate
+      // itself once every lesson is complete, so there's nothing to do here
+      // beyond refreshing progress.
       queryClient.invalidateQueries({ queryKey: ['progress', courseId] });
       queryClient.invalidateQueries({ queryKey: ['learnChapters', courseId] });
-
-      // Check for certificate generation
-      try {
-        const result = await checkAndGenerateCertificate(courseId!);
-        if (result) {
-          setShowCelebration(true);
-        }
-      } catch {
-        // Certificate not yet earned — normal flow
-      }
     },
   });
 
@@ -515,6 +505,12 @@ export default function Learn() {
 
   const lessonContent = lessonDetail?.content || currentLesson?.content || '';
 
+  // A lesson paired with a quiz is only completed by passing that quiz (the
+  // backend marks it complete on a passing submission). For these lessons we
+  // suppress video/scroll auto-completion and the manual "Mark Complete" button.
+  const lessonQuizId = currentLesson?.quiz_id || lessonDetail?.quiz_id || null;
+  const hasQuiz = !!lessonQuizId;
+
   // Reading-time estimate for text-only lessons (250 wpm).
   const readingTimeMinutes = useMemo(() => {
     if (!lessonContent) return 0;
@@ -527,6 +523,7 @@ export default function Learn() {
   // there is no video (video lessons complete via the player's onComplete).
   useEffect(() => {
     if (videoData) return;
+    if (hasQuiz) return; // quiz lessons complete only on a passing quiz attempt
     if (!textBottomRef.current) return;
     if (!lessonId || !courseId) return;
     if (hasAutoCompleted || isCurrentLessonCompleted) return;
@@ -545,7 +542,7 @@ export default function Learn() {
     return () => observer.disconnect();
   // markCompleteMutation is stable — exclude it to avoid re-subscribing per render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoData, lessonId, courseId, hasAutoCompleted, isCurrentLessonCompleted, lessonContent]);
+  }, [videoData, hasQuiz, lessonId, courseId, hasAutoCompleted, isCurrentLessonCompleted, lessonContent]);
 
   // =========================================================================
   // Render guards
@@ -613,11 +610,6 @@ export default function Learn() {
         (progress.completed_lessons.length / Math.max(progress.total_lessons, 1)) * 100
       )
     : 0;
-
-  const allComplete =
-    progress &&
-    progress.completed_lessons.length >= progress.total_lessons &&
-    progress.total_lessons > 0;
 
   // =========================================================================
   // Render
@@ -696,6 +688,7 @@ export default function Learn() {
                   onProgress={handleVideoProgress}
                   onComplete={() => {
                     if (
+                      !hasQuiz &&
                       !hasAutoCompleted &&
                       !isCurrentLessonCompleted &&
                       lessonId &&
@@ -756,26 +749,6 @@ export default function Learn() {
               </div>
             ) : null}
 
-            {/* Course complete celebration */}
-            {(showCelebration || allComplete) && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 text-center">
-                <Award className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="font-heading text-lg font-bold text-dark mb-2">
-                  Course Complete!
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Congratulations! You have completed all lessons in this course.
-                </p>
-                <Link
-                  to="/certificates"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <Award className="w-4 h-4" />
-                  View Certificate
-                </Link>
-              </div>
-            )}
-
             {/* Bottom navigation */}
             <div className="flex items-center justify-between gap-4 pt-2 pb-8">
               {/* Previous */}
@@ -793,8 +766,19 @@ export default function Learn() {
 
               {/* Center actions */}
               <div className="flex items-center gap-3">
-                {/* Mark complete */}
-                {!isCurrentLessonCompleted ? (
+                {/* Completion status / action */}
+                {isCurrentLessonCompleted ? (
+                  <span className="flex items-center gap-2 px-4 py-2.5 text-green-600 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    Completed
+                  </span>
+                ) : hasQuiz ? (
+                  // Quiz lessons are completed by passing the quiz, not a manual
+                  // button — nudge the student toward the quiz instead.
+                  <span className="hidden sm:flex items-center gap-2 px-4 py-2.5 text-gray-500 text-sm">
+                    Pass the quiz to complete this lesson
+                  </span>
+                ) : (
                   <button
                     onClick={() => markCompleteMutation.mutate()}
                     disabled={markCompleteMutation.isPending}
@@ -807,17 +791,12 @@ export default function Learn() {
                     )}
                     Mark Complete
                   </button>
-                ) : (
-                  <span className="flex items-center gap-2 px-4 py-2.5 text-green-600 text-sm font-medium">
-                    <CheckCircle className="w-4 h-4" />
-                    Completed
-                  </span>
                 )}
 
                 {/* Quiz button */}
-                {(currentLesson?.quiz_id || lessonDetail?.quiz_id) && (
+                {hasQuiz && (
                   <Link
-                    to={`/quiz/${currentLesson?.quiz_id || lessonDetail?.quiz_id}`}
+                    to={`/quiz/${lessonQuizId}`}
                     className="flex items-center gap-2 px-4 py-2.5 bg-dark text-white rounded-lg text-sm font-medium hover:bg-dark/90 transition-colors"
                   >
                     <FileText className="w-4 h-4" />

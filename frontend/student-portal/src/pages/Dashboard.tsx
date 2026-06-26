@@ -172,12 +172,16 @@ export default function Dashboard() {
 
   const progressMap = progressQueries.data ?? {};
 
-  // Build enriched enrolled courses with progress
+  // Build enriched enrolled courses with progress.
+  // Guard against non-finite values so progress bars/labels never show "NaN".
   const enrichedCourses: EnrolledCourse[] = useMemo(() => {
-    return enrolledCourses.map((c) => ({
-      ...c,
-      progress: progressMap[c.name]?.progress_percentage ?? 0,
-    }));
+    return enrolledCourses.map((c) => {
+      const raw = progressMap[c.name]?.progress_percentage;
+      return {
+        ...c,
+        progress: Number.isFinite(raw) ? (raw as number) : 0,
+      };
+    });
   }, [enrolledCourses, progressMap]);
 
   const inProgressCourses = useMemo(
@@ -200,13 +204,16 @@ export default function Dashboard() {
     return [];
   }, [certificatesData]);
 
-  // Calculate total hours
+  // Calculate total hours. `total_duration` may be absent on enrolled-course
+  // payloads, so coerce every term to a finite number to avoid a "NaN" stat.
   const totalHours = useMemo(() => {
     const totalMinutes = enrolledCourses.reduce((sum, c) => {
-      const progress = progressMap[c.name]?.progress_percentage ?? 0;
-      return sum + (c.total_duration * progress) / 100;
+      const progress = Number(progressMap[c.name]?.progress_percentage) || 0;
+      const duration = Number(c.total_duration) || 0;
+      return sum + (duration * progress) / 100;
     }, 0);
-    return Math.round(totalMinutes / 60);
+    const hours = Math.round(totalMinutes / 60);
+    return Number.isFinite(hours) ? hours : 0;
   }, [enrolledCourses, progressMap]);
 
   // Parse all courses and pick recommendations
