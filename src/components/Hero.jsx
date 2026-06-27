@@ -159,14 +159,24 @@ export default function Hero() {
                 </li>
               ))}
               {config.studentPortalLive && (
-                <li>
-                  <a
-                    href={config.loginUrl}
-                    className="inline-flex items-center gap-2 rounded-sm bg-terracotta px-5 py-2.5 font-body text-[12px] font-semibold uppercase tracking-wide text-white transition-colors duration-300 hover:bg-terracotta-dark"
-                  >
-                    Sign In
-                  </a>
-                </li>
+                <>
+                  <li>
+                    <a
+                      href={config.loginUrl}
+                      className="inline-flex items-center gap-2 rounded-sm border border-terracotta px-5 py-2.5 font-body text-[12px] font-semibold uppercase tracking-wide text-terracotta transition-colors duration-300 hover:bg-terracotta hover:text-white"
+                    >
+                      Sign In
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={config.coursesUrl}
+                      className="inline-flex items-center gap-2 rounded-sm bg-terracotta px-5 py-2.5 font-body text-[12px] font-semibold uppercase tracking-wide text-white transition-colors duration-300 hover:bg-terracotta-dark"
+                    >
+                      Enroll Now
+                    </a>
+                  </li>
+                </>
               )}
             </ul>
 
@@ -233,6 +243,15 @@ export default function Hero() {
                       className="font-body text-sm uppercase tracking-wide text-terracotta transition-colors duration-300 hover:text-charcoal"
                     >
                       Sign Up
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={config.coursesUrl}
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-2 inline-flex items-center gap-2 rounded-sm bg-terracotta px-6 py-3 font-body text-sm font-semibold uppercase tracking-wide text-white transition-colors duration-300 hover:bg-terracotta-dark"
+                    >
+                      Enroll Now
                     </a>
                   </li>
                 </>
