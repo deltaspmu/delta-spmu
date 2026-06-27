@@ -381,11 +381,6 @@ export default function Courses() {
         </div>
       </div>
 
-      {/* SPMU Skill Topics */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <SPMUTopics />
-      </div>
-
       <div id="courses-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -533,6 +528,11 @@ export default function Courses() {
             )}
           </>
         )}
+      </div>
+
+      {/* SPMU Skill Topics */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <SPMUTopics />
       </div>
 
       {/* Meet Your Instructor — anchored to Eden Kassahun, the academy
