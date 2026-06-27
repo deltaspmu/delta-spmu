@@ -21,6 +21,39 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * Pull a human-readable message out of an Axios/Frappe error. Frappe surfaces
+ * frappe.throw() messages via `_server_messages` (a JSON-encoded array of
+ * {message} objects); fall back to other Frappe fields and finally err.message.
+ */
+function extractFrappeError(err: any, fallback: string): string {
+  let serverMsg = '';
+  const raw = err?.response?.data?._server_messages;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      serverMsg = (Array.isArray(parsed) ? parsed : [parsed])
+        .map((m: any) => {
+          try {
+            return JSON.parse(m).message;
+          } catch {
+            return m;
+          }
+        })
+        .join(' ');
+    } catch {
+      serverMsg = String(raw);
+    }
+  }
+  return (
+    serverMsg ||
+    err?.response?.data?.exception ||
+    err?.response?.data?._error_message ||
+    err?.message ||
+    fallback
+  );
+}
+
 function EditVideoModal({
   video,
   onClose,
@@ -98,6 +131,7 @@ export default function Videos() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<any | null>(null);
 
   // Upload state
@@ -119,6 +153,13 @@ export default function Videos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vimeo-videos'] });
       setDeleteTarget(null);
+      setDeleteError(null);
+    },
+    onError: (err: any) => {
+      // Surface the failure instead of leaving the modal silently open, which
+      // previously made deletes look like they did nothing.
+      console.error('Delete error:', err);
+      setDeleteError(extractFrappeError(err, 'Failed to delete video. Please try again.'));
     },
   });
 
@@ -344,13 +385,19 @@ export default function Videos() {
                 <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
               <h3 className="font-heading font-semibold text-dark">Delete Video</h3>
-              <button onClick={() => setDeleteTarget(null)} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setDeleteTarget(null); setDeleteError(null); }} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <p className="text-sm text-gray-600 mb-6">
               Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This permanently removes the video from Vimeo.
             </p>
+            {deleteError && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 mb-4 text-sm text-red-700">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={() => { setDeleteTarget(null); setDeleteError(null); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
               <button
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
                 disabled={deleteMutation.isPending}

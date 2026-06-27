@@ -279,10 +279,22 @@ export function uploadVideoFile(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const upload = new tus.Upload(file, {
+      // Vimeo mints a brand-new TUS upload link for every create-upload call.
+      // We must PATCH bytes to *that* link only — never the creation endpoint —
+      // so set uploadUrl and leave `endpoint` unset.
       uploadUrl,
-      endpoint: uploadUrl,
-      retryDelays: [0, 1000, 3000, 5000],
-      chunkSize: 128 * 1024 * 1024, // 128 MB chunks
+      retryDelays: [0, 2000, 5000, 10000, 20000],
+      // Smaller chunks survive flaky / slow connections far better: an
+      // interrupted 128 MB PATCH restarts the whole 128 MB, whereas a 32 MB
+      // chunk only re-sends 32 MB and can resume mid-upload within this session.
+      chunkSize: 32 * 1024 * 1024, // 32 MB chunks
+      // CRITICAL: do not persist/resume fingerprints in localStorage. Each
+      // upload here already has a fresh server-minted link; resuming a prior
+      // attempt's stale link is what corrupts re-uploads of the same file
+      // (Vimeo then reports `analysis_failed` or leaves the video stuck in
+      // `uploading`). We therefore never call findPreviousUploads().
+      storeFingerprintForResuming: false,
+      removeFingerprintOnSuccess: true,
       metadata: {
         filename: file.name,
         filetype: file.type,
@@ -301,12 +313,8 @@ export function uploadVideoFile(
       },
     });
 
-    // Check for previous uploads and resume if possible
-    upload.findPreviousUploads().then((previousUploads) => {
-      if (previousUploads.length > 0) {
-        upload.resumeFromPreviousUpload(previousUploads[0]);
-      }
-      upload.start();
-    });
+    // Always start fresh against the link we were just handed. We deliberately
+    // do NOT resume previous uploads (see storeFingerprintForResuming above).
+    upload.start();
   });
 }
