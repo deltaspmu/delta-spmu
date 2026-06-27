@@ -64,6 +64,7 @@ export interface Lesson {
   title: string;
   content: string;
   chapter: string;
+  course?: string;
   lesson_number: number;
   youtube: string | null;
   quiz_id: string | null;

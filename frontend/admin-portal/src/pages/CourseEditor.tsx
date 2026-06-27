@@ -24,6 +24,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 import {
   Save,
   Eye,
@@ -50,16 +51,31 @@ function RichTextEditor({
   content,
   onChange,
   placeholder,
+  uploadDocname,
 }: {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  // When provided, embedded images are attached to this LMS Course doc so
+  // Frappe can track/clean them up. Optional — uploads still work without it.
+  uploadDocname?: string;
 }) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: placeholder || 'Start writing...' }),
+      // Block-level images (not inline) so they sit on their own line like the
+      // figures in the training manual. Rendered with the same rounded styling
+      // the student learn page applies via `prose-img:rounded-lg`.
+      Image.configure({
+        inline: false,
+        HTMLAttributes: { class: 'rounded-lg max-w-full h-auto my-3' },
+      }),
     ],
     content,
     onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
@@ -71,19 +87,75 @@ function RichTextEditor({
     }
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleImageFile = async (file: File) => {
+    if (!file || !editor) return;
+    if (!file.type.startsWith('image/')) {
+      setImageError('Please choose an image file (PNG, JPG, WEBP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('Image is too large (max 5 MB).');
+      return;
+    }
+    setImageError(null);
+    setUploadingImage(true);
+    try {
+      const result = await uploadFile(file, {
+        doctype: uploadDocname ? 'LMS Course' : undefined,
+        docname: uploadDocname,
+        folder: 'Home',
+      });
+      // Stored as a relative /files/... URL — both portals rewrite /files/* to
+      // the Frappe origin, matching how course thumbnails are stored.
+      editor.chain().focus().setImage({ src: result.file_url }).run();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?._server_messages ||
+        err?.response?.data?.exception ||
+        err?.message ||
+        'Image upload failed.';
+      setImageError(String(msg));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   if (!editor) return null;
 
   return (
     <div className="tiptap-editor border border-gray-300 rounded-lg overflow-hidden">
-      <div className="flex gap-1 p-2 border-b border-gray-200 bg-gray-50">
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
         <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded text-xs font-bold ${editor.isActive('bold') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>B</button>
         <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded text-xs italic ${editor.isActive('italic') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>I</button>
         <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded text-xs ${editor.isActive('heading', { level: 2 }) ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>H2</button>
         <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={`p-1.5 rounded text-xs ${editor.isActive('heading', { level: 3 }) ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>H3</button>
         <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-1.5 rounded text-xs ${editor.isActive('bulletList') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>UL</button>
         <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-1.5 rounded text-xs ${editor.isActive('orderedList') ? 'bg-dark text-white' : 'hover:bg-gray-200'}`}>OL</button>
+        <span className="w-px h-5 bg-gray-300 mx-1" />
+        <button
+          type="button"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={uploadingImage}
+          title="Insert image"
+          className="flex items-center gap-1 p-1.5 rounded text-xs hover:bg-gray-200 disabled:opacity-50"
+        >
+          {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+          <span>{uploadingImage ? 'Uploading…' : 'Image'}</span>
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageFile(file);
+            e.target.value = '';
+          }}
+        />
       </div>
       <EditorContent editor={editor} />
+      {imageError && <p className="px-3 py-1.5 text-xs text-red-600 border-t border-gray-100">{imageError}</p>}
     </div>
   );
 }
@@ -559,6 +631,7 @@ function EditLessonModal({
               content={content}
               onChange={setContent}
               placeholder="What will students learn in this lesson..."
+              uploadDocname={lesson.course}
             />
             <p className="text-xs text-gray-400 mt-1">
               Shown to students below the video.
@@ -1088,7 +1161,7 @@ export default function CourseEditor() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <RichTextEditor content={description} onChange={setDescription} placeholder="Full course description..." />
+          <RichTextEditor content={description} onChange={setDescription} placeholder="Full course description..." uploadDocname={isNew ? undefined : id} />
         </div>
 
         <CourseImageUpload

@@ -132,7 +132,10 @@ export default function Videos() {
     setUploadError(null);
 
     try {
-      const videoName = file.name.replace(/\.[^.]+$/, '');
+      // Vimeo rejects titles longer than 128 characters (HTTP 400), and source
+      // filenames frequently exceed that — so trim before creating the upload.
+      const videoName =
+        file.name.replace(/\.[^.]+$/, '').trim().slice(0, 128) || 'Untitled video';
       const { videoId, uploadLink } = await vimeoService.createUpload(videoName, '', file.size);
 
       await uploadVideoFile(uploadLink, file, (pct) => setUploadProgress(pct));
@@ -141,8 +144,29 @@ export default function Videos() {
       queryClient.invalidateQueries({ queryKey: ['vimeo-videos'] });
     } catch (err: any) {
       console.error('Upload error:', err);
+      // Frappe surfaces frappe.throw() messages via `_server_messages` (a
+      // JSON-encoded array of {message} objects). Parse it for a readable error.
+      let serverMsg = '';
+      const raw = err?.response?.data?._server_messages;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          serverMsg = (Array.isArray(parsed) ? parsed : [parsed])
+            .map((m: any) => {
+              try {
+                return JSON.parse(m).message;
+              } catch {
+                return m;
+              }
+            })
+            .join(' ');
+        } catch {
+          serverMsg = String(raw);
+        }
+      }
       const message =
-        err?.response?.data?.exc_type ||
+        serverMsg ||
+        err?.response?.data?.exception ||
         err?.response?.data?._error_message ||
         err?.message ||
         'Upload failed. Check your Vimeo access token and network connection.';
