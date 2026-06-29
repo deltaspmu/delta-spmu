@@ -127,9 +127,60 @@ def _quiz_attempts(quiz, member):
     )
 
 
+def _best_quiz_percentage(quiz, member):
+    """Return *member*'s highest ``percentage`` score on *quiz*, or ``None``.
+
+    Reads the ``percentage`` column that :func:`submit_quiz` writes on every
+    submission. Two things this deliberately avoids:
+
+    * It does **not** filter on ``result`` — on this fork ``LMS Quiz
+      Submission.result`` is a *child table* (``LMS Quiz Result``, one row per
+      question), so using it in a WHERE clause raises
+      ``Unknown column 'result'`` and silently breaks certificate issuance.
+    * It does **not** read ``score`` — that column holds raw earned marks
+      (e.g. ``8``), not a percentage, so it must never be compared against a
+      quiz's ``passing_percentage``.
+
+    Returns ``None`` only when no submission exists (a genuine 0% attempt
+    returns ``0``, which is distinct from "never attempted").
+    """
+    return frappe.db.get_value(
+        "LMS Quiz Submission",
+        filters={"quiz": quiz, "member": member},
+        fieldname="percentage", order_by="percentage desc")
+
+
 def _cert_id():
     """Generate a unique, human-readable certificate identifier."""
     return "DELTA-SPMU-" + uuid.uuid4().hex[:12].upper()
+
+
+def _cert_template():
+    """Resolve the Print Format to use as ``LMS Certificate.template``.
+
+    ``template`` is a *mandatory* Link to Print Format on the LMS Certificate
+    doctype — omitting it makes ``insert()`` fail validation, which is why
+    certificates silently failed to generate even for fully-eligible students.
+
+    Resolution order: the doctype's configured default print format, then any
+    enabled Print Format bound to LMS Certificate, then the stock "Certificate"
+    format. Returns ``None`` only if none of those exist.
+    """
+    tmpl = frappe.db.get_value(
+        "Property Setter",
+        {"doc_type": "LMS Certificate", "property": "default_print_format"},
+        "value",
+    )
+    if tmpl and frappe.db.exists("Print Format", tmpl):
+        return tmpl
+    tmpl = frappe.db.get_value(
+        "Print Format", {"doc_type": "LMS Certificate", "disabled": 0}, "name"
+    )
+    if tmpl:
+        return tmpl
+    if frappe.db.exists("Print Format", "Certificate"):
+        return "Certificate"
+    return None
 
 
 def _validate_course_exists(course):
@@ -764,10 +815,8 @@ def check_and_generate_certificate(course, member=None):
         if not lq:
             continue
         pp = flt(frappe.db.get_value("LMS Quiz", lq, "passing_percentage")) or 70
-        bs = frappe.db.get_value("LMS Quiz Submission",
-            filters={"quiz": lq, "member": member, "result": "Pass"},
-            fieldname="score", order_by="score desc")
-        if not bs or flt(bs) < pp:
+        best = _best_quiz_percentage(lq, member)
+        if best is None or flt(best) < pp:
             return {"eligible": False,
                     "reason": _("Quiz for '{0}' not passed.").format(li["lesson_title"]),
                     "failed_quiz": lq, "lesson": li["lesson"]}
@@ -776,10 +825,8 @@ def check_and_generate_certificate(course, member=None):
     fq = _course_quiz(course)
     if fq:
         fp = flt(frappe.db.get_value("LMS Quiz", fq, "passing_percentage")) or 70
-        bfs = frappe.db.get_value("LMS Quiz Submission",
-            filters={"quiz": fq, "member": member, "result": "Pass"},
-            fieldname="score", order_by="score desc")
-        if not bfs or flt(bfs) < fp:
+        best = _best_quiz_percentage(fq, member)
+        if best is None or flt(best) < fp:
             return {"eligible": False, "reason": _("Final quiz not passed."),
                     "failed_quiz": fq}
 
@@ -792,10 +839,14 @@ def check_and_generate_certificate(course, member=None):
     cert = frappe.new_doc("LMS Certificate")
     cert.update({"course": course, "member": member, "member_name": mn,
                  "course_title": ct, "certificate_id": cid, "issue_date": nowdate()})
+    # `template` is mandatory on LMS Certificate; set it or insert() fails.
+    tmpl = _cert_template()
+    if tmpl:
+        cert.template = tmpl
     try:
         cert.insert(ignore_permissions=True); frappe.db.commit()
     except Exception as e:
-        frappe.log_error(title="Certificate Error", message=str(e))
+        frappe.log_error(title="Certificate Error", message=frappe.get_traceback() or str(e))
         frappe.throw(_("Failed to generate certificate."))
 
     # Notify the student that their certificate is ready
@@ -1216,22 +1267,31 @@ def get_student_progress_report(course):
                   "quiz": None, "quiz_score": None, "quiz_result": None}
             lq = frappe.db.get_value("Course Lesson", l["lesson"], "quiz_id")
             if lq:
+                # `result` is a child table, not a status column — read the
+                # best attempt by `percentage` and derive Pass/Fail from the
+                # quiz's passing_percentage (see _best_quiz_percentage).
                 bs = frappe.db.get_value("LMS Quiz Submission",
                     filters={"quiz": lq, "member": m},
-                    fieldname=["score", "result"], order_by="score desc", as_dict=True)
+                    fieldname=["score", "percentage"],
+                    order_by="percentage desc", as_dict=True)
+                pp = flt(frappe.db.get_value("LMS Quiz", lq, "passing_percentage")) or 70
                 ld.update({"quiz": lq,
-                    "quiz_score": flt(bs.score) if bs else None,
-                    "quiz_result": bs.result if bs else None})
+                    "quiz_score": flt(bs.percentage) if bs else None,
+                    "quiz_result": (None if not bs
+                        else "Pass" if flt(bs.percentage) >= pp else "Fail")})
             lds.append(ld)
 
         fqi = None
         if fq:
             bf = frappe.db.get_value("LMS Quiz Submission",
                 filters={"quiz": fq, "member": m},
-                fieldname=["score", "result"], order_by="score desc", as_dict=True)
+                fieldname=["score", "percentage"],
+                order_by="percentage desc", as_dict=True)
+            fp = flt(frappe.db.get_value("LMS Quiz", fq, "passing_percentage")) or 70
             fqi = {"quiz": fq, "attempts": _quiz_attempts(fq, m),
-                   "best_score": flt(bf.score) if bf else None,
-                   "result": bf.result if bf else None}
+                   "best_score": flt(bf.percentage) if bf else None,
+                   "result": (None if not bf
+                       else "Pass" if flt(bf.percentage) >= fp else "Fail")}
 
         cr = frappe.db.get_value("LMS Certificate", {"course": course, "member": m},
             ["name", "certificate_id", "issue_date"], as_dict=True)

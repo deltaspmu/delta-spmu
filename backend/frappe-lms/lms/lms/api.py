@@ -2003,12 +2003,23 @@ def get_certificates():
                 "issue_date",
                 "certificate_id",
                 "creation",
+                "member",
+                "member_name",
             ],
             order_by="creation desc",
             limit_page_length=0,
         )
 
         for cert in certificates:
+            # The student portal's certificate card renders `student_name`
+            # ("Awarded to â€¦"); map it from the stored member_name (fall back
+            # to the User's full name) so the awardee always shows.
+            cert["student"] = cert.get("member")
+            cert["student_name"] = (
+                cert.get("member_name")
+                or frappe.db.get_value("User", cert.get("member"), "full_name")
+                or cert.get("member")
+            )
             course_data = frappe.db.get_value(
                 "LMS Course",
                 cert["course"],
