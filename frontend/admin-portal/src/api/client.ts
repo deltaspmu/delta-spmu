@@ -102,7 +102,17 @@ function call(method: string, params?: Record<string, any>) {
 }
 
 function resource(doctype: string) {
-  return `/api/resource/${doctype}`;
+  return `/api/resource/${encodeURIComponent(doctype)}`;
+}
+
+// Build the URL for a single document. The name MUST be percent-encoded:
+// Frappe auto-names some doctypes (e.g. Course Lesson) from the title, so a
+// docname can contain spaces, `?`, `#`, `/`, `&`, etc. Interpolating it raw
+// lets the browser treat `?` as the query-string delimiter, so a PUT to
+// `Course Lesson/0074 What Is Lip Blush?` silently targets the wrong (404)
+// name. encodeURIComponent turns it into a single safe path segment.
+function docResource(doctype: string, name: string) {
+  return `${resource(doctype)}/${encodeURIComponent(name)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +165,7 @@ export async function getCourses(params?: Record<string, any>) {
 }
 
 export async function getCourseDetail(name: string) {
-  const res = await api.get(`${resource('LMS Course')}/${name}`);
+  const res = await api.get(docResource('LMS Course', name));
   return unwrap(res);
 }
 
@@ -165,12 +175,12 @@ export async function createCourse(data: Record<string, any>) {
 }
 
 export async function updateCourse(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('LMS Course')}/${name}`, data);
+  const res = await api.put(docResource('LMS Course', name), data);
   return unwrap(res);
 }
 
 export async function deleteCourse(name: string) {
-  const res = await api.delete(`${resource('LMS Course')}/${name}`);
+  const res = await api.delete(docResource('LMS Course', name));
   return unwrap(res);
 }
 
@@ -195,12 +205,12 @@ export async function createChapter(data: Record<string, any>) {
 }
 
 export async function updateChapter(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('Course Chapter')}/${name}`, data);
+  const res = await api.put(docResource('Course Chapter', name), data);
   return unwrap(res);
 }
 
 export async function deleteChapter(name: string) {
-  const res = await api.delete(`${resource('Course Chapter')}/${name}`);
+  const res = await api.delete(docResource('Course Chapter', name));
   return unwrap(res);
 }
 
@@ -212,7 +222,7 @@ export async function createLesson(data: Record<string, any>) {
 }
 
 export async function updateLesson(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('Course Lesson')}/${name}`, data);
+  const res = await api.put(docResource('Course Lesson', name), data);
   return unwrap(res);
 }
 
@@ -238,12 +248,12 @@ export async function createCategory(data: Record<string, any>) {
 }
 
 export async function updateCategory(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('LMS Category')}/${name}`, data);
+  const res = await api.put(docResource('LMS Category', name), data);
   return unwrap(res);
 }
 
 export async function deleteCategory(name: string) {
-  const res = await api.delete(`${resource('LMS Category')}/${name}`);
+  const res = await api.delete(docResource('LMS Category', name));
   return unwrap(res);
 }
 
@@ -257,12 +267,12 @@ export async function getUsers(params?: Record<string, any>) {
 }
 
 export async function getUserDetail(name: string) {
-  const res = await api.get(`${resource('User')}/${name}`);
+  const res = await api.get(docResource('User', name));
   return unwrap(res);
 }
 
 export async function updateUser(name: string, data: Record<string, any>) {
-  const res = await api.put(`${resource('User')}/${name}`, data);
+  const res = await api.put(docResource('User', name), data);
   return unwrap(res);
 }
 
@@ -275,7 +285,7 @@ export async function unbanUser(user: string) {
 }
 
 export async function deleteUser(name: string) {
-  const res = await api.delete(`${resource('User')}/${name}`);
+  const res = await api.delete(docResource('User', name));
   return unwrap(res);
 }
 
@@ -305,7 +315,7 @@ export async function manualEnroll(student: string, course: string) {
 }
 
 export async function deleteEnrollment(name: string) {
-  const res = await api.delete(`${resource('LMS Enrollment')}/${name}`);
+  const res = await api.delete(docResource('LMS Enrollment', name));
   return unwrap(res);
 }
 
@@ -319,7 +329,7 @@ export async function getQuizzes(params?: Record<string, any>) {
 }
 
 export async function getQuiz(name: string) {
-  const res = await api.get(`${resource('LMS Quiz')}/${name}`);
+  const res = await api.get(docResource('LMS Quiz', name));
   return unwrap(res);
 }
 
@@ -359,7 +369,7 @@ export async function getCertificates(params?: Record<string, any>) {
 }
 
 export async function getCertificateDetail(name: string) {
-  const res = await api.get(`${resource('LMS Certificate')}/${name}`);
+  const res = await api.get(docResource('LMS Certificate', name));
   return unwrap(res);
 }
 
@@ -373,7 +383,7 @@ export async function getReviews(params?: Record<string, any>) {
 }
 
 export async function deleteReview(name: string) {
-  const res = await api.delete(`${resource('LMS Course Review')}/${name}`);
+  const res = await api.delete(docResource('LMS Course Review', name));
   return unwrap(res);
 }
 
@@ -475,12 +485,12 @@ export async function getStudentProgressReport(course: string) {
 // ---------------------------------------------------------------------------
 
 export async function getLMSSettings() {
-  const res = await api.get(`${resource('LMS Settings')}/LMS Settings`);
+  const res = await api.get(docResource('LMS Settings', 'LMS Settings'));
   return unwrap(res);
 }
 
 export async function updateLMSSettings(data: Record<string, any>) {
-  const res = await api.put(`${resource('LMS Settings')}/LMS Settings`, data);
+  const res = await api.put(docResource('LMS Settings', 'LMS Settings'), data);
   return unwrap(res);
 }
 
