@@ -111,13 +111,18 @@ def _portal_url():
 MESSAGES = {
     "welcome": (
         "👋 Welcome to <b>Delta SPMU Academy</b>!\n\n"
-        "I send you payment receipts, enrollment confirmations and "
-        "certificate alerts, and can show your course status any time.\n\n"
-        "To connect your account, open your profile at {portal}/profile "
-        "and press <b>Connect Telegram</b>.\n\n"
+        "Tap the button below to open the academy right here in Telegram — "
+        "browse courses, create your account, enroll and learn.\n\n"
+        "I'll also send you payment receipts, enrollment confirmations and "
+        "certificate alerts once you connect your account "
+        "(Profile → Connect Telegram inside the app).\n\n"
         "Type /help to see what I can do."
     ),
-    "welcome_linked": "👋 Hi {name}! Your account is connected. Type /help to see what I can do.",
+    "welcome_linked": (
+        "👋 Hi {name}! Your account is connected.\n\n"
+        "Tap the button below to open the academy, or type /help to see "
+        "what I can do here in the chat."
+    ),
     "linked_ok": (
         "✅ Done, {name}! Your Telegram is now connected to your "
         "Delta SPMU Academy account.\n\n"
@@ -135,12 +140,15 @@ MESSAGES = {
     ),
     "help": (
         "Here's what I can do:\n\n"
+        "/start — open the academy app\n"
         "/mycourses — list your enrolled courses\n"
         "/progress — your progress in each course\n"
         "/certificates — your earned certificates\n"
         "/unlink — disconnect Telegram from your account\n"
         "/help — show this message\n\n"
-        "Manage your account at {portal}"
+        "The full academy (register, enroll, watch lessons, take quizzes) "
+        "opens with the button below or the menu button next to the "
+        "message box."
     ),
     "mycourses_header": "📚 <b>Your courses</b>\n",
     "mycourses_empty": "You're not enrolled in any course yet.\nBrowse courses at {portal}/courses",
@@ -204,7 +212,17 @@ def _tg_api(method, payload=None, timeout=15):
         return {"ok": False, "error_code": resp.status_code, "description": resp.text[:500]}
 
 
-def _send_message(chat_id, text, parse_mode="HTML", disable_preview=True):
+def _webapp_keyboard():
+    """Inline button that opens the student portal as a Telegram Mini App
+    (in-Telegram webview), so visitors can register / enroll / learn without
+    leaving Telegram."""
+    return {"inline_keyboard": [[
+        {"text": "🎓 Open Delta SPMU Academy", "web_app": {"url": _portal_url()}}
+    ]]}
+
+
+def _send_message(chat_id, text, parse_mode="HTML", disable_preview=True,
+                  reply_markup=None):
     """Send one message. Never raises.
 
     Returns (ok, error_code, description) so callers can react to 403
@@ -212,12 +230,15 @@ def _send_message(chat_id, text, parse_mode="HTML", disable_preview=True):
     ``retry_after`` seconds tucked into description on 429.
     """
     try:
-        data = _tg_api("sendMessage", {
+        payload = {
             "chat_id": chat_id,
             "text": (text or "")[:MAX_MESSAGE_LEN],
             "parse_mode": parse_mode,
             "disable_web_page_preview": disable_preview,
-        })
+        }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        data = _tg_api("sendMessage", payload)
         if data.get("ok"):
             return True, None, ""
         code = data.get("error_code")
@@ -372,7 +393,10 @@ def _route_update(update):
         reply = _msg("unknown")
 
     if reply:
-        _send_message(chat_id, reply)
+        # /start and /help lead with the Mini App button so visitors can jump
+        # straight into the portal (register, enroll, learn) inside Telegram.
+        markup = _webapp_keyboard() if cmd in ("/start", "/help") else None
+        _send_message(chat_id, reply, reply_markup=markup)
 
 
 def _cmd_start(parts, message):
@@ -739,9 +763,20 @@ def webhook_info():
 def set_bot_commands():
     """Register the command menu shown in the Telegram UI."""
     return _tg_api("setMyCommands", {"commands": [
+        {"command": "start", "description": "Open the academy app"},
         {"command": "mycourses", "description": "List my enrolled courses"},
         {"command": "progress", "description": "My progress in each course"},
         {"command": "certificates", "description": "My earned certificates"},
         {"command": "help", "description": "What this bot can do"},
         {"command": "unlink", "description": "Disconnect Telegram from my account"},
     ]})
+
+
+def setup_menu_button():
+    """Make the bot's menu button (next to the message box) open the student
+    portal as a Telegram Mini App — the full web app inside Telegram."""
+    return _tg_api("setChatMenuButton", {"menu_button": {
+        "type": "web_app",
+        "text": "Open Academy",
+        "web_app": {"url": _portal_url()},
+    }})
