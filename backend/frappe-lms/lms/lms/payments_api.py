@@ -135,19 +135,39 @@ def _create_course_access(user, course, transaction_name):
         access_doc.insert(ignore_permissions=True)
         access_doc.submit()
 
-    # --- LMS Enrollment ---
-    if not frappe.db.exists("LMS Enrollment", {"member": user, "course": course}):
-        enrollment = frappe.get_doc(
-            {
-                "doctype": "LMS Enrollment",
-                "member": user,
-                "course": course,
-                "member_type": "Student",
-            }
-        )
-        enrollment.insert(ignore_permissions=True)
-
+    # Course Access is what actually gates content in this platform, so commit it
+    # NOW. A downstream hiccup (e.g. the LMS's native paid-course enrollment
+    # guard below) must never roll back a real, paid access grant.
     frappe.db.commit()
+
+    # --- LMS Enrollment (drives progress / quizzes / certificate) ---
+    # The courses are paid_course=1, so the LMS's own before_insert guard
+    # (validate_course_enrollment_eligibility) refuses enrollment in a guest
+    # webhook context unless there is an LMS Payment record or the actor is an
+    # LMS admin. Our custom Payment Transaction IS the completed payment, so we
+    # insert the enrollment in an Administrator context to satisfy that guard.
+    # Best-effort: a failure here is logged but must never undo the grant above.
+    if not frappe.db.exists("LMS Enrollment", {"member": user, "course": course}):
+        _actor = frappe.session.user
+        try:
+            frappe.set_user("Administrator")
+            frappe.get_doc(
+                {
+                    "doctype": "LMS Enrollment",
+                    "member": user,
+                    "course": course,
+                    "member_type": "Student",
+                }
+            ).insert(ignore_permissions=True)
+            frappe.db.commit()
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(
+                title="LMS Enrollment creation failed (post-payment)",
+                message=frappe.get_traceback(),
+            )
+        finally:
+            frappe.set_user(_actor)
 
 
 def _send_payment_confirmation(user, course, transaction):
@@ -242,6 +262,16 @@ def _process_successful_payment(transaction_name):
     try:
 
     except Exception:
+
+    # Telegram push receipt. Enqueued + a no-op unless telegram_enabled, so it
+    # can never block a paid student's access. See lms/lms/telegram_bot.py.
+    try:
+        from lms.lms.telegram_bot import _enqueue
+
+        _enqueue("lms.lms.telegram_bot.notify_payment_success",
+                 transaction_name=transaction_name)
+    except Exception:
+        frappe.log_error(title="Telegram enqueue failed", message=frappe.get_traceback())
 
     return True
 
@@ -474,6 +504,12 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
         # any "Discount %" is presentational only (a higher compare-at original).
         course_price = frappe.db.get_value("LMS Course", course, "course_price")
         amount = float(course_price) if course_price else float(BASE_PRICE)
+
+    # telebirr Pay Bill (C2B) settles only in ETB. If a bill were priced in USD,
+    # the CPS's ETB TransAmount (ISD 5.3) could never match the stored amount and
+    # the payment would perpetually fail validation — so force ETB here.
+    if payment_method in ("telebirr", "telebirr_c2b"):
+        currency = "ETB"
 
     if currency and currency.upper() == "USD":
         try:

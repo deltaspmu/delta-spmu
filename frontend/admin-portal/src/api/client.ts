@@ -428,6 +428,26 @@ export async function exportPaymentsCsv(params?: {
 }
 
 // ---------------------------------------------------------------------------
+// Telegram
+// ---------------------------------------------------------------------------
+
+export interface TelegramStats {
+  enabled: boolean;
+  linked_count: number;
+}
+
+export async function getTelegramStats(): Promise<TelegramStats> {
+  return call('lms.lms.telegram_bot.admin_get_telegram_stats');
+}
+
+export async function sendTelegramBroadcast(message: string): Promise<{
+  queued: boolean;
+  recipients: number;
+}> {
+  return call('lms.lms.telegram_bot.admin_broadcast', { message });
+}
+
+// ---------------------------------------------------------------------------
 // File upload (Frappe `/api/method/upload_file`)
 // ---------------------------------------------------------------------------
 

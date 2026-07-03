@@ -25,6 +25,7 @@ import {
   CreditCard,
   BarChart3,
   Mail,
+  Send,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -69,6 +70,7 @@ const EmailList = lazy(() => import('./pages/EmailList'));
 const EmailCompose = lazy(() => import('./pages/EmailCompose'));
 const EmailDetail = lazy(() => import('./pages/EmailDetail'));
 const EmailAddresses = lazy(() => import('./pages/EmailAddresses'));
+const TelegramBroadcast = lazy(() => import('./pages/TelegramBroadcast'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 
 // ---------------------------------------------------------------------------
@@ -93,6 +95,7 @@ const navItems: NavItem[] = [
   { label: 'Payments', path: '/payments', icon: CreditCard },
   { label: 'Analytics', path: '/analytics', icon: BarChart3 },
   { label: 'Email', path: '/email', icon: Mail },
+  { label: 'Telegram', path: '/telegram', icon: Send },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -603,6 +606,16 @@ export default function App() {
                     <ProtectedRoute>
                       <AdminLayout>
                         <EmailAddresses />
+                      </AdminLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/telegram"
+                  element={
+                    <ProtectedRoute>
+                      <AdminLayout>
+                        <TelegramBroadcast />
                       </AdminLayout>
                     </ProtectedRoute>
                   }

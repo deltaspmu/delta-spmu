@@ -43,7 +43,13 @@ async function ensureCSRFToken(): Promise<string | null> {
   // 3. Fetch from API
   try {
     const res = await api.get('/api/method/lms.lms.api.get_csrf_token');
-    cachedCSRFToken = (res.data?.message as string) || null;
+    // get_csrf_token returns {"csrf_token": "..."}, which Frappe wraps as
+    // { message: { csrf_token: "..." } }. Older code read res.data.message
+    // directly and cached the OBJECT (serialized to "[object Object]"),
+    // breaking the cross-origin CSRF header. Handle both shapes.
+    const message = res.data?.message as { csrf_token?: string } | string | undefined;
+    cachedCSRFToken =
+      (typeof message === 'string' ? message : message?.csrf_token) || null;
     return cachedCSRFToken;
   } catch {
     return null;
@@ -165,6 +171,31 @@ export const uploadAvatar = (file: File, userEmail: string) => {
     })
     .then(unwrap);
 };
+
+// ===========================================================================
+// Telegram
+// ===========================================================================
+
+export interface TelegramStatus {
+  enabled: boolean;
+  linked?: boolean;
+  telegram_username?: string | null;
+  linked_on?: string | null;
+  bot_username?: string | null;
+}
+
+export const getTelegramStatus = () =>
+  api
+    .get('/api/method/lms.lms.telegram_bot.get_telegram_status')
+    .then(unwrap) as Promise<TelegramStatus>;
+
+export const createTelegramLinkToken = () =>
+  api
+    .post('/api/method/lms.lms.telegram_bot.create_link_token')
+    .then(unwrap) as Promise<{ token: string; deep_link: string; expires_in: number }>;
+
+export const disconnectTelegram = () =>
+  api.post('/api/method/lms.lms.telegram_bot.disconnect_telegram').then(unwrap);
 
 // ===========================================================================
 // Branding & Settings

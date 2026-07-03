@@ -1181,18 +1181,19 @@ def get_course_chapters(course_name=None):
             limit_page_length=0,
         )
 
+        # Admins edit lessons in the admin portal and need the full HTML body
+        # (description + embedded images). Students/guests fetch lesson content
+        # via get_lesson_details (which applies preview gating), so the outline
+        # stays lean and never leaks non-preview lesson content here.
+        _lesson_fields = ["name", "title", "idx", "include_in_preview", "youtube", "quiz_id"]
+        if "System Manager" in frappe.get_roles(frappe.session.user):
+            _lesson_fields.append("content")
+
         for chapter in chapters:
             lessons = frappe.get_all(
                 "Course Lesson",
                 filters={"chapter": chapter["name"]},
-                fields=[
-                    "name",
-                    "title",
-                    "idx",
-                    "include_in_preview",
-                    "youtube",
-                    "quiz_id",
-                ],
+                fields=_lesson_fields,
                 order_by="idx asc",
                 limit_page_length=0,
             )
@@ -1815,6 +1816,16 @@ def _maybe_generate_certificate(user, course, enrollment_name):
         cert.insert(ignore_permissions=True)
         frappe.db.commit()
 
+        # Telegram push (no-op unless telegram_enabled).
+        try:
+            from lms.lms.telegram_bot import _enqueue
+            _enqueue("lms.lms.telegram_bot.notify_certificate_issued",
+                     member=user,
+                     course_title=frappe.db.get_value("LMS Course", course, "title") or course,
+                     certificate_id=cert.get("certificate_id"))
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "telegram_enqueue_failed")
+
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Certificate generation failed")
 
@@ -2012,7 +2023,7 @@ def get_certificates():
 
         for cert in certificates:
             # The student portal's certificate card renders `student_name`
-            # ("Awarded to â€¦"); map it from the stored member_name (fall back
+            # ("Awarded to …"); map it from the stored member_name (fall back
             # to the User's full name) so the awardee always shows.
             cert["student"] = cert.get("member")
             cert["student_name"] = (
@@ -3358,7 +3369,7 @@ def custom_sign_up(email=None, full_name=None, password=None, phone=None, redire
           code=1  → account created, verification email queued
     """
     import re
-    from frappe.utils import validate_email_address, escape_html
+    from frappe.utils import validate_email_address, escape_html, cint
     from frappe.utils.password import update_password as set_password
     from lms.lms.email_templates import email_verification
 
@@ -3371,11 +3382,42 @@ def custom_sign_up(email=None, full_name=None, password=None, phone=None, redire
         frappe.throw(_("Email, full name, phone number, and password are required."), frappe.MandatoryError)
     if not validate_email_address(email):
         frappe.throw(_("Please enter a valid email address."), frappe.ValidationError)
+
+    # Abuse protection (Finding 1 — unrestricted batch registration): throttle
+    # automated/batch sign-ups per email and per client IP. Limits are read from
+    # site_config so they can be relaxed during the INSA audit without a redeploy
+    # (mirrors _signup_portal_url above), and default high enough that a user
+    # re-sending their own verification email won't lock themselves out. Raises
+    # frappe.TooManyRequestsError when exceeded.
+    from lms.lms.security import check_rate_limit, _get_client_ip
+    email_max = cint(frappe.conf.get("signup_rate_limit_email") or 10)
+    ip_max = cint(frappe.conf.get("signup_rate_limit_ip") or 20)
+    check_rate_limit("sign_up_email", email, max_attempts=email_max, window_seconds=3600)
+    check_rate_limit("sign_up_ip", _get_client_ip(), max_attempts=ip_max, window_seconds=3600)
+
     # Allow leading +, digits, spaces, dashes, and parens; require at least 7 digits.
     if len(re.sub(r"\D", "", phone)) < 7 or not re.match(r"^\+?[\d\s\-()]+$", phone):
         frappe.throw(_("Please enter a valid phone number."), frappe.ValidationError)
+
+    # Password policy (Finding 2 — weak password policy): length + complexity.
+    # Enforced inline because custom_sign_up sets the password via
+    # update_password(), which bypasses Frappe's password-policy hook.
+    pw_errors = []
     if len(password) < 8:
-        frappe.throw(_("Password must be at least 8 characters."), frappe.ValidationError)
+        pw_errors.append(_("at least 8 characters"))
+    if not re.search(r"[a-z]", password):
+        pw_errors.append(_("a lowercase letter"))
+    if not re.search(r"[A-Z]", password):
+        pw_errors.append(_("an uppercase letter"))
+    if not re.search(r"\d", password):
+        pw_errors.append(_("a number"))
+    if not re.search(r"[^A-Za-z0-9]", password):
+        pw_errors.append(_("a symbol"))
+    if pw_errors:
+        frappe.throw(
+            _("Password must contain {0}.").format(", ".join(pw_errors)),
+            frappe.ValidationError,
+        )
 
     # Already registered?
     if frappe.db.exists("User", email):
@@ -3676,6 +3718,15 @@ def admin_manual_enroll(student=None, course=None, days=365):
         }).insert(ignore_permissions=True)
 
     frappe.db.commit()
+
+    # Telegram push (no-op unless telegram_enabled; paid enrollments get the
+    # combined receipt message from _process_successful_payment instead).
+    try:
+        from lms.lms.telegram_bot import _enqueue
+        _enqueue("lms.lms.telegram_bot.notify_enrollment", member=member, course=course)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "telegram_enqueue_failed")
+
     return {
         "enrolled": True,
         "member": member,

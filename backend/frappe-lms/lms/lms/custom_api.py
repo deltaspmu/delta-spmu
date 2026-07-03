@@ -862,6 +862,14 @@ def check_and_generate_certificate(course, member=None):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "certificate_ready_email_failed")
 
+    # Telegram push (no-op unless telegram_enabled; can never block issuance).
+    try:
+        from lms.lms.telegram_bot import _enqueue
+        _enqueue("lms.lms.telegram_bot.notify_certificate_issued",
+                 member=member, course_title=ct, certificate_id=cid)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "telegram_enqueue_failed")
+
     return {"eligible": True, "certificate_name": cert.name, "certificate_id": cid,
             "course": course, "course_title": ct, "member": member,
             "member_name": mn, "issue_date": str(cert.issue_date), "course_price": cp}

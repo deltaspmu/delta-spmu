@@ -9,6 +9,9 @@ import {
   updateNotificationPreferences,
   deleteUserAccount,
   uploadAvatar,
+  getTelegramStatus,
+  createTelegramLinkToken,
+  disconnectTelegram,
 } from '@/api/client';
 import { formatDate, cn } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
@@ -25,6 +28,7 @@ import {
   User,
   Mail,
   Calendar,
+  Send,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +107,136 @@ function useToast() {
   ) : null;
 
   return { show, ToastUI };
+}
+
+// ---------------------------------------------------------------------------
+// Telegram section (hidden entirely until the integration is enabled)
+// ---------------------------------------------------------------------------
+
+function TelegramSection({
+  showToast,
+}: {
+  showToast: (message: string, type?: 'success' | 'error') => void;
+}) {
+  const { t } = useTranslation(['common', 'pages']);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [linking, setLinking] = useState(false);
+
+  const { data: status } = useQuery({
+    queryKey: ['telegramStatus', user?.email],
+    queryFn: getTelegramStatus,
+    enabled: !!user,
+    // Poll while the user is off in the Telegram app pressing Start.
+    refetchInterval: linking ? 3000 : false,
+  });
+
+  useEffect(() => {
+    if (linking && status?.linked) {
+      setLinking(false);
+      showToast(t('pages:profile.telegramConnected', 'Telegram connected!'));
+    }
+  }, [linking, status?.linked, showToast, t]);
+
+  const connectMutation = useMutation({
+    mutationFn: createTelegramLinkToken,
+    onSuccess: (data) => {
+      window.open(data.deep_link, '_blank', 'noopener');
+      setLinking(true);
+    },
+    onError: () =>
+      showToast(
+        t('pages:profile.telegramLinkError', 'Could not start the connection. Please try again.'),
+        'error'
+      ),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: disconnectTelegram,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['telegramStatus', user?.email] });
+      showToast(t('pages:profile.telegramDisconnected', 'Telegram disconnected'));
+    },
+  });
+
+  // Gated dark: the section is invisible until telegram is enabled backend-side.
+  if (!status?.enabled) return null;
+
+  return (
+    <Section
+      title={t('pages:profile.telegram', 'Telegram Notifications')}
+      icon={<Send className="w-5 h-5" />}
+    >
+      {status.linked ? (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+            <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-dark">
+                {status.telegram_username
+                  ? t('pages:profile.telegramLinkedAs', 'Connected as @{{username}}', {
+                      username: status.telegram_username,
+                    })
+                  : t('pages:profile.telegramLinked', 'Telegram connected')}
+              </p>
+              <p className="text-xs text-gray-500">
+                {t(
+                  'pages:profile.telegramLinkedDesc',
+                  'Payment receipts, enrollment confirmations and certificate alerts are sent to your Telegram.'
+                )}
+                {status.linked_on ? ` · ${formatDate(status.linked_on)}` : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => disconnectMutation.mutate()}
+            disabled={disconnectMutation.isPending}
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {disconnectMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {t('pages:profile.telegramDisconnect', 'Disconnect')}
+          </button>
+        </div>
+      ) : linking ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-sm text-dark-light">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            {t(
+              'pages:profile.telegramWaiting',
+              'Waiting for you to press Start in Telegram…'
+            )}
+          </div>
+          <button
+            onClick={() => setLinking(false)}
+            className="text-sm text-gray-500 hover:text-dark underline"
+          >
+            {t('common:cancel', 'Cancel')}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {t(
+              'pages:profile.telegramDesc',
+              'Connect your Telegram to receive payment receipts, enrollment confirmations and certificate alerts — and check your course progress right from the chat.'
+            )}
+          </p>
+          <button
+            onClick={() => connectMutation.mutate()}
+            disabled={connectMutation.isPending}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {connectMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            {t('pages:profile.telegramConnect', 'Connect Telegram')}
+          </button>
+        </div>
+      )}
+    </Section>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -524,6 +658,9 @@ export default function Profile() {
                 ))}
               </div>
             </Section>
+
+            {/* Telegram (renders nothing until the integration is enabled) */}
+            <TelegramSection showToast={showToast} />
 
             {/* Delete Account */}
             <Section
