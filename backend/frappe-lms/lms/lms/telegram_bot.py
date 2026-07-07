@@ -13,6 +13,7 @@ Design notes
   ``telegram_bot_token`` (default off). Deploying this file changes nothing
   until the bot is created and the config keys are set.
 * **Never blocks payments / certificates.** All outbound notifications are
+  enqueued after commit; the enqueue call sites are
   additionally wrapped in try/except.
 * **Webhook always answers 200.** Telegram redelivers on non-200, so the
   webhook swallows + logs every error and dedupes on ``update_id``.

@@ -149,26 +149,7 @@ export interface PaymentTransaction {
   expires_at: string;
   completed_at: string | null;
   error_message: string | null;
-    | 'Not Registered'
-    | 'Pending'
-    | 'Registered'
-    | 'Failed'
-    | 'Cancelled'
-    | null;
   creation: string;
-}
-
-  transaction_id: string;
-  course: string | null;
-  course_title: string | null;
-  amount: number;
-  currency: string;
-  date: string | null;
-  irn: string | null;
-  document_number: string | null;
-  ack_date: string | null;
-  qr: string | null;             // base64 PNG
-  seller_name: string | null;
 }
 
 export interface CourseProgress {

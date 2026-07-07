@@ -1,54 +1,80 @@
 """
 telebirr C2B (CPS-Biller) inbound SOAP integration for Delta SPMU Academy.
 
-Ethio Telecom's CPS (Mobile Money System) calls THREE SOAP operations on us
-(the Biller) when a customer pays our short code via telebirr "Pay Bill":
+Implements the Biller side of Ethio Telecom's "CPS - Biller Integration
+Specification Document v0.2". Ethio Telecom's CPS (Mobile Money System) calls
+THREE SOAP operations on us (the Biller) when a customer pays our short code via
+telebirr "Pay Bill":
 
-    1. C2BPaymentQuery        -> we return the bill (course + amount + names)
-    2. C2BPaymentValidation   -> we authorise the payment in real time
-    3. C2BPaymentConfirmation -> money has moved; we grant access + invoice
+    1. C2BPaymentQuery        (ISD 5.2) -> return the bill (name + amount)
+    2. C2BPaymentValidation   (ISD 5.3) -> authorise the payment in real time
+    3. C2BPaymentConfirmation (ISD 5.4) -> money moved; complete + grant access
 
-Here we are the SERVER (the opposite of the Super-App flow in telebirr.py). The
-customer-facing initiation (showing the short code + bill reference) lives in
-payments_api.py; this module only handles the inbound CPS calls.
+Service-flow facts that drive the design (ISD 4, step 8 + E6, and 5.4.2)
+------------------------------------------------------------------------
+* **The money moves on VALIDATION, not Confirmation.** ISD 4 step 8: *"If the
+  correct response (ResultCode 0) is received from the third-party system [our
+  Validation reply], the CPS Debits the initiator, Credits the biller ... and
+  completes the payment."* So a Validation for which we return 0 is, to the CPS,
+  a completed sale.
+* **Validation is time-critical (~5 s).** ISD E6: if the biller does not reply
+  within ~5 s the CPS keeps the txn "Authorized" and requires *offline
+  reconciliation*. So Validation must be fast (DB writes only, no email/enrol).
+* **Confirmation is an unreliable, post-completion notification.** ISD 5.4.2:
+  its result *"is free text that does not have functional usage ... simply
+  recorded in the back-end log for traceability."* It may be delayed or lost.
 
-Design
-------
-* **Match key**: BillRefNumber == Payment Transaction.telebirr_bill_ref.
-* **Dispatch**: by SOAP root element (NOT TransType — see telebirr_c2b_xml).
-* **Auth**: source-IP allow-list + BusinessShortCode match. The CPS sends no
-  SOAP-header credentials (confirmed against the sample XML), so there is no
-  login/password to validate. Both checks are config-gated and *skipped while
-  unset*, so the endpoint can be self-tested before go-live, then locked down.
-* **Confirmation reuses _process_successful_payment** from payments_api, so a
-* **Idempotent**: a Completed transaction re-confirmed is a no-op.
+Therefore we run a real state machine and NEVER lose a paid student's access:
+
+    Pending --(Validation ok)--> Authorized --(Confirmation)--> Completed
+                                     |
+                                     +--(no Confirmation within grace)-->
+                                        reconciliation: alert admin, and
+                                        optionally auto-complete (Validation
+                                        success already means money moved).
+
+Access is granted on Confirmation (money definitely moved) OR by reconciliation
+of a stuck "Authorized" bill — so a lost Confirmation can never silently deny a
+paying student their course.
+
+Dispatch, transport, security
+-----------------------------
+* **Dispatch by SOAP root element**, never TransType (the samples prove it is
+  inconsistent: "QueryBill"/"PayBill" vs numeric 11124/12104/20032, and absent
+  from the Validation sample). See telebirr_c2b_xml.
+* **Content-Type text/xml; charset=utf-8**; namespace
+  http://cps.huawei.com/cpsinterface/c2bpayment.
+* **Auth**: source-IP allow-list + BusinessShortCode match (the CPS sends no
+  SOAP-header credentials — the sample <soapenv:Header/> is empty). Both checks
+  are config-gated and skipped while unset, so the endpoint is self-testable
+  before go-live and locked down after.
 
 Config keys (frappe.conf / site_config.json):
-    telebirr_c2b_short_code    - our registered BusinessShortCode (lock-down key)
-    telebirr_c2b_allowed_ips   - comma-separated CPS source IPs (optional)
-    telebirr_c2b_utility_name  - merchant name shown to the payer (optional;
+    telebirr_c2b_short_code               our registered BusinessShortCode
+    telebirr_c2b_allowed_ips              comma-separated CPS source IPs
+    telebirr_c2b_utility_name             merchant name shown to the payer
+    telebirr_c2b_auto_complete_authorized auto-complete stuck Authorized bills
+                                          (default off; on = trust Validation)
+    telebirr_c2b_authorized_grace_minutes grace before an Authorized bill is
+                                          considered stuck (default 30)
+    telebirr_c2b_alert_email              recipient(s) for reconciliation alerts
 
-Endpoint URL the CPS is registered to call:
+Endpoint the CPS is registered to call:
     /api/method/lms.lms.telebirr_c2b.c2b
 """
 
 import json
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 
 import frappe
 from frappe import _
+from frappe.utils import cint, now_datetime
 
-from lms.lms.telebirr_c2b_xml import (
-    parse_request,
-    SoapParseError,
-    build_query_result,
-    build_query_error,
-    build_validation_result,
-    build_confirmation_result,
-)
-
-# Result codes returned to the CPS. "0" == success; any other value is an error
-# the CPS treats as a failure (E2/E5 in the ISD service flow).
+# ---------------------------------------------------------------------------
+# Result codes (ISD: "0" == success; any other value is an error the CPS treats
+# as E2/E5 failure and cancels/releases the reservation).
+# ---------------------------------------------------------------------------
 RESULT_OK = "0"
 ERR_BILL_NOT_FOUND = "1"
 ERR_ALREADY_PAID = "2"
@@ -56,10 +82,23 @@ ERR_EXPIRED = "3"
 ERR_AMOUNT_MISMATCH = "4"
 ERR_BAD_SHORTCODE = "5"
 ERR_INTERNAL = "6"
+ERR_IN_PROGRESS = "7"
+
+# C2B state machine (stored in telebirr_c2b_state; distinct from the generic
+# Payment Transaction.status so we never fight its Select options).
+STATE_PENDING = "Pending"
+STATE_AUTHORIZED = "Authorized"
+STATE_COMPLETED = "Completed"
+
+RECONCILE_JOB_METHOD = "lms.lms.telebirr_c2b.scheduled_reconcile_authorized"
+ALERT_THROTTLE_KEY = "telebirr_c2b_stuck_alert_sent"
+ALERT_THROTTLE_SEC = 6 * 60 * 60
+DEFAULT_GRACE_MINUTES = 30
 
 _TX_FIELDS = [
     "name", "transaction_id", "user", "course", "course_title",
     "amount", "currency", "status", "telebirr_bill_ref", "expiry_time",
+    "telebirr_c2b_state", "telebirr_cps_trans_id", "telebirr_authorized_at",
 ]
 
 
@@ -72,15 +111,27 @@ def _conf(key, default=None):
     return value if value not in (None, "") else default
 
 
+def _bool_conf(key, default=False):
+    value = frappe.conf.get(key)
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
+
 def _our_short_code():
     return str(_conf("telebirr_c2b_short_code") or "").strip()
 
 
 def _utility_name():
-    return (
-        _conf("telebirr_c2b_utility_name")
-        or "Delta SPMU Academy"
-    )
+    # Merchant/bill-issuer name shown to the payer in telebirr (ISD 5.2.2
+    # UtilityName). telebirr-specific config ONLY — no cross-integration fallback.
+    return _conf("telebirr_c2b_utility_name") or "Delta SPMU Academy"
+
+
+def _grace_minutes():
+    return cint(_conf("telebirr_c2b_authorized_grace_minutes")) or DEFAULT_GRACE_MINUTES
 
 
 def _log(event, data=None, level="info"):
@@ -117,6 +168,15 @@ def _short_code_ok(short_code):
     return str(short_code or "").strip() == ours
 
 
+def _auth_configured():
+    """At least one inbound auth factor must be set before we honour a
+    STATE-CHANGING op (Validation/Confirmation). The per-request checks skip
+    when unset for convenience, but completing a payment while wholly
+    unconfigured would let a forged request unlock a course for free (bill refs
+    are non-secret). Read-only Query stays lenient; money paths do not."""
+    return bool(_our_short_code()) or bool(_conf("telebirr_c2b_allowed_ips"))
+
+
 # ---------------------------------------------------------------------------
 # Transaction lookup + value helpers
 # ---------------------------------------------------------------------------
@@ -125,15 +185,23 @@ def _find_tx_by_bill_ref(bill_ref):
     if not bill_ref:
         return None
     name = frappe.db.get_value(
-        "Payment Transaction", {"telebirr_bill_ref": bill_ref}, "name"
+        "Payment Transaction", {"telebirr_bill_ref": str(bill_ref).strip()}, "name"
     )
     if not name:
         return None
     return frappe.db.get_value("Payment Transaction", name, _TX_FIELDS, as_dict=True)
 
 
+def _c2b_state(tx):
+    """Effective C2B state, tolerant of rows created before the state field
+    existed and of completion via any other code path (status == Completed)."""
+    if (tx.get("status") or "") == "Completed":
+        return STATE_COMPLETED
+    return tx.get("telebirr_c2b_state") or STATE_PENDING
+
+
 def _money(value):
-    """Two-decimal ETB string, as the CPS expects (e.g. 5000.00)."""
+    """Two-decimal ETB string, as the CPS expects (ISD: e.g. 5000.00)."""
     try:
         return "{0:.2f}".format(float(value))
     except (TypeError, ValueError):
@@ -148,10 +216,10 @@ def _amount_matches(got, expected):
 
 
 def _expired(tx):
-    """True if the bill's payment window (expiry_time) has passed.
+    """True if a still-Pending bill's payment window (expiry_time) has passed.
 
-    No expiry_time set -> never expired (C2B bills may be left open
-    deliberately; payments_api decides the window at initiation time).
+    Only meaningful for Pending bills; an Authorized/Completed bill never
+    "expires" because the money has already moved.
     """
     exp = tx.get("expiry_time")
     if not exp:
@@ -175,18 +243,27 @@ def _expired(tx):
 def _respond_xml(xml_text):
     """Emit raw SOAP XML (text/xml) instead of Frappe's default JSON.
 
-    Uses the "binary" response type with NO filename, so as_raw() sets our
-    content_type and adds no Content-Disposition header -> a clean text/xml body.
+    Uses the "download" response type (Frappe's as_raw), which honours our
+    content_type; display_content_as="inline" keeps it a normal body, not an
+    attachment. content_type is the bare mimetype ("text/xml") because
+    Frappe/werkzeug appends "; charset=utf-8" itself (passing the charset here
+    doubles it).
     """
-    frappe.local.response["type"] = "binary"
+    frappe.local.response["type"] = "download"
     frappe.local.response["filecontent"] = xml_text.encode("utf-8")
-    frappe.local.response["content_type"] = "text/xml; charset=utf-8"
+    frappe.local.response["content_type"] = "text/xml"
+    frappe.local.response["filename"] = "c2b.xml"
+    frappe.local.response["display_content_as"] = "inline"
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def c2b():
     """Single inbound endpoint the CPS calls for all three C2B operations."""
     frappe.flags.ignore_csrf = True
+
+    from lms.lms.telebirr_c2b_xml import (
+        parse_request, SoapParseError, build_query_error, build_confirmation_result,
+    )
 
     if not _ip_allowed():
         _log("ip_rejected", {"ip": _client_ip()}, level="warning")
@@ -216,27 +293,31 @@ def c2b():
         xml_out = handler(parsed)
     except Exception:
         frappe.db.rollback()
-        _log("handler_exception", {"type": parsed["msg_type"], "tb": frappe.get_traceback()}, level="error")
+        _log("handler_exception",
+             {"type": parsed["msg_type"], "tb": frappe.get_traceback()}, level="error")
         xml_out = _error_for(parsed["msg_type"], ERR_INTERNAL, "Internal error")
 
     _respond_xml(xml_out)
 
 
 def _error_for(msg_type, code, desc):
+    from lms.lms.telebirr_c2b_xml import (
+        build_query_error, build_validation_result, build_confirmation_result,
+    )
     if msg_type == "query":
         return build_query_error(code, desc)
     if msg_type == "validation":
         return build_validation_result(result_code=code, result_desc=desc)
-    # Confirmation result is free text only logged by the CPS.
-    return build_confirmation_result("0")
+    return build_confirmation_result("0")  # free text; never signal failure
 
 
 # ---------------------------------------------------------------------------
-# Handlers
+# 1. C2BPaymentQuery  (ISD 5.2)  -> show the payer the bill
 # ---------------------------------------------------------------------------
 
 def _handle_query(parsed):
-    """C2BPaymentQuery -> return the bill so the CPS can show it to the payer."""
+    from lms.lms.telebirr_c2b_xml import build_query_result, build_query_error
+
     f = parsed["fields"]
     cps_trans_id = f.get("TransID", "")
     bill_ref = f.get("BillRefNumber", "")
@@ -247,39 +328,68 @@ def _handle_query(parsed):
     tx = _find_tx_by_bill_ref(bill_ref)
     if not tx:
         return build_query_error(ERR_BILL_NOT_FOUND, "Bill not found", cps_trans_id, bill_ref)
-    if tx.status == "Completed":
+
+    state = _c2b_state(tx)
+    if state == STATE_COMPLETED:
         return build_query_error(ERR_ALREADY_PAID, "Bill already paid", cps_trans_id, bill_ref)
-    if tx.status != "Pending":
-        return build_query_error(ERR_BILL_NOT_FOUND, "Bill not payable ({0})".format(tx.status), cps_trans_id, bill_ref)
-    if _expired(tx):
+    if state == STATE_PENDING and _expired(tx):
         return build_query_error(ERR_EXPIRED, "Bill expired", cps_trans_id, bill_ref)
+    # Pending or Authorized -> the bill is payable; show it.
 
     customer = frappe.db.get_value("User", tx.user, "full_name") or tx.user
-    _log("query_ok", {"bill_ref": bill_ref, "tx": tx.transaction_id})
+    _log("query_ok", {"bill_ref": bill_ref, "tx": tx.transaction_id, "state": state})
     return build_query_result(
         result_code=RESULT_OK, result_desc="Success",
         trans_id=cps_trans_id, bill_ref=bill_ref,
-        utility_name=_utility_name(), customer_name=customer,
+        utility_name=_utility_name(),
+        customer_name=customer,
         amount=_money(tx.amount),
     )
 
 
-def _handle_validation(parsed):
-    """C2BPaymentValidation -> authorise (ResultCode 0) in real time."""
-    f = parsed["fields"]
-    cps_trans_id = f.get("TransID", "")
-    bill_ref = f.get("BillRefNumber", "")
+# ---------------------------------------------------------------------------
+# 2. C2BPaymentValidation  (ISD 5.3)  -> authorise; ResultCode 0 == "debit now"
+# ---------------------------------------------------------------------------
 
+def _handle_validation(parsed):
+    from lms.lms.telebirr_c2b_xml import build_validation_result
+
+    f = parsed["fields"]
+    cps_trans_id = (f.get("TransID") or "").strip()
+    bill_ref = f.get("BillRefNumber", "")
+    msisdn = f.get("MSISDN", "")
+
+    def _ok(tx):
+        return build_validation_result(
+            result_code=RESULT_OK, result_desc="Success",
+            third_party_trans_id=tx.transaction_id,
+        )
+
+    if not _auth_configured():
+        _log("validation_not_configured", {"bill_ref": bill_ref}, level="error")
+        return build_validation_result(result_code=ERR_BAD_SHORTCODE, result_desc="Biller not configured")
     if not _short_code_ok(f.get("BusinessShortCode")):
         return build_validation_result(result_code=ERR_BAD_SHORTCODE, result_desc="Invalid short code")
 
     tx = _find_tx_by_bill_ref(bill_ref)
     if not tx:
         return build_validation_result(result_code=ERR_BILL_NOT_FOUND, result_desc="Bill not found")
-    if tx.status == "Completed":
-        return build_validation_result(result_code=ERR_ALREADY_PAID, result_desc="Bill already paid")
-    if tx.status != "Pending":
-        return build_validation_result(result_code=ERR_BILL_NOT_FOUND, result_desc="Bill not payable")
+
+    state = _c2b_state(tx)
+    existing_cps = (tx.get("telebirr_cps_trans_id") or "").strip()
+
+    # Idempotency: the CPS may retry Validation. A retry from the SAME CPS TransID
+    # is a success ack; a DIFFERENT CPS TransID against an already
+    # authorised/paid bill is a second payment attempt -> reject.
+    if state in (STATE_AUTHORIZED, STATE_COMPLETED):
+        if existing_cps and cps_trans_id and existing_cps == cps_trans_id:
+            return _ok(tx)
+        return build_validation_result(
+            result_code=(ERR_ALREADY_PAID if state == STATE_COMPLETED else ERR_IN_PROGRESS),
+            result_desc=("Bill already paid" if state == STATE_COMPLETED else "Payment already in progress"),
+        )
+
+    # Pending path.
     if _expired(tx):
         return build_validation_result(result_code=ERR_EXPIRED, result_desc="Bill expired")
     if not _amount_matches(f.get("TransAmount"), tx.amount):
@@ -287,51 +397,207 @@ def _handle_validation(parsed):
              {"bill_ref": bill_ref, "expected": tx.amount, "got": f.get("TransAmount")}, level="warning")
         return build_validation_result(result_code=ERR_AMOUNT_MISMATCH, result_desc="Amount mismatch")
 
-    # Record the CPS TransID against the transaction for reconciliation.
-    if cps_trans_id:
-        frappe.db.set_value("Payment Transaction", tx.name, "provider_reference", cps_trans_id)
-        frappe.db.commit()
+    # Authorise: from here the CPS will debit the customer and credit us. Persist
+    # everything the reconciliation path needs, fast (no email/enrolment here so
+    # we stay well under the ~5 s ISD E6 window).
+    frappe.db.set_value("Payment Transaction", tx.name, {
+        "telebirr_c2b_state": STATE_AUTHORIZED,
+        "telebirr_cps_trans_id": cps_trans_id,
+        "telebirr_msisdn": msisdn,
+        "telebirr_paid_amount": _money(f.get("TransAmount")),
+        "telebirr_authorized_at": now_datetime(),
+        "provider_reference": cps_trans_id,
+    }, update_modified=True)
+    frappe.db.commit()
     _log("validation_ok", {"bill_ref": bill_ref, "tx": tx.transaction_id, "cps_trans_id": cps_trans_id})
-    return build_validation_result(
-        result_code=RESULT_OK, result_desc="Success", third_party_trans_id=tx.transaction_id
-    )
+    return _ok(tx)
 
+
+# ---------------------------------------------------------------------------
+# 3. C2BPaymentConfirmation  (ISD 5.4)  -> money moved; complete + grant access
+# ---------------------------------------------------------------------------
 
 def _handle_confirmation(parsed):
-    """C2BPaymentConfirmation -> money has moved; complete the sale.
+    """The result is free text the CPS only logs (ISD 5.4.2), so we ALWAYS ack
+    "0" and handle any internal error via logs + reconciliation — the debit has
+    already happened, so signalling failure here would be wrong."""
+    from lms.lms.telebirr_c2b_xml import build_confirmation_result
 
-    The result is free text the CPS only logs, so we always ack "0" and handle
-    debit/credit already happened on the CPS side).
-    """
     f = parsed["fields"]
-    cps_trans_id = f.get("TransID", "")
+    cps_trans_id = (f.get("TransID") or "").strip()
     bill_ref = f.get("BillRefNumber", "")
+    msisdn = f.get("MSISDN", "")
+    trans_amount = f.get("TransAmount")
 
+    if not _auth_configured():
+        _log("confirm_not_configured", {"bill_ref": bill_ref}, level="error")
+        return build_confirmation_result("0")  # ack, but never complete unconfigured
     if not _short_code_ok(f.get("BusinessShortCode")):
-        _log("confirm_bad_shortcode", {"bill_ref": bill_ref, "short_code": f.get("BusinessShortCode")}, level="error")
+        _log("confirm_bad_shortcode",
+             {"bill_ref": bill_ref, "short_code": f.get("BusinessShortCode")}, level="error")
         return build_confirmation_result("0")
 
     tx = _find_tx_by_bill_ref(bill_ref)
     if not tx:
         _log("confirm_no_tx", {"bill_ref": bill_ref, "cps_trans_id": cps_trans_id}, level="error")
         return build_confirmation_result("0")
-    if tx.status == "Completed":
+
+    if _c2b_state(tx) == STATE_COMPLETED:
         return build_confirmation_result("0")  # idempotent
 
-    if cps_trans_id:
-        frappe.db.set_value("Payment Transaction", tx.name, "provider_reference", cps_trans_id)
+    # Defense-in-depth: a Confirmation on a still-Pending bill never passed the
+    # Validation amount-gate, so verify the amount before granting access. (An
+    # Authorized bill was already amount-checked at Validation.) Always ack "0".
+    if _c2b_state(tx) == STATE_PENDING and trans_amount and not _amount_matches(trans_amount, tx.amount):
+        _log("confirm_amount_mismatch",
+             {"bill_ref": bill_ref, "expected": tx.amount, "got": trans_amount}, level="error")
+        return build_confirmation_result("0")
 
-    try:
-        from lms.lms.payments_api import _process_successful_payment
-
-        _process_successful_payment(tx.name)
-        frappe.db.commit()
-        _log("confirm_ok", {"bill_ref": bill_ref, "tx": tx.transaction_id, "cps_trans_id": cps_trans_id})
-    except Exception:
-        frappe.db.rollback()
-        _log("confirm_process_error", {"bill_ref": bill_ref, "tb": frappe.get_traceback()}, level="error")
-
+    _complete_transaction(tx.name, cps_trans_id=cps_trans_id, msisdn=msisdn,
+                          amount=trans_amount, source="confirmation")
     return build_confirmation_result("0")
+
+
+# ---------------------------------------------------------------------------
+# Completion (shared by Confirmation + reconciliation)  -> grant access
+# ---------------------------------------------------------------------------
+
+def _complete_transaction(tx_name, *, cps_trans_id="", msisdn="", amount=None, source="confirmation"):
+    """Mark a bill Completed and grant course access. Idempotent + safe to call
+    concurrently from the Confirmation handler and the reconciliation job.
+
+    A MariaDB named lock serialises callers so two concurrent Confirmation
+    retries (or a Confirmation racing the reconcile job) cannot both fulfil the
+    same bill (e.g. send two receipt emails)."""
+    lock = ("telebirr_c2b_" + str(tx_name))[:64]
+    got = frappe.db.sql("SELECT GET_LOCK(%s, 10)", (lock,))
+    if not got or not got[0][0]:
+        _log("complete_lock_busy", {"tx": tx_name}, level="warning")
+        return
+    try:
+        row = frappe.db.get_value(
+            "Payment Transaction", tx_name,
+            ["status", "telebirr_c2b_state", "transaction_id"], as_dict=True
+        ) or {}
+        if (row.get("status") == "Completed") or (row.get("telebirr_c2b_state") == STATE_COMPLETED):
+            return  # already done
+
+        fields = {"telebirr_c2b_state": STATE_COMPLETED}
+        if cps_trans_id:
+            fields["telebirr_cps_trans_id"] = cps_trans_id
+            fields["provider_reference"] = cps_trans_id
+        if msisdn:
+            fields["telebirr_msisdn"] = msisdn
+        if amount is not None:
+            fields["telebirr_paid_amount"] = _money(amount)
+        frappe.db.set_value("Payment Transaction", tx_name, fields, update_modified=True)
+
+        try:
+            # Shared chokepoint after every provider: grants Course Access and
+            # sends the receipt email.
+            from lms.lms.payments_api import _process_successful_payment
+            _process_successful_payment(tx_name)
+            frappe.db.commit()
+            _log("completed", {"tx": row.get("transaction_id") or tx_name,
+                               "cps_trans_id": cps_trans_id, "source": source})
+        except Exception:
+            frappe.db.rollback()
+            # Only demote back to Authorized if the completion did NOT durably
+            # land (a mid-commit failure can leave status=Completed + access
+            # granted; demoting that to Authorized would falsely resurface it in
+            # reconciliation forever).
+            if frappe.db.get_value("Payment Transaction", tx_name, "status") != "Completed":
+                frappe.db.set_value("Payment Transaction", tx_name,
+                                    "telebirr_c2b_state", STATE_AUTHORIZED, update_modified=False)
+                frappe.db.commit()
+            _log("complete_error", {"tx": tx_name, "tb": frappe.get_traceback()}, level="error")
+    finally:
+        frappe.db.sql("SELECT RELEASE_LOCK(%s)", (lock,))
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation (ISD E6: Validation OK but Confirmation lost/late)
+# ---------------------------------------------------------------------------
+
+def _stuck_authorized(grace_minutes=None, limit=200):
+    cutoff = now_datetime() - timedelta(minutes=grace_minutes or _grace_minutes())
+    return frappe.db.get_all(
+        "Payment Transaction",
+        filters={"telebirr_c2b_state": STATE_AUTHORIZED,
+                 "telebirr_authorized_at": ["<=", cutoff]},
+        fields=["name", "transaction_id", "user", "course_title", "amount",
+                "telebirr_bill_ref", "telebirr_cps_trans_id", "telebirr_authorized_at"],
+        order_by="telebirr_authorized_at asc",
+        limit=limit,
+    )
+
+
+def scheduled_reconcile_authorized():
+    """Scheduler entry point. Bills that were Authorised (money moved per ISD
+    step 8) but never Confirmed are either auto-completed (if the merchant trusts
+    Validation == paid) or an admin is alerted to reconcile against the telebirr
+    merchant statement (ISD E6 "offline reconciliation")."""
+    if not frappe.db.has_column("Payment Transaction", "telebirr_c2b_state"):
+        return
+    stuck = _stuck_authorized()
+    if not stuck:
+        frappe.cache().delete_value(ALERT_THROTTLE_KEY)
+        return
+
+    if _bool_conf("telebirr_c2b_auto_complete_authorized", default=False):
+        for row in stuck:
+            _complete_transaction(row.name, cps_trans_id=row.get("telebirr_cps_trans_id") or "",
+                                  source="reconcile_auto")
+        _log("reconcile_auto_completed", {"count": len(stuck)})
+        return
+
+    _alert_stuck(stuck)
+
+
+def _alert_stuck(stuck):
+    if frappe.cache().get_value(ALERT_THROTTLE_KEY):
+        return
+    recipients = _admin_recipients()
+    if recipients:
+        lines = "".join(
+            "<li>{0} — {1} ETB — bill ref {2} — CPS {3}</li>".format(
+                r.get("transaction_id"), r.get("amount"), r.get("telebirr_bill_ref"),
+                r.get("telebirr_cps_trans_id") or "?")
+            for r in stuck[:50]
+        )
+        try:
+            frappe.sendmail(
+                recipients=recipients,
+                subject="[telebirr] {0} payment(s) awaiting reconciliation".format(len(stuck)),
+                message=(
+                    "<p>{0} telebirr Pay Bill payment(s) were authorised (the customer was "
+                    "charged) but no confirmation arrived, so course access is pending.</p>"
+                    "<p>Check the telebirr merchant statement and complete each verified "
+                    "payment with <code>telebirr_c2b_complete_transaction</code>.</p>"
+                    "<ul>{1}</ul>"
+                ).format(len(stuck), lines),
+                now=True,
+            )
+        except Exception as exc:
+            _log("stuck_alert_failed", {"error": str(exc)}, level="warning")
+    frappe.cache().set_value(ALERT_THROTTLE_KEY, 1, expires_in_sec=ALERT_THROTTLE_SEC)
+    _log("reconcile_alert", {"count": len(stuck)})
+
+
+def _admin_recipients():
+    configured = _conf("telebirr_c2b_alert_email")
+    if configured:
+        return [e.strip() for e in str(configured).split(",") if e.strip()]
+    managers = frappe.get_all(
+        "Has Role", filters={"role": "System Manager", "parenttype": "User"}, pluck="parent")
+    emails = []
+    for u in set(managers):
+        if u in ("Administrator", "Guest"):
+            continue
+        row = frappe.db.get_value("User", u, ["email", "enabled"], as_dict=True)
+        if row and row.enabled and row.email:
+            emails.append(row.email)
+    return emails or ["administrator@deltaspmu.com"]
 
 
 # ---------------------------------------------------------------------------
@@ -346,55 +612,119 @@ def generate_bill_ref():
     access control is the IP allow-list + short-code + amount match, not the
     secrecy of this reference.
     """
-    import random
-
     for _attempt in range(25):
         ref = str(random.randint(10_000_000, 99_999_999))
         if not frappe.db.exists("Payment Transaction", {"telebirr_bill_ref": ref}):
             return ref
-    # Pathological fallback (namespace nearly exhausted): widen to 9 digits.
     return str(random.randint(100_000_000, 999_999_999))
 
 
 # ---------------------------------------------------------------------------
-# One-time setup + admin status  (run via bench execute)
+# One-time setup  (run via: bench --site <site> execute
+#   lms.lms.telebirr_c2b.setup_telebirr_c2b_custom_fields)
 # ---------------------------------------------------------------------------
 
 def setup_telebirr_c2b_custom_fields():
-    """Idempotently add the bill-reference field to Payment Transaction.
-
-    Run once:
-        bench --site <site> execute lms.lms.telebirr_c2b.setup_telebirr_c2b_custom_fields
-    """
+    """Idempotently add the C2B fields to Payment Transaction + register the
+    reconciliation scheduler."""
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     fields = {
         "Payment Transaction": [
-            {
-                "fieldname": "telebirr_bill_ref",
-                "label": "telebirr Bill Reference",
-                "fieldtype": "Data",
-                "insert_after": "provider_reference",
-                "read_only": 1,
-                "search_index": 1,
-                "description": "Reference the customer enters in telebirr Pay Bill (C2B match key).",
-            },
+            {"fieldname": "telebirr_c2b_section", "label": "telebirr Pay Bill (C2B)",
+             "fieldtype": "Section Break", "insert_after": "status", "collapsible": 1},
+            {"fieldname": "telebirr_bill_ref", "label": "telebirr Bill Reference",
+             "fieldtype": "Data", "insert_after": "telebirr_c2b_section",
+             "read_only": 1, "search_index": 1,
+             "description": "Reference the customer enters in telebirr Pay Bill (C2B match key)."},
+            {"fieldname": "telebirr_c2b_state", "label": "telebirr C2B State",
+             "fieldtype": "Select", "options": "\nPending\nAuthorized\nCompleted",
+             "insert_after": "telebirr_bill_ref", "read_only": 1, "search_index": 1,
+             "description": "Pending -> Authorized (Validation ok, money moved) -> Completed (access granted)."},
+            {"fieldname": "telebirr_cps_trans_id", "label": "telebirr CPS TransID",
+             "fieldtype": "Data", "insert_after": "telebirr_c2b_state", "read_only": 1,
+             "description": "The CPS-side transaction id from Validation/Confirmation."},
+            {"fieldname": "telebirr_msisdn", "label": "telebirr Payer MSISDN",
+             "fieldtype": "Data", "insert_after": "telebirr_cps_trans_id", "read_only": 1},
+            {"fieldname": "telebirr_authorized_at", "label": "telebirr Authorized At",
+             "fieldtype": "Datetime", "insert_after": "telebirr_msisdn", "read_only": 1},
+            {"fieldname": "telebirr_paid_amount", "label": "telebirr Paid Amount (CPS)",
+             "fieldtype": "Data", "insert_after": "telebirr_authorized_at", "read_only": 1,
+             "description": "The TransAmount the CPS reported at Validation/Confirmation (for reconciliation)."},
         ],
     }
     create_custom_fields(fields, ignore_validate=True)
     frappe.db.commit()
-    return "telebirr_c2b custom field created."
+    setup_telebirr_c2b_scheduled_jobs()
+    return "telebirr_c2b custom fields created."
+
+
+def setup_telebirr_c2b_scheduled_jobs():
+    """Register the reconciliation job as a Scheduled Job Type (data-level, since
+    this repo doesn't own the app hooks.py). Requires the site scheduler enabled."""
+    if frappe.db.exists("Scheduled Job Type", {"method": RECONCILE_JOB_METHOD}):
+        return RECONCILE_JOB_METHOD
+    doc = frappe.get_doc({
+        "doctype": "Scheduled Job Type",
+        "method": RECONCILE_JOB_METHOD,
+        "frequency": "Cron",
+        "cron_format": "*/15 * * * *",  # every 15 minutes
+        "create_log": 0,
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return RECONCILE_JOB_METHOD
+
+
+# ---------------------------------------------------------------------------
+# Admin endpoints
+# ---------------------------------------------------------------------------
+
+def _check_admin():
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Only System Managers can perform this action."), frappe.PermissionError)
 
 
 @frappe.whitelist()
 def telebirr_c2b_config_status():
     """Report C2B config + readiness (admin only)."""
-    if "System Manager" not in frappe.get_roles(frappe.session.user):
-        frappe.throw(_("Only System Managers can view this."), frappe.PermissionError)
+    _check_admin()
     return {
         "short_code_set": bool(_our_short_code()),
         "allowed_ips": _conf("telebirr_c2b_allowed_ips") or "(not set — IP check skipped)",
         "utility_name": _utility_name(),
-        "field_ready": frappe.db.has_column("Payment Transaction", "telebirr_bill_ref"),
+        "auto_complete_authorized": _bool_conf("telebirr_c2b_auto_complete_authorized", default=False),
+        "grace_minutes": _grace_minutes(),
+        "fields_ready": frappe.db.has_column("Payment Transaction", "telebirr_c2b_state"),
+        "scheduler_registered": bool(frappe.db.exists("Scheduled Job Type", {"method": RECONCILE_JOB_METHOD})),
         "endpoint": "/api/method/lms.lms.telebirr_c2b.c2b",
+        "counts": {
+            "authorized": frappe.db.count("Payment Transaction", {"telebirr_c2b_state": STATE_AUTHORIZED}),
+            "completed": frappe.db.count("Payment Transaction", {"telebirr_c2b_state": STATE_COMPLETED}),
+        },
     }
+
+
+@frappe.whitelist()
+def telebirr_c2b_reconciliation():
+    """List bills stuck in Authorized (charged but access pending), admin only."""
+    _check_admin()
+    if not frappe.db.has_column("Payment Transaction", "telebirr_c2b_state"):
+        return {"ready": False, "message": "Run setup_telebirr_c2b_custom_fields first."}
+    stuck = _stuck_authorized(grace_minutes=0)
+    for r in stuck:
+        r["telebirr_authorized_at"] = str(r.get("telebirr_authorized_at") or "")
+    return {"ready": True, "stuck_count": len(stuck), "stuck": stuck}
+
+
+@frappe.whitelist(methods=["POST"])
+def telebirr_c2b_complete_transaction(transaction_id):
+    """Manually complete a reconciled telebirr payment -> grant access (admin)."""
+    _check_admin()
+    name = frappe.db.get_value("Payment Transaction", {"transaction_id": transaction_id}, "name")
+    if not name:
+        frappe.throw(_("Transaction {0} not found.").format(transaction_id), frappe.DoesNotExistError)
+    _complete_transaction(name, source="manual")
+    state = frappe.db.get_value("Payment Transaction", name, "telebirr_c2b_state")
+    return {"transaction_id": transaction_id, "telebirr_c2b_state": state,
+            "ok": state == STATE_COMPLETED}

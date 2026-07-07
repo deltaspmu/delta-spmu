@@ -259,10 +259,6 @@ def _process_successful_payment(transaction_name):
         },
     )
 
-    try:
-
-    except Exception:
-
     # Telegram push receipt. Enqueued + a no-op unless telegram_enabled, so it
     # can never block a paid student's access. See lms/lms/telegram_bot.py.
     try:
@@ -927,10 +923,6 @@ def get_user_transactions(limit=20, offset=0):
         "completed_at",
         "user_reference",
     ]
-    # endpoint behaves identically until e-invoicing has been set up.
-        if frappe.db.has_column("Payment Transaction", _col):
-            fields.append(_col)
-
     transactions = frappe.db.get_all(
         "Payment Transaction",
         filters=filters,
@@ -952,124 +944,6 @@ def get_user_transactions(limit=20, offset=0):
         "limit": limit,
         "offset": offset,
     }
-
-
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
-
-    student portal can call it safely regardless.
-    """
-    user = frappe.session.user
-    if user == "Guest":
-        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
-    if not transaction_id:
-        frappe.throw(_("Transaction ID is required."), frappe.MandatoryError)
-
-
-    tx = frappe.db.get_value(
-        "Payment Transaction",
-        {"transaction_id": transaction_id},
-        [
-            "name", "user", "course", "course_title", "amount", "currency",
-        ],
-        as_dict=True,
-    )
-    if not tx:
-        frappe.throw(_("Transaction {0} not found.").format(transaction_id), frappe.DoesNotExistError)
-    if tx.user != user and "System Manager" not in frappe.get_roles(user):
-        frappe.throw(_("You do not have permission to view this invoice."), frappe.PermissionError)
-
-    return {
-        "transaction_id": transaction_id,
-        "course": tx.course,
-        "course_title": tx.course_title,
-        "amount": tx.amount,
-        "currency": tx.currency,
-        "date": str(tx.completed_at) if tx.completed_at else None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-@frappe.whitelist(methods=["GET"])
-
-    Owner or System Manager only. Returns ``{"html": ...}`` so the client can
-    open it in a new window and print / save as PDF (the MoR printing-layout
-    artifact). Only available once the invoice is Registered.
-    """
-    user = frappe.session.user
-    if user == "Guest":
-        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
-    if not transaction_id:
-        frappe.throw(_("Transaction ID is required."), frappe.MandatoryError)
-
-    tx = frappe.db.get_value(
-        "Payment Transaction",
-        {"transaction_id": transaction_id},
-        [
-            "name", "user", "course", "course_title", "amount", "currency",
-        ],
-        as_dict=True,
-    )
-    if not tx:
-        frappe.throw(_("Transaction {0} not found.").format(transaction_id), frappe.DoesNotExistError)
-    if tx.user != user and "System Manager" not in frappe.get_roles(user):
-        frappe.throw(_("You do not have permission to view this invoice."), frappe.PermissionError)
-        frappe.throw(_("This invoice has not been registered yet."), frappe.ValidationError)
-
-    buyer = frappe.db.get_value(
-        "User", tx.user, ["full_name", "email", "mobile_no", "phone"], as_dict=True) or {}
-    conf = frappe.conf
-    amount = float(tx.amount or 0)
-
-
-    pre_tax, tax_amt, total_inc = _split_amount(amount, tax_code)
-
-    if isinstance(when, str):
-        try:
-            when = datetime.strptime(when[:19], "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            when = datetime.now()
-
-    seller = {
-        "city": ("[" + city_code + "]Addis Ababa") if city_code else "Addis Ababa",
-        "woreda": ("[" + woreda_code + "]Woreda " + woreda_code) if woreda_code else "N/A",
-        "sub_tin": "N/A",
-    }
-    buyer_blk = {
-        "name": buyer.get("full_name") or tx.user,
-        "city": "N/A", "subcity": "N/A", "woreda": "N/A", "kebele": "N/A",
-        "house_no": "N/A",
-        "phone": buyer.get("mobile_no") or buyer.get("phone") or "N/A",
-        "vat_no": "N/A",
-        "sub_tin": "N/A",
-    }
-
-        "doc_type": "INV",
-        "cancelled": cancelled,
-        "cancellation_reason": "The invoice has been cancelled." if cancelled else "",
-        "internal_ref": transaction_id,
-        "when": when,
-        "seller": seller,
-        "buyer": buyer_blk,
-        "items": [{
-            "description": tx.course_title or "Course",
-            "nature": "service", "uom": "PCS", "qty": "1.0",
-            "unit_price": pre_tax, "tax_code": tax_code,
-            "excise": 0, "discount": 0, "total": pre_tax,
-        }],
-        "totals": {
-            "total": pre_tax, "excise": 0, "discount": 0,
-            "vat_taxable": pre_tax, "vat15": tax_amt,
-            "non_taxable": 0, "total_inc_tax": total_inc,
-        },
-        "payment_type": "Cash",
-        "purchaser_name": buyer_blk["name"],
-        "brand_name": seller["name"],
-        "brand_city": "Addis Ababa",
-    })
-    return {"html": html}
 
 
 # ---------------------------------------------------------------------------
@@ -1266,7 +1140,7 @@ def chapa_webhook():
       2. Re-verify the charge server-side against Chapa's /verify API and
          check the amount — a webhook payload is never trusted on its own to
          complete a payment.
-      3. Only then grant access via _process_successful_payment (which also
+      3. Only then grant access via _process_successful_payment.
 
     Returns:
         dict with status and message.
@@ -1881,6 +1755,7 @@ def admin_export_payments_csv(status=None, payment_method=None, from_date=None, 
 # as Custom Fields (idempotent, survives fork updates).
 # ---------------------------------------------------------------------------
 def setup_payment_transaction_fields():
+    """Add the columns payments_api and the portal expect to Payment Transaction.
 
     Run once: bench --site api.deltaspmu.com execute
         lms.lms.payments_api.setup_payment_transaction_fields
@@ -1915,7 +1790,8 @@ def setup_payment_transaction_fields():
 def simulate_completed_purchase(user, course, payment_method="chapa"):
     """Create a Payment Transaction for ``user`` + ``course`` and drive it through
     ``_process_successful_payment`` — exactly what a provider webhook does after a
-    real payment. Fires the full post-payment chain: course access, confirmation
+    real payment. Fires the full post-payment chain: course access and the
+    confirmation email.
 
     Run on the server:
         bench --site api.deltaspmu.com execute \
@@ -1954,6 +1830,7 @@ def simulate_completed_purchase(user, course, payment_method="chapa"):
 
     tx = frappe.db.get_value(
         "Payment Transaction", tx_doc.name,
+        ["transaction_id", "status"],
         as_dict=True,
     )
     return {"processed": ok, "name": tx_doc.name, **(tx or {})}

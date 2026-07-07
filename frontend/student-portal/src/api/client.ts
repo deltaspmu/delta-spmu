@@ -426,16 +426,6 @@ export const getUserTransactions = (limit?: number, offset?: number) =>
     })
     .then(unwrap);
 
-  api
-      params: { transaction_id: transactionId },
-    })
-    .then(unwrap);
-
-  api
-      params: { transaction_id: transactionId },
-    })
-    .then(unwrap) as Promise<{ html: string }>;
-
 export const getCourseAccess = (course: string) =>
   api
     .get('/api/method/lms.lms.payments_api.get_course_access', {

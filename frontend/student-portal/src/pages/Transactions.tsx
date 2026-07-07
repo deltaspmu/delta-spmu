@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { getUserTransactions } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import type { PaymentTransaction } from '@/types';
 import {
   formatDate,
   formatPrice,
@@ -10,7 +12,7 @@ import {
   truncateText,
   cn,
 } from '@/lib/utils';
-import { Receipt, ChevronLeft, ChevronRight, X, FileText, Loader2, Download } from 'lucide-react';
+import { Receipt, ChevronLeft, ChevronRight, X, Loader2, Download } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -177,8 +179,10 @@ function TransactionRow({ transaction, onViewReceipt }: TransactionCardProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Payment Receipt Modal
 // ---------------------------------------------------------------------------
 
+// Build a print-ready Payment Receipt entirely client-side.
 function buildReceiptHtml(tx: PaymentTransaction, studentName: string): string {
   const esc = (v: unknown) =>
     String(v ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
@@ -210,8 +214,8 @@ function buildReceiptHtml(tx: PaymentTransaction, studentName: string): string {
     `</div>` +
     `<h2 style="font-size:15px;letter-spacing:3px;text-transform:uppercase;color:#C9A96E;text-align:center;margin:0 0 18px;">Payment Receipt</h2>` +
     `<table style="border-collapse:collapse;width:100%;font-size:14px;">${rowsHtml}</table>` +
+    `<p style="margin-top:18px;color:#999;font-size:11px;line-height:1.55;">This is a payment receipt confirming the transaction above.</p>` +
     `<p style="margin-top:22px;color:#bbb;font-size:10px;text-align:center;">Generated ${esc(new Date().toLocaleString())}</p>` +
-    `<script>window.onload=function(){setTimeout(function(){window.print();},150);};<\/script>` +
     `</body></html>`
   );
 }
@@ -226,10 +230,6 @@ function ReceiptModal({
   const { user } = useAuth();
   const studentName = user?.full_name || user?.email || 'Student';
 
-  const { data } = useQuery({
-    queryKey: ['invoice', transaction.transaction_id],
-  });
-
   const amountStr = formatPrice(transaction.amount ?? transaction.final_amount, transaction.currency);
   const dateStr = formatDate(transaction.completed_at || transaction.creation);
   const methodStr = getPaymentMethodLabel(transaction.payment_method);
@@ -240,20 +240,9 @@ function ReceiptModal({
     win.document.open();
     win.document.write(buildReceiptHtml(transaction, studentName));
     win.document.close();
-  };
-
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(
-      '<p style="font-family:sans-serif;padding:24px;color:#555;">Preparing your invoice…</p>'
-    );
-    try {
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-    } catch {
-      win.document.body.innerHTML =
-    }
+    // Trigger print from the parent context: the receipt window inherits this
+    // app's CSP, whose script-src 'self' blocks an inline <script> auto-print.
+    setTimeout(() => { try { win.print(); } catch { /* user can print manually */ } }, 200);
   };
 
   return (
@@ -309,30 +298,6 @@ function ReceiptModal({
           <Download className="w-4 h-4" />
           Download / Print Receipt
         </button>
-
-        {registered ? (
-          <div className="mt-5 pt-4 border-t border-gray-100">
-            <p className="text-center text-xs tracking-[0.2em] uppercase text-primary mb-3">
-            </p>
-            <img
-              src={`data:image/png;base64,${invoice!.qr}`}
-              className="w-36 h-36 mx-auto border border-gray-100 rounded"
-            />
-            <p className="font-mono text-[11px] break-all bg-alabaster p-2 rounded mt-3">
-              {invoice!.irn}
-            </p>
-            <button
-              className="mt-3 w-full flex items-center justify-center gap-1.5 px-4 py-2 border border-dark text-dark rounded-lg text-sm hover:bg-alabaster transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Official Tax Invoice (PDF)
-            </button>
-          </div>
-        ) : (
-          <p className="mt-4 text-center text-[11px] text-gray-400">
-            registration is enabled.
-          </p>
-        )}
       </div>
     </div>
   );
