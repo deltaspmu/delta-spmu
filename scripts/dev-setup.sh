@@ -32,6 +32,9 @@ echo "==> Getting LMS app (stock version-15; run scripts/dev-fetch-lms.sh afterw
 $IN_FRAPPE '
 set -e
 cd /workspace/frappe-bench
+if [ ! -d apps/payments ]; then
+  bench get-app payments   # lms dependency — get-app lms does not always resolve it
+fi
 if [ ! -d apps/lms ]; then
   bench get-app lms https://github.com/frappe/lms --branch main
 fi
