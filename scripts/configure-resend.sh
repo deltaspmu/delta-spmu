@@ -103,6 +103,7 @@ PYEOF
 
 echo "==> Uploading config script..."
 scp "$TMPFILE" ${EC2_HOST}:/tmp/configure_resend.py > /dev/null
+ssh -n ${EC2_HOST} "chmod 644 /tmp/configure_resend.py" </dev/null  # mktemp is 600; frappe user must read it
 rm -f "$TMPFILE"
 
 echo "==> Running bench console..."

@@ -26,6 +26,7 @@ print('Current cookie_samesite:', site_config.get('cookie_samesite'))
 PYEOF
 
 scp "$TMPFILE" ${EC2_HOST}:/tmp/check_cors.py > /dev/null
+ssh -n ${EC2_HOST} "chmod 644 /tmp/check_cors.py" </dev/null  # mktemp is 600; frappe user must read it
 rm -f "$TMPFILE"
 
 ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && ${BENCH_BIN} --site ${FRAPPE_SITE} console < /tmp/check_cors.py > /tmp/check_cors.out 2>&1' </dev/null"
@@ -36,8 +37,8 @@ ssh ${EC2_HOST} "grep -E 'allow_cors|cookie_samesite' /tmp/check_cors.out | tail
 echo ""
 echo "==> Applying new config..."
 
-ssh -n ${EC2_HOST} "sudo -u frappe ${BENCH_BIN} --site ${FRAPPE_SITE} set-config -p allow_cors '[\"${PORTAL_URL}\",\"${ADMIN_URL}\"]'" </dev/null
-ssh -n ${EC2_HOST} "sudo -u frappe ${BENCH_BIN} --site ${FRAPPE_SITE} set-config cookie_samesite None" </dev/null
+ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && ${BENCH_BIN} --site ${FRAPPE_SITE} set-config -p allow_cors \"[\\\"${PORTAL_URL}\\\",\\\"${ADMIN_URL}\\\"]\"'" </dev/null
+ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && ${BENCH_BIN} --site ${FRAPPE_SITE} set-config cookie_samesite None'" </dev/null
 
 echo ""
 echo "==> Restarting bench (so config changes take effect)..."
