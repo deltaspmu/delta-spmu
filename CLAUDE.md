@@ -123,19 +123,20 @@ and `get_course_price` special-case `BUNDLE_ID` to charge/display BUNDLE_PRICE.
 
 ### Vimeo tag: `deltaspmu-lms` (not `afritutors-lms`)
 
+## Environments (see docs/ENVIRONMENTS.md)
+- **dev** — local Docker (`dev/docker-compose.yml`, site `lms.localhost`); sync backend edits with `./scripts/dev-sync-backend.sh`
+- **staging** — EC2 + on-instance MariaDB, `staging-api.deltaspmu.com`; portals on the `staging` branch → `staging-learn`/`staging-admin.deltaspmu.com`
+- **prod** — the live stack (`api`/`learn`/`admin.deltaspmu.com`); AWS resources are named `deltaspmu-dev-*` (legacy, accepted debt)
+- Terraform: `infrastructure/envs/{staging,prod}` roots + shared `infrastructure/modules/`; remote state in S3 `deltaspmu-tfstate-534727954268`. NEVER apply in `envs/prod` without a clean plan + explicit user approval.
+
 ## Server Commands
 ```bash
-# Deploy backend files
-scp backend/frappe-lms/lms/lms/*.py ubuntu@<EC2-IP>:/tmp/
-ssh ubuntu@<EC2-IP> "sudo cp /tmp/*.py /home/frappe/deltaspmu/apps/lms/lms/lms/"
-ssh ubuntu@<EC2-IP> "sudo chown -R frappe:frappe /home/frappe/deltaspmu/apps/lms/"
-ssh ubuntu@<EC2-IP> "sudo rm -f /home/frappe/deltaspmu/apps/lms/lms/lms/__pycache__/*.pyc"
-ssh ubuntu@<EC2-IP> "cd /home/frappe/deltaspmu && sudo -u frappe /home/frappe/.local/bin/bench restart"
+# Deploy backend files (env-parameterized; hosts in scripts/env/*.env)
+./scripts/deploy-backend.sh staging     # or: prod (asks for confirmation)
 
-# Deploy marketing site
-npm run build
-aws s3 sync dist/ s3://deltaspmu-marketing --delete
-aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
+# Marketing site is served by VERCEL (git push deploys it).
+# The S3+CloudFront pipeline below exists but is unused (empty bucket, no aliases):
+./scripts/deploy-marketing.sh prod      # legacy — see docs/PROD_INVENTORY.md
 ```
 
 ## Admin Emails

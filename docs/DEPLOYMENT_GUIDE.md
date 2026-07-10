@@ -2,6 +2,16 @@
 
 Step-by-step instructions to deploy all components of the Delta SPMU Academy platform.
 
+> ⚠️ **Partially outdated (2026-07).** Verified corrections — see `docs/ENVIRONMENTS.md`
+> and `docs/PROD_INVENTORY.md` for current truth:
+> - **DNS is at GoDaddy**, not Cloudflare (section 7 describes a setup that was never used).
+> - **The marketing site is served by Vercel**, not S3+CloudFront (section 4's pipeline
+>   exists in AWS but is empty/unused).
+> - The old EC2 IP `18.194.169.111` is dead; the live API EIP is `3.126.36.245`.
+> - Terraform now lives in `infrastructure/envs/{staging,prod}` + `infrastructure/modules/`
+>   with remote state in S3 — not the flat layout section 2 describes.
+> - Deploy scripts are environment-parameterized: `./scripts/deploy-backend.sh <staging|prod>`.
+
 ---
 
 ## Table of Contents
