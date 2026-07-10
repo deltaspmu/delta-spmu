@@ -5,6 +5,21 @@
     }
   },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "staging-learn.deltaspmu.com" }],
+      "destination": "https://staging-api.deltaspmu.com/api/:path*"
+    },
+    {
+      "source": "/files/:path*",
+      "has": [{ "type": "host", "value": "staging-learn.deltaspmu.com" }],
+      "destination": "https://staging-api.deltaspmu.com/files/:path*"
+    },
+    {
+      "source": "/private/:path*",
+      "has": [{ "type": "host", "value": "staging-learn.deltaspmu.com" }],
+      "destination": "https://staging-api.deltaspmu.com/private/:path*"
+    },
     { "source": "/api/:path*", "destination": "https://api.deltaspmu.com/api/:path*" },
     { "source": "/files/:path*", "destination": "https://api.deltaspmu.com/files/:path*" },
     { "source": "/private/:path*", "destination": "https://api.deltaspmu.com/private/:path*" },
