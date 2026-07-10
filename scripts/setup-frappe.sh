@@ -30,6 +30,7 @@ SITE_NAME="${SITE_NAME:-api.deltaspmu.com}"
 BENCH_NAME="${BENCH_NAME:-deltaspmu}"
 FRAPPE_BRANCH="${FRAPPE_BRANCH:-version-15}"
 NODE_VERSION="${NODE_VERSION:-18}"
+BENCH_BIN="${BENCH_BIN:-/usr/local/bin/bench}"
 RDS_ENDPOINT="${DB_HOST:-${RDS_ENDPOINT:-}}"  # <-- MariaDB host (RDS endpoint or localhost)
 RDS_PASSWORD="${DB_PASSWORD:-${RDS_PASSWORD:-}}"
 
@@ -113,7 +114,7 @@ sudo -u frappe -H bash -c '
 echo "==> [6/9] Initializing bench (${BENCH_NAME})..."
 sudo -u frappe -H bash -c "
   cd /home/frappe
-  /home/frappe/.local/bin/bench init ${BENCH_NAME} --frappe-branch ${FRAPPE_BRANCH}
+  ${BENCH_BIN} init ${BENCH_NAME} --frappe-branch ${FRAPPE_BRANCH}
 "
 
 # ============================================================================
@@ -122,13 +123,13 @@ sudo -u frappe -H bash -c "
 echo "==> [7/9] Creating site ${SITE_NAME}..."
 sudo -u frappe -H bash -c "
   cd /home/frappe/${BENCH_NAME}
-  /home/frappe/.local/bin/bench new-site ${SITE_NAME} \
+  ${BENCH_BIN} new-site ${SITE_NAME} \
     --db-host ${RDS_ENDPOINT} \
     --db-port 3306 \
     --mariadb-root-password '${RDS_PASSWORD}' \
     --admin-password 'admin'
-  /home/frappe/.local/bin/bench --site ${SITE_NAME} set-config developer_mode 0
-  /home/frappe/.local/bin/bench use ${SITE_NAME}
+  ${BENCH_BIN} --site ${SITE_NAME} set-config developer_mode 0
+  ${BENCH_BIN} use ${SITE_NAME}
 "
 
 # ============================================================================
@@ -137,8 +138,8 @@ sudo -u frappe -H bash -c "
 echo "==> [8/9] Installing LMS app..."
 sudo -u frappe -H bash -c "
   cd /home/frappe/${BENCH_NAME}
-  /home/frappe/.local/bin/bench get-app lms
-  /home/frappe/.local/bin/bench --site ${SITE_NAME} install-app lms
+  ${BENCH_BIN} get-app lms
+  ${BENCH_BIN} --site ${SITE_NAME} install-app lms
 "
 
 # ============================================================================
@@ -147,8 +148,8 @@ sudo -u frappe -H bash -c "
 echo "==> [9/9] Setting up Nginx and Supervisor..."
 sudo -u frappe -H bash -c "
   cd /home/frappe/${BENCH_NAME}
-  /home/frappe/.local/bin/bench setup nginx --yes
-  /home/frappe/.local/bin/bench setup supervisor --yes
+  ${BENCH_BIN} setup nginx --yes
+  ${BENCH_BIN} setup supervisor --yes
 "
 sudo ln -sf /home/frappe/${BENCH_NAME}/config/nginx.conf /etc/nginx/conf.d/${BENCH_NAME}.conf
 sudo ln -sf /home/frappe/${BENCH_NAME}/config/supervisor.conf /etc/supervisor/conf.d/${BENCH_NAME}.conf
