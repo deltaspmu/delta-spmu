@@ -4,21 +4,23 @@ Three environments: **dev** (local, $0), **staging** (AWS, ~$23/mo), **prod** (A
 
 ## Matrix
 
-| | Dev | Staging | Prod |
-|---|---|---|---|
-| Backend | Docker on your machine (`dev/docker-compose.yml`) | EC2 t3.small `63.181.17.70`, MariaDB **on-instance** | EC2 t3.small `3.126.36.245` + RDS `deltaspmu-dev-db` |
-| Frappe site | `lms.localhost` | `staging-api.deltaspmu.com` | `api.deltaspmu.com` |
-| Student portal | `localhost:5173` (vite) | `staging-learn.deltaspmu.com` (Vercel, `staging` branch) | `learn.deltaspmu.com` (Vercel, `main`) |
-| Admin portal | `localhost:5174` (vite) | `staging-admin.deltaspmu.com` (Vercel, `staging` branch) | `admin.deltaspmu.com` (Vercel, `main`) |
-| Marketing | `npm run dev` locally | — (test locally) | `deltaspmu.com` (**Vercel**, separate project) |
-| Payments | not configured (or sandbox keys manually) | telebirr **sandbox**, Chapa **test**, EthSwitch test | live keys |
-| Email (Resend) | not configured (enable Mailpit) | shared key, from `noreply-staging@` | live key, from `noreply@` |
-| Email CRM (Lambda) | inert (`VITE_EMAIL_API_URL` unset) | inert — stack not deployed | **inert — lambdas are placeholders, never activated** |
-| Telegram bot | not configured | not configured | site-config driven |
-| Terraform root | — | `infrastructure/envs/staging` | `infrastructure/envs/prod` |
-| TF state key | — | `staging/terraform.tfstate` | `prod/terraform.tfstate` |
-| Resource names | — | `deltaspmu-staging-*` | `deltaspmu-dev-*` (legacy — see Known debt) |
-| Deploy backend | `./scripts/dev-sync-backend.sh` | `./scripts/deploy-backend.sh staging` | `./scripts/deploy-backend.sh prod` |
+
+|                    | Dev                                               | Staging                                                  | Prod                                                  |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
+| Backend            | Docker on your machine (`dev/docker-compose.yml`) | EC2 t3.small `63.181.17.70`, MariaDB **on-instance**     | EC2 t3.small `3.126.36.245` + RDS `deltaspmu-dev-db`  |
+| Frappe site        | `lms.localhost`                                   | `staging-api.deltaspmu.com`                              | `api.deltaspmu.com`                                   |
+| Student portal     | `localhost:5173` (vite)                           | `staging-learn.deltaspmu.com` (Vercel, `staging` branch) | `learn.deltaspmu.com` (Vercel, `main`)                |
+| Admin portal       | `localhost:5174` (vite)                           | `staging-admin.deltaspmu.com` (Vercel, `staging` branch) | `admin.deltaspmu.com` (Vercel, `main`)                |
+| Marketing          | `npm run dev` locally                             | — (test locally)                                         | `deltaspmu.com` (**Vercel**, separate project)        |
+| Payments           | not configured (or sandbox keys manually)         | telebirr **sandbox**, Chapa **test**, EthSwitch test     | live keys                                             |
+| Email (Resend)     | not configured (enable Mailpit)                   | shared key, from `noreply-staging@`                      | live key, from `noreply@`                             |
+| Email CRM (Lambda) | inert (`VITE_EMAIL_API_URL` unset)                | inert — stack not deployed                               | **inert — lambdas are placeholders, never activated** |
+| Telegram bot       | not configured                                    | not configured                                           | site-config driven                                    |
+| Terraform root     | —                                                 | `infrastructure/envs/staging`                            | `infrastructure/envs/prod`                            |
+| TF state key       | —                                                 | `staging/terraform.tfstate`                              | `prod/terraform.tfstate`                              |
+| Resource names     | —                                                 | `deltaspmu-staging-*`                                    | `deltaspmu-dev-*` (legacy — see Known debt)           |
+| Deploy backend     | `./scripts/dev-sync-backend.sh`                   | `./scripts/deploy-backend.sh staging`                    | `./scripts/deploy-backend.sh prod`                    |
+
 
 Secrets live in each site's `site_config.json` via `bench set-config` (payments, Vimeo, Telegram) — never in git. Terraform secrets live in each env root's local `terraform.tfvars` (gitignored); the RDS password is also in TF state (the state bucket is private + versioned).
 
@@ -36,21 +38,29 @@ Secrets live in each site's `site_config.json` via `bench set-config` (payments,
 - **Layout**: shared `infrastructure/modules/{network,backend-server,rds,marketing,email}` + per-env roots `infrastructure/envs/{staging,prod}`. Staging instantiates only network + backend-server (no RDS — MariaDB on-instance; no email/marketing).
 - **Workflow**: `cd infrastructure/envs/<env> && terraform init && terraform plan` — always review the plan. Copy `terraform.tfvars.example` → `terraform.tfvars` first.
 
+
+
 ### Prod import runbook (Phase 5 — not yet executed)
+
 The live prod stack predates this state (original state was lost in the account migration). To bring it under management **without touching any resource**:
 
 1. `envs/prod/terraform.tfvars` from `terraform.tfvars.example` + the live secrets.
 2. Write `envs/prod/imports.tf` with `import` blocks per live resource — IDs in `docs/PROD_INVENTORY.md` (incl. `random_id.bucket_suffix` with hex `176af819`).
 3. `terraform plan` until it reads **"N to import, 0 to add, 0 to change, 0 to destroy"**. Any residual change = drift → report, don't fix.
-   - Known acceptable exception: `aws_api_gateway_deployment` will show a one-time replace (its `triggers` can't be imported); it republishes identical API config.
+  - Known acceptable exception: `aws_api_gateway_deployment` will show a one-time replace (its `triggers` can't be imported); it republishes identical API config.
 4. **Apply only after explicit approval** (writes state only). Delete `imports.tf`; `terraform plan` → "no changes" is the exit criterion.
 5. Never run `terraform destroy` in `envs/prod`. RDS has `deletion_protection = true` live.
 
+
+
 ### Deferred hardening (each needs a separate approved apply)
+
 - RDS: `backup_retention_period` 1 → 7, `skip_final_snapshot` → false
 - Web SG: close 8000 and restrict 22 (currently 0.0.0.0/0)
 - Decommission or start using the empty marketing S3 + CloudFront and assets bucket
 - Vendor the email Lambda handler source into the repo (currently placeholders everywhere)
+
+
 
 ## Staging bring-up (after `terraform apply`)
 
@@ -81,18 +91,58 @@ ssh ubuntu@<STAGING-IP> "sudo -u frappe bash -c 'cd /home/frappe/deltaspmu && \
   SEED_SITE=staging-api.deltaspmu.com ./env/bin/python /tmp/seed_delta_spmu.py'"
 ```
 
+
+
 ## Vercel staging (Hobby plan)
 
 Same two Vercel projects as prod:
-1. Push/keep a long-lived **`staging`** git branch (branched from `main`).
-2. In each project: **Settings → Domains** → add `staging-learn.deltaspmu.com` (student) / `staging-admin.deltaspmu.com` (admin), assigned to the **`staging`** branch.
+
+1. Push/keep a long-lived `staging` git branch (branched from `main`).
+2. In each project: **Settings → Domains** → add `staging-learn.deltaspmu.com` (student) / `staging-admin.deltaspmu.com` (admin), assigned to the `staging` branch.
 3. `vercel.json` (both portals) has **host-conditional rewrites**: requests arriving on the staging hostnames proxy to `staging-api.deltaspmu.com`; all other hostnames (prod domains, bare `*.vercel.app` previews) fall through to the prod rewrites. No per-branch env vars needed for the API URL.
 4. Deploy flow: merge to `staging` → staging portals update; merge to `main` → prod portals update.
 
 > Vercel Hobby ToS technically prohibits commercial use — if that ever becomes an issue, Pro is the fix.
 
+
+
+## Prod SSH access
+
+The prod key pair (`deltaspmu-dev-key`, RSA) has no private key on this machine — it stayed
+behind in the account migration. Until a key is durably installed, use **EC2 Instance Connect**
+(ephemeral, 60-second window, nothing persisted on the server):
+
+```bash
+aws ec2-instance-connect send-ssh-public-key \
+  --instance-id i-0c4404a6aab59c80a --availability-zone eu-central-1a \
+  --instance-os-user ubuntu --ssh-public-key file://~/.ssh/id_ed25519.pub
+ssh ubuntu@3.126.36.245   # within 60s
+```
+
+To make access durable (your call — run it yourself):
+
+```bash
+# inside that ssh session:
+echo "<your ~/.ssh/id_ed25519.pub line>" >> ~/.ssh/authorized_keys
+```
+
+Multi-command scripts against prod (e.g. `deploy-backend.sh prod`) open several SSH
+connections over >60s; either install the durable key first, or add a ControlMaster
+block to `~/.ssh/config` so one authenticated connection is reused:
+
+```
+Host 3.126.36.245
+  ControlMaster auto
+  ControlPath ~/.ssh/cm-%r@%h:%p
+  ControlPersist 10m
+```
+
+
+
 ## Known debt
-- **Prod resources are named `deltaspmu-dev-*`** with `Environment=dev` tags (created with the old default). Renaming requires destroy/recreate — accepted; `envs/prod/` is the source of truth for what's production.
+
+- **Prod resources are named** `deltaspmu-dev-`* with `Environment=dev` tags (created with the old default). Renaming requires destroy/recreate — accepted; `envs/prod/` is the source of truth for what's production.
 - Prod email CRM stack is placeholder-only scaffolding (never activated); staging doesn't replicate it.
 - Marketing S3 + CloudFront + assets bucket are empty/unused (site moved to Vercel).
 - Docs history: DNS is at **GoDaddy** (not Cloudflare as DEPLOYMENT_GUIDE.md once said); old EC2 IP `18.194.169.111` is dead — live is `3.126.36.245`.
+
