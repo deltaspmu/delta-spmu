@@ -10,11 +10,13 @@ pkill -f "bench start" 2>/dev/null || true
 pkill -f honcho 2>/dev/null || true
 sleep 2
 
-# Backup stock lms (idempotent)
-if [ -d lms ] && [ ! -d lms.stock-backup ]; then
-  mv lms lms.stock-backup
+# Backup stock lms OUTSIDE apps/ — a backup dir inside apps/ gets picked up
+# by bench app discovery and breaks installs (ModuleNotFoundError lms.stock_backup)
+BACKUP=/home/frappe/lms.stock-backup
+if [ -d lms ] && [ ! -d "$BACKUP" ]; then
+  mv lms "$BACKUP"
 fi
-if [ -d lms ] && [ -d lms.stock-backup ]; then
+if [ -d lms ] && [ -d "$BACKUP" ]; then
   rm -rf lms
 fi
 
@@ -25,8 +27,8 @@ chown -R frappe:frappe lms
 # Preserve public/ build assets from the stock version
 # (we excluded them from the tarball to keep it small)
 mkdir -p lms/lms/public
-if [ -d lms.stock-backup/lms/public ]; then
-  cp -r lms.stock-backup/lms/public/. lms/lms/public/ 2>/dev/null || true
+if [ -d "$BACKUP/lms/public" ]; then
+  cp -r "$BACKUP"/lms/public/. lms/lms/public/ 2>/dev/null || true
 fi
 chown -R frappe:frappe lms/lms/public
 

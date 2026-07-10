@@ -74,7 +74,11 @@ The live prod stack predates this state (original state was lost in the account 
 ssh ubuntu@<STAGING-IP> "SITE_NAME=staging-api.deltaspmu.com DB_HOST=localhost \
   DB_PASSWORD=<staging tfvars db_password> bash -s" < scripts/setup-frappe.sh
 
-# 3. Swap in the LMS fork (tarball on the box at /tmp/afritutors-lms.tar.gz), overlay, HTTPS, CORS:
+# 3. Swap in the LMS fork (tarball on the box at /tmp/afritutors-lms.tar.gz), overlay, HTTPS, CORS.
+#    NOTE: the fork declares required_apps = ["frappe/payments"] — run
+#          `bench get-app payments --branch version-15` first (main targets Frappe v16).
+#    NOTE: stock frappe/lms@main needs Node >= 22 and will NOT build on the Node-18 box;
+#          only the fork (with prebuilt assets) works here.
 scp scripts/swap-lms-fork.sh ubuntu@<STAGING-IP>:/tmp/ && ssh ubuntu@<STAGING-IP> "sudo bash /tmp/swap-lms-fork.sh"
 ./scripts/deploy-backend.sh staging
 ./scripts/setup-api-https.sh staging

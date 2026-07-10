@@ -3973,3 +3973,29 @@ def check_app_permission():
     roles = set(frappe.get_roles())
     return bool(roles & {"LMS Student", "Course Creator", "Moderator",
                          "Batch Evaluator", "LMS Admin", "System Manager"})
+
+
+# ---------------------------------------------------------------------------
+# Restored from stock frappe/lms: imported by lms/install.py (after_install)
+# and patches/v2_0/give_discussions_permissions.py. The Delta overlay had
+# dropped it, which broke fresh installs of the app (prod was installed
+# before the overlay existed, so it never noticed).
+# ---------------------------------------------------------------------------
+def give_discussions_permission():
+	doctypes = ["Discussion Topic", "Discussion Reply"]
+	roles = ["LMS Student", "Course Creator", "Moderator", "Batch Evaluator"]
+	for doctype in doctypes:
+		for role in roles:
+			if not frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": role}):
+				frappe.get_doc(
+					{
+						"doctype": "Custom DocPerm",
+						"parent": doctype,
+						"role": role,
+						"read": 1,
+						"write": 1,
+						"create": 1,
+						"delete": 1,
+						"if_owner": 0 if role == "Moderator" else 1,
+					}
+				).save()
