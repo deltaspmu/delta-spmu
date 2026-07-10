@@ -20,6 +20,9 @@ DEFAULT_EMBED_DOMAINS = [
     "learn.deltaspmu.com",
     "admin.deltaspmu.com",
     "api.deltaspmu.com",
+    "staging-learn.deltaspmu.com",
+    "staging-admin.deltaspmu.com",
+    "staging-api.deltaspmu.com",
     "localhost",
 ]
 

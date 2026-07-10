@@ -1,23 +1,24 @@
 #!/bin/bash
-# Set up HTTPS for api.deltaspmu.com on the Frappe EC2 backend.
+# Set up HTTPS for an environment's Frappe API domain.
+# Usage: ./scripts/setup-api-https.sh <staging|prod>
 #
 # Steps:
 #   1. Install certbot + nginx plugin
 #   2. Write nginx server block proxying to bench on localhost:8000
 #   3. Reload nginx (HTTP-only block, used by Let's Encrypt for challenge)
 #   4. Run certbot --nginx to issue cert + add 443 + redirect
-#   5. Smoke test: curl https://api.deltaspmu.com/api/method/ping
+#   5. Smoke test: curl https://<domain>/api/method/ping
 #
 # Prerequisites:
-#   - DNS record api.deltaspmu.com -> 18.194.169.111 must already resolve
-#     (run `dig +short api.deltaspmu.com` to confirm before running this).
+#   - DNS A record <domain> -> the environment's EIP must already resolve
+#     (run `dig +short <domain>` to confirm before running this).
 #   - Bench must be running on port 8000.
 
 set -e
+source "$(cd "$(dirname "$0")" && pwd)/lib/load-env.sh" "$1"
 
-EC2_HOST="ubuntu@18.194.169.111"
-DOMAIN="api.deltaspmu.com"
-CERT_EMAIL="admin@deltaspmu.com"
+DOMAIN="$FRAPPE_SITE"
+EC2_IP="${EC2_HOST#*@}"
 
 echo "==> Pre-flight: confirm DNS + bench are ready..."
 RESOLVED=$(dig +short @8.8.8.8 ${DOMAIN} 2>/dev/null | head -1)
@@ -26,8 +27,11 @@ if [ -z "$RESOLVED" ]; then
   exit 1
 fi
 echo "  ${DOMAIN} -> ${RESOLVED}"
+if [ "$RESOLVED" != "$EC2_IP" ]; then
+  echo "  WARNING: ${DOMAIN} resolves to ${RESOLVED}, but ${ENV_NAME}.env says ${EC2_IP}."
+fi
 
-if ! curl -fsS http://18.194.169.111:8000/api/method/ping > /dev/null; then
+if ! curl -fsS http://${EC2_IP}:8000/api/method/ping > /dev/null; then
   echo "  FAIL: bench is not responding on port 8000."
   exit 1
 fi

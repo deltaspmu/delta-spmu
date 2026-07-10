@@ -1,39 +1,38 @@
 #!/bin/bash
-# Deploy Frappe backend API files to EC2.
-# Usage: ./scripts/deploy-backend.sh <EC2-IP>
+# Deploy Frappe backend API files to an environment's EC2.
+# Usage: ./scripts/deploy-backend.sh <staging|prod>
 #
 # This Frappe install runs via `bench start` + honcho (not supervisor or
 # systemd), so the standard `bench restart` doesn't work — it tries to call
 # supervisorctl and fails. Instead we kill honcho and relaunch bench start.
 
 set -e
+source "$(cd "$(dirname "$0")" && pwd)/lib/load-env.sh" "$1"
 
-EC2_IP="${1:?Usage: deploy-backend.sh <EC2-IP>}"
-EC2_USER="ubuntu"
-BACKEND_DIR="backend/frappe-lms/lms/lms"
+BACKEND_DIR="$(cd "$(dirname "$0")/.." && pwd)/backend/frappe-lms/lms/lms"
 
-echo "==> Deploying backend to ${EC2_IP}..."
+echo "==> Deploying backend to ${ENV_NAME} (${EC2_HOST})..."
 
 # Pre-create the staging dir as ubuntu (needed for scp)
-ssh ${EC2_USER}@${EC2_IP} "mkdir -p /tmp/deltaspmu_deploy"
+ssh ${EC2_HOST} "mkdir -p /tmp/deltaspmu_deploy"
 
 # Copy Python files
 echo "  Uploading API files..."
-scp ${BACKEND_DIR}/*.py ${EC2_USER}@${EC2_IP}:/tmp/deltaspmu_deploy/
+scp ${BACKEND_DIR}/*.py ${EC2_HOST}:/tmp/deltaspmu_deploy/
 
 # Install + clear pyc (one SSH session, exits quickly)
 echo "  Installing files + clearing Python cache..."
-ssh ${EC2_USER}@${EC2_IP} "
+ssh ${EC2_HOST} "
   set -e
-  sudo cp /tmp/deltaspmu_deploy/*.py /home/frappe/deltaspmu/apps/lms/lms/lms/
-  sudo chown -R frappe:frappe /home/frappe/deltaspmu/apps/lms/
-  sudo rm -f /home/frappe/deltaspmu/apps/lms/lms/lms/__pycache__/*.pyc
+  sudo cp /tmp/deltaspmu_deploy/*.py ${BENCH_DIR}/apps/lms/lms/lms/
+  sudo chown -R frappe:frappe ${BENCH_DIR}/apps/lms/
+  sudo rm -f ${BENCH_DIR}/apps/lms/lms/lms/__pycache__/*.pyc
   echo OK
 "
 
 # Kill honcho (separate SSH so it exits cleanly when honcho dies)
 echo "  Stopping honcho-managed workers..."
-ssh ${EC2_USER}@${EC2_IP} "sudo pkill -u frappe -f 'honcho start' || true; echo STOPPED"
+ssh ${EC2_HOST} "sudo pkill -u frappe -f 'honcho start' || true; echo STOPPED"
 
 # Sleep server-side so the kill settles before we relaunch
 sleep 3
@@ -43,11 +42,11 @@ sleep 3
 # spawned shell so SSH gets EOF immediately and returns. Without the redirects
 # bench start inherits SSH's channel descriptors and SSH waits forever.
 echo "  Relaunching bench start (detached)..."
-ssh -n ${EC2_USER}@${EC2_IP} "sudo -u frappe bash -c 'cd /home/frappe/deltaspmu && nohup setsid /usr/local/bin/bench start </dev/null >/tmp/bench-start.log 2>&1 &' </dev/null >/dev/null 2>&1; echo SPAWNED"
+ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && nohup setsid ${BENCH_BIN} start </dev/null >/tmp/bench-start.log 2>&1 &' </dev/null >/dev/null 2>&1; echo SPAWNED"
 
 # Wait for workers to come up, then sanity-check.
 echo "  Waiting for API to respond..."
-ssh ${EC2_USER}@${EC2_IP} "
+ssh ${EC2_HOST} "
   for i in 1 2 3 4 5 6 7 8; do
     if curl -fsS -o /dev/null http://localhost:8000/api/method/ping 2>/dev/null; then
       echo \"  API responding after \${i} tries.\"
@@ -61,4 +60,4 @@ ssh ${EC2_USER}@${EC2_IP} "
 "
 echo "  Done!"
 
-echo "==> Backend deployment complete!"
+echo "==> Backend deployment (${ENV_NAME}) complete!"

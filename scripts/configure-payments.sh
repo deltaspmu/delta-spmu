@@ -1,8 +1,12 @@
 #!/bin/bash
 # Configure payment providers and Vimeo for Delta SPMU Academy
-# Usage: ssh into the EC2 server, then run this script
-#   ssh ubuntu@<EC2-IP>
-#   bash < configure-payments.sh
+# Runs ON the EC2 server. Environment is selected via env vars (defaults = prod):
+#
+#   # staging example — stream it over SSH with the env pre-set:
+#   ssh ubuntu@<STAGING-IP> "SITE_NAME=staging-api.deltaspmu.com \
+#     API_URL=https://staging-api.deltaspmu.com \
+#     PORTAL_URL=https://staging-learn.deltaspmu.com \
+#     TELEBIRR_ENV=sandbox bash -s" < scripts/configure-payments.sh
 #
 # OR run locally to generate the commands:
 #   bash scripts/configure-payments.sh --dry-run
@@ -11,8 +15,11 @@
 
 set -e
 
-BENCH_DIR="/home/frappe/deltaspmu"
-SITE_NAME="api.deltaspmu.com"
+BENCH_DIR="${BENCH_DIR:-/home/frappe/deltaspmu}"
+SITE_NAME="${SITE_NAME:-api.deltaspmu.com}"
+API_URL="${API_URL:-https://api.deltaspmu.com}"
+PORTAL_URL="${PORTAL_URL:-https://learn.deltaspmu.com}"
+TELEBIRR_ENV="${TELEBIRR_ENV:-sandbox}"
 
 DRY_RUN=false
 if [ "$1" = "--dry-run" ]; then
@@ -56,9 +63,9 @@ run_bench telebirr_merchant_app_id "<TELEBIRR-MERCHANT-APP-ID>"
 run_bench telebirr_merchant_code   "<TELEBIRR-MERCHANT-CODE>"
 run_bench telebirr_private_key     "<TELEBIRR-RSA-PRIVATE-KEY>"
 run_bench telebirr_public_key      "<TELEBIRR-RSA-PUBLIC-KEY>"
-run_bench telebirr_environment     "sandbox"
-run_bench telebirr_notify_url      "https://api.deltaspmu.com/api/method/lms.lms.payments_api.telebirr_notify"
-run_bench telebirr_redirect_url    "https://learn.deltaspmu.com/payment/success"
+run_bench telebirr_environment     "${TELEBIRR_ENV}"
+run_bench telebirr_notify_url      "${API_URL}/api/method/lms.lms.payments_api.telebirr_notify"
+run_bench telebirr_redirect_url    "${PORTAL_URL}/payment/success"
 
 # ============================================================================
 # Chapa
@@ -70,8 +77,8 @@ echo "  Apply at: https://dashboard.chapa.co"
 echo ""
 run_bench chapa_secret_key      "<CHAPA-SECRET-KEY>"
 run_bench chapa_webhook_secret  "<CHAPA-WEBHOOK-SECRET>"
-run_bench chapa_callback_url    "https://api.deltaspmu.com/api/method/lms.lms.payments_api.chapa_webhook"
-run_bench chapa_return_url      "https://learn.deltaspmu.com/payment/success"
+run_bench chapa_callback_url    "${API_URL}/api/method/lms.lms.payments_api.chapa_webhook"
+run_bench chapa_return_url      "${PORTAL_URL}/payment/success"
 
 # ============================================================================
 # EthSwitch (National Payment Gateway)
@@ -84,8 +91,8 @@ echo ""
 run_bench ethswitch_base_url    "<ETHSWITCH-BASE-URL>"
 run_bench ethswitch_username    "<ETHSWITCH-MERCHANT-USERNAME>"
 run_bench ethswitch_password    "<ETHSWITCH-MERCHANT-PASSWORD>"
-run_bench ethswitch_return_url  "https://api.deltaspmu.com/api/method/lms.lms.payments_api.ethswitch_return"
-run_bench ethswitch_webhook_url "https://api.deltaspmu.com/api/method/lms.lms.payments_api.ethswitch_webhook"
+run_bench ethswitch_return_url  "${API_URL}/api/method/lms.lms.payments_api.ethswitch_return"
+run_bench ethswitch_webhook_url "${API_URL}/api/method/lms.lms.payments_api.ethswitch_webhook"
 
 # ============================================================================
 # CBE (Commercial Bank of Ethiopia — manual bank transfer)

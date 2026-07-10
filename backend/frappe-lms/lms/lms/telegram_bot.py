@@ -742,7 +742,8 @@ def setup_telegram_custom_fields():
 def set_webhook():
     """Point the bot's webhook at this site. Run AFTER the config keys are set."""
     secret = _conf("telegram_webhook_secret", required=True)
-    url = f"https://api.deltaspmu.com/api/method/{WEBHOOK_METHOD}"
+    api_base = (_conf("api_base_url") or "https://api.deltaspmu.com").rstrip("/")
+    url = f"{api_base}/api/method/{WEBHOOK_METHOD}"
     resp = _tg_api("setWebhook", {
         "url": url,
         "secret_token": secret,

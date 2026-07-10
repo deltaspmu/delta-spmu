@@ -21,6 +21,8 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 *.env
+# ...but the committed per-environment deploy config is NOT secret (no keys in it)
+!scripts/env/*.env
 
 # Python
 __pycache__/

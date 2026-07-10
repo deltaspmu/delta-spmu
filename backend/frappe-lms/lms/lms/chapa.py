@@ -148,7 +148,7 @@ def initialize_transaction(transaction_doc, currency="ETB"):
             # Chapa caps customization.title at 16 chars — keep it short.
             "title": "Delta SPMU",
             "description": (course.title if course else "All Courses Bundle"),
-            "logo": "https://learn.deltaspmu.com/assets/logo.png",
+            "logo": (frappe.conf.get("portal_url") or "https://learn.deltaspmu.com").rstrip("/") + "/assets/logo.png",
         },
     }
 

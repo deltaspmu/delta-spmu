@@ -14,11 +14,17 @@ from frappe.utils import escape_html
 
 ACADEMY_NAME = "Delta SPMU Academy"
 ACADEMY_TAGLINE = "Sacred Transformation"
-LEARN_URL = "https://learn.deltaspmu.com"
 SUPPORT_EMAIL = "info@deltaspmu.com"
 PRIMARY = "#C9A96E"   # gold
 DARK = "#1A2F23"      # forest green
 BG = "#F5F2EC"        # warm alabaster
+
+
+def _learn_url():
+    """Student-portal base URL. Env-aware via site_config's `portal_url`
+    (staging sets it to the staging portal); read lazily because frappe.conf
+    isn't reliable at import time."""
+    return (frappe.conf.get("portal_url") or "https://learn.deltaspmu.com").rstrip("/")
 
 
 def _shell(title, intro, body_html, cta_label=None, cta_url=None):
@@ -82,7 +88,7 @@ def payment_success(student_name, course_title, amount, currency, tx_id, access_
         intro="Your enrollment is active.",
         body_html=body,
         cta_label="Open Your Course",
-        cta_url=f"{LEARN_URL}/my-courses",
+        cta_url=f"{_learn_url()}/my-courses",
     )
 
 
@@ -99,7 +105,7 @@ def welcome(student_name):
         intro="Your journey begins here.",
         body_html=body,
         cta_label="Browse Courses",
-        cta_url=f"{LEARN_URL}/courses",
+        cta_url=f"{_learn_url()}/courses",
     )
 
 
@@ -133,7 +139,7 @@ def certificate_ready(student_name, course_title, certificate_id):
         intro="A milestone earned.",
         body_html=body,
         cta_label="View Certificate",
-        cta_url=f"{LEARN_URL}/certificates",
+        cta_url=f"{_learn_url()}/certificates",
     )
 
 

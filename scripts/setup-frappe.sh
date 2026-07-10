@@ -16,17 +16,25 @@
 set -e
 
 # ============================================================================
-# Configuration — edit these before running
+# Configuration — override via env vars (defaults = prod values)
+#   SITE_NAME      Frappe site name (staging: staging-api.deltaspmu.com)
+#   DB_HOST        MariaDB host. RDS endpoint for prod; "localhost" for the
+#                  staging box (MariaDB installed on-instance by Terraform
+#                  user_data).
+#   DB_PASSWORD    MariaDB root/master password
+# Example (staging):
+#   ssh ubuntu@<STAGING-IP> "SITE_NAME=staging-api.deltaspmu.com DB_HOST=localhost \
+#     DB_PASSWORD=... bash -s" < scripts/setup-frappe.sh
 # ============================================================================
-SITE_NAME="api.deltaspmu.com"
-BENCH_NAME="deltaspmu"
-FRAPPE_BRANCH="version-15"
-NODE_VERSION="18"
-RDS_ENDPOINT=""  # <-- FILL IN: your-rds-instance.xxxx.eu-central-1.rds.amazonaws.com
-RDS_PASSWORD=""  # <-- FILL IN: MariaDB master password
+SITE_NAME="${SITE_NAME:-api.deltaspmu.com}"
+BENCH_NAME="${BENCH_NAME:-deltaspmu}"
+FRAPPE_BRANCH="${FRAPPE_BRANCH:-version-15}"
+NODE_VERSION="${NODE_VERSION:-18}"
+RDS_ENDPOINT="${DB_HOST:-${RDS_ENDPOINT:-}}"  # <-- MariaDB host (RDS endpoint or localhost)
+RDS_PASSWORD="${DB_PASSWORD:-${RDS_PASSWORD:-}}"
 
 if [ -z "$RDS_ENDPOINT" ] || [ -z "$RDS_PASSWORD" ]; then
-  echo "ERROR: Set RDS_ENDPOINT and RDS_PASSWORD at the top of this script before running."
+  echo "ERROR: Set DB_HOST and DB_PASSWORD (env vars) before running."
   exit 1
 fi
 

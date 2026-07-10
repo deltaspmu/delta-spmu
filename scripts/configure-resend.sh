@@ -2,10 +2,10 @@
 # One-shot Resend SMTP configuration for the Frappe LMS Email Account.
 #
 # Usage:
-#   ./scripts/configure-resend.sh <RESEND_API_KEY> [from_email]
+#   ./scripts/configure-resend.sh <staging|prod> <RESEND_API_KEY> [from_email]
 #
 # Example:
-#   ./scripts/configure-resend.sh re_xxxxxxxxxxxx noreply@deltaspmu.com
+#   ./scripts/configure-resend.sh staging re_xxxxxxxxxxxx
 #
 # What this does (and what it learned the hard way):
 #   1. SSHes to EC2 with stdin=/dev/null (ssh -n) and runs bench via
@@ -28,19 +28,16 @@
 # Prerequisites:
 #   - Domain must be VERIFIED at Resend (Resend dashboard → Domains →
 #     deltaspmu.com shows green checkmarks on DKIM/MX/SPF).
-#   - SSH access to ubuntu@18.194.169.111.
-#   - Frappe bench at /home/frappe/deltaspmu, bench binary at /usr/local/bin/bench.
+#   - SSH access to the environment's EC2 (scripts/env/<env>.env).
+#   - Frappe bench + bench binary paths come from the env file.
 
 set -e
+source "$(cd "$(dirname "$0")" && pwd)/lib/load-env.sh" "$1"
 
-EC2_HOST="ubuntu@18.194.169.111"
-FRAPPE_SITE="api.deltaspmu.com"
-BENCH_DIR="/home/frappe/deltaspmu"
-BENCH_BIN="/usr/local/bin/bench"
 EMAIL_ACCOUNT_NAME="Resend Outgoing"
 
-RESEND_API_KEY="${1:?Usage: configure-resend.sh <RESEND_API_KEY> [from_email]}"
-FROM_EMAIL="${2:-noreply@deltaspmu.com}"
+RESEND_API_KEY="${2:?Usage: configure-resend.sh <staging|prod> <RESEND_API_KEY> [from_email]}"
+FROM_EMAIL="${3:-$FROM_EMAIL}"
 
 if [[ ! "$RESEND_API_KEY" =~ ^re_ ]]; then
   echo "WARNING: API key doesn't start with 're_' — Resend keys normally do."
