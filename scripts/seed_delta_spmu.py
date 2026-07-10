@@ -42,8 +42,8 @@ import sys
 # bench's venv Python directly (no IPython, no bench console).
 import frappe
 
-SITE = "api.deltaspmu.com"
-BENCH_PATH = "/home/frappe/deltaspmu"
+SITE = os.environ.get("SEED_SITE", "api.deltaspmu.com")
+BENCH_PATH = os.environ.get("SEED_BENCH_PATH", "/home/frappe/deltaspmu")
 
 
 def _frappe_init():

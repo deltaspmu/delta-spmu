@@ -1,0 +1,54 @@
+# Delta SPMU — local development backend (Frappe v15 + LMS)
+# Based on frappe_docker's devcontainer-example, with:
+#   - MariaDB pinned to 10.11 (matches prod RDS 10.11.16; upstream example uses 11.8)
+#   - bench lives in a named volume (not inside this repo)
+#   - this repo mounted read-only at /repo for backend file sync
+#
+# Usage:  docker compose -f dev/docker-compose.yml up -d
+# Then:   ./scripts/dev-setup.sh   (one-shot bench + site bootstrap)
+# Sync:   ./scripts/dev-sync-backend.sh   (after editing backend/frappe-lms)
+
+name: deltaspmu-dev
+
+services:
+  mariadb:
+    image: docker.io/mariadb:10.11
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+      MARIADB_AUTO_UPGRADE: 1
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 10
+
+  redis-cache:
+    image: docker.io/redis:alpine
+
+  redis-queue:
+    image: docker.io/redis:alpine
+
+  frappe:
+    image: docker.io/frappe/bench:latest
+    command: sleep infinity
+    environment:
+      - SHELL=/bin/bash
+    volumes:
+      - bench-data:/workspace
+      - ..:/repo:cached
+    working_dir: /workspace
+    ports:
+      - "8000:8000"      # bench web (portals proxy to this)
+      - "9000:9000"      # socketio
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+volumes:
+  mariadb-data:
+  bench-data:
