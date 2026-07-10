@@ -1,14 +1,19 @@
 ##############################################################################
-# Delta SPMU Academy — Email Infrastructure
-# DynamoDB, S3 (attachments), Lambda, API Gateway, IAM, SSM
+# Email module — DynamoDB, S3 (attachments), Lambda, API Gateway, IAM, SSM
+# (verbatim move from the original flat email.tf, with multi-env fixes:
+#  name_prefix/cors_origin/ssm_prefix variables, lambda code ignore_changes,
+#  content-hash deployment trigger instead of timestamp())
+#
+# NOTE: the live prod lambdas still run the placeholder handler — the real
+# email CRM was never activated (docs/PROD_INVENTORY.md).
 ##############################################################################
 
 locals {
-  email_prefix = "${var.project_name}-${var.environment}"
+  email_prefix = var.name_prefix
   lambda_runtime = "nodejs20.x"
   lambda_timeout = 30
   lambda_memory  = 256
-  cors_origin    = "https://admin.deltaspmu.com"
+  cors_origin    = var.cors_origin
 
   lambda_functions = {
     "email-get-all"     = "Get all emails with filtering and pagination"
@@ -120,7 +125,7 @@ resource "aws_dynamodb_table" "email_contacts" {
 ##############################################################################
 
 resource "aws_s3_bucket" "email_attachments" {
-  bucket = "${local.email_prefix}-email-attachments-${random_id.bucket_suffix.hex}"
+  bucket = "${local.email_prefix}-email-attachments-${var.bucket_suffix}"
 
   tags = {
     Name = "${local.email_prefix}-email-attachments"
@@ -188,7 +193,7 @@ resource "aws_s3_bucket_cors_configuration" "email_attachments" {
 ##############################################################################
 
 resource "aws_ssm_parameter" "resend_api_key" {
-  name        = "/${var.project_name}/resend-api-key"
+  name        = "${var.ssm_prefix}/resend-api-key"
   description = "Resend API key for email sending"
   type        = "SecureString"
   value       = "PLACEHOLDER_CHANGE_ME"
@@ -203,7 +208,7 @@ resource "aws_ssm_parameter" "resend_api_key" {
 }
 
 resource "aws_ssm_parameter" "webhook_secret" {
-  name        = "/${var.project_name}/webhook-secret"
+  name        = "${var.ssm_prefix}/webhook-secret"
   description = "Resend webhook signing secret"
   type        = "SecureString"
   value       = "PLACEHOLDER_CHANGE_ME"
@@ -218,7 +223,7 @@ resource "aws_ssm_parameter" "webhook_secret" {
 }
 
 resource "aws_ssm_parameter" "email_api_key" {
-  name        = "/${var.project_name}/email-api-key"
+  name        = "${var.ssm_prefix}/email-api-key"
   description = "API key for email API Gateway authentication"
   type        = "SecureString"
   value       = "PLACEHOLDER_CHANGE_ME"
@@ -342,7 +347,7 @@ resource "aws_iam_role_policy" "email_lambda_ssm" {
           "ssm:GetParameter",
           "ssm:GetParameters"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:*:parameter/${var.project_name}/*"
+        Resource = "arn:aws:ssm:${var.aws_region}:*:parameter${var.ssm_prefix}/*"
       }
     ]
   })
@@ -389,6 +394,12 @@ resource "aws_lambda_function" "email" {
 
   filename         = data.archive_file.email_lambda_placeholder.output_path
   source_code_hash = data.archive_file.email_lambda_placeholder.output_base64sha256
+
+  # Real handler code is deployed out-of-band (aws lambda update-function-code);
+  # never let Terraform overwrite it with the placeholder zip.
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
 
   environment {
     variables = {
@@ -964,7 +975,18 @@ resource "aws_api_gateway_deployment" "email" {
   ]
 
   triggers = {
-    redeployment = timestamp()
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_integration.emails_get.uri,
+      aws_api_gateway_integration.emails_post.uri,
+      aws_api_gateway_integration.emails_id_get.uri,
+      aws_api_gateway_integration.emails_id_patch.uri,
+      aws_api_gateway_integration.emails_id_delete.uri,
+      aws_api_gateway_integration.webhook_email_post.uri,
+      aws_api_gateway_integration.attachments_presign_post.uri,
+      aws_api_gateway_integration.email_addresses_get.uri,
+      aws_api_gateway_integration.email_addresses_post.uri,
+      aws_api_gateway_integration.email_addresses_id_delete.uri,
+    ]))
   }
 
   lifecycle {
@@ -975,38 +997,9 @@ resource "aws_api_gateway_deployment" "email" {
 resource "aws_api_gateway_stage" "email" {
   deployment_id = aws_api_gateway_deployment.email.id
   rest_api_id   = aws_api_gateway_rest_api.email.id
-  stage_name    = var.environment
+  stage_name    = var.stage_name
 
   tags = {
-    Name = "${local.email_prefix}-email-api-${var.environment}"
+    Name = "${local.email_prefix}-email-api-${var.stage_name}"
   }
-}
-
-##############################################################################
-# Email Outputs
-##############################################################################
-
-output "email_api_url" {
-  description = "Email API Gateway invoke URL"
-  value       = aws_api_gateway_stage.email.invoke_url
-}
-
-output "email_api_id" {
-  description = "Email API Gateway ID"
-  value       = aws_api_gateway_rest_api.email.id
-}
-
-output "emails_table_name" {
-  description = "DynamoDB emails table name"
-  value       = aws_dynamodb_table.emails.name
-}
-
-output "email_contacts_table_name" {
-  description = "DynamoDB email contacts table name"
-  value       = aws_dynamodb_table.email_contacts.name
-}
-
-output "email_attachments_bucket" {
-  description = "S3 email attachments bucket name"
-  value       = aws_s3_bucket.email_attachments.id
 }

@@ -1,36 +1,40 @@
 variable "project_name" {
-  description = "Project name used for resource naming and tagging"
+  description = "Project name"
   type        = string
   default     = "deltaspmu"
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
+  description = "Environment label. Live prod resources are tagged 'dev' (legacy) — keep for import parity."
   type        = string
-  default     = "dev"
+}
+
+variable "name_prefix" {
+  description = "Resource name prefix. Live prod is 'deltaspmu-dev' (legacy) — names cannot change without destroy/recreate."
+  type        = string
 }
 
 variable "aws_region" {
-  description = "AWS region for all resources"
+  description = "AWS region"
   type        = string
   default     = "eu-central-1"
 }
 
 variable "db_password" {
-  description = "RDS MariaDB master password"
+  description = "RDS master password (the live one — set locally, never committed)"
   type        = string
   sensitive   = true
 }
 
 variable "ssh_public_key" {
-  description = "SSH public key for EC2 access"
+  description = "SSH public key (must match the live deltaspmu-dev-key pair)"
   type        = string
 }
 
 variable "ami_id" {
-  description = "Ubuntu 22.04 AMI ID for eu-central-1"
+  description = "Ubuntu 22.04 AMI (live instance uses this)"
   type        = string
-  default     = "ami-0faab6bdbac9486fb" # Ubuntu 22.04 LTS eu-central-1 (update as needed)
+  default     = "ami-0faab6bdbac9486fb"
 }
 
 variable "ec2_instance_type" {

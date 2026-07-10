@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (gitignored) and fill in the secrets.
+project_name      = "deltaspmu"
+environment       = "staging"
+name_prefix       = "deltaspmu-staging"
+aws_region        = "eu-central-1"
+ec2_instance_type = "t3.small"
+
+# Secrets — fill in locally:
+db_password    = "CHANGE-ME"                 # on-instance MariaDB root password
+ssh_public_key = "ssh-rsa AAAA... your-key"  # same key as prod or a new one

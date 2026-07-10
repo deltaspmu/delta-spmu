@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (gitignored) and fill in the secrets.
+# Values below mirror the LIVE stack (docs/PROD_INVENTORY.md) — do not "fix" them.
+project_name      = "deltaspmu"
+environment       = "dev"            # legacy tag on live resources — required for import parity
+name_prefix       = "deltaspmu-dev"  # legacy name prefix on live resources
+aws_region        = "eu-central-1"
+ami_id            = "ami-0faab6bdbac9486fb"
+ec2_instance_type = "t3.small"
+db_instance_class = "db.t3.micro"
+
+# Secrets — fill in locally with the LIVE values:
+db_password    = "THE-LIVE-RDS-MASTER-PASSWORD"
+ssh_public_key = "ssh-rsa AAAA... (public key of the live deltaspmu-dev-key pair)"
