@@ -991,6 +991,10 @@ resource "aws_api_gateway_deployment" "email" {
 
   lifecycle {
     create_before_destroy = true
+    # triggers is TF-only and not importable — without this, import plans a
+    # replace of the live deployment. Trade-off: config changes to the API
+    # need a manual redeploy (acceptable: the email API runs placeholders).
+    ignore_changes = [triggers]
   }
 }
 

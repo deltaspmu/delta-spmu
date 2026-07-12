@@ -40,9 +40,11 @@ Secrets live in each site's `site_config.json` via `bench set-config` (payments,
 
 
 
-### Prod import runbook (Phase 5 — not yet executed)
+### Prod import runbook (✅ EXECUTED 2026-07-12 — kept for reference)
 
-The live prod stack predates this state (original state was lost in the account migration). To bring it under management **without touching any resource**:
+The live prod stack was imported into `prod/terraform.tfstate` on 2026-07-12:
+118 resources, zero AWS mutations, final `terraform plan` = "No changes."
+The process, for reference:
 
 1. `envs/prod/terraform.tfvars` from `terraform.tfvars.example` + the live secrets.
 2. Write `envs/prod/imports.tf` with `import` blocks per live resource — IDs in `docs/PROD_INVENTORY.md` (incl. `random_id.bucket_suffix` with hex `176af819`).

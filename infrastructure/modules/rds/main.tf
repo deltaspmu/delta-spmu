@@ -33,6 +33,7 @@ resource "aws_db_instance" "main" {
   publicly_accessible    = false
 
   backup_retention_period = var.backup_retention_period
+  copy_tags_to_snapshot   = true # live prod value (manual hardening)
   skip_final_snapshot     = var.skip_final_snapshot
   deletion_protection     = var.deletion_protection
 

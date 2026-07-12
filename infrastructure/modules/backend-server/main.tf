@@ -8,6 +8,13 @@ resource "aws_key_pair" "main" {
   key_name   = "${var.name_prefix}-key"
   public_key = var.ssh_public_key
 
+  # AWS never returns key material, so an imported key pair can't diff
+  # public_key — without this, import plans a destroy/recreate of the
+  # live prod key.
+  lifecycle {
+    ignore_changes = [public_key]
+  }
+
   tags = {
     Name = "${var.name_prefix}-key"
   }
@@ -35,7 +42,9 @@ resource "aws_instance" "web" {
   # server. Bootstrap changes are applied by building a fresh instance,
   # not by mutating an existing one.
   lifecycle {
-    ignore_changes = [ami, user_data]
+    # root_block_device tags: provider default_tags propagation makes the
+    # imported live volume's tags undiffable — leave them alone.
+    ignore_changes = [ami, user_data, root_block_device[0].tags]
   }
 
   tags = {
