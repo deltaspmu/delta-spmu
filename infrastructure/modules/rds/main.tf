@@ -39,7 +39,9 @@ resource "aws_db_instance" "main" {
   lifecycle {
     # Minor engine upgrades happen out-of-band (auto minor version upgrade);
     # don't let a stale pin in code try to downgrade a live database.
-    ignore_changes = [engine_version]
+    # Password is write-only in AWS (unreadable on import, and the live prod
+    # master password is not recoverable) — never manage it from Terraform.
+    ignore_changes = [engine_version, password]
   }
 
   tags = {

@@ -8,6 +8,10 @@ ami_id            = "ami-0faab6bdbac9486fb"
 ec2_instance_type = "t3.small"
 db_instance_class = "db.t3.micro"
 
-# Secrets — fill in locally with the LIVE values:
-db_password    = "THE-LIVE-RDS-MASTER-PASSWORD"
+# Secrets — fill in locally:
+# The live RDS master password is unrecoverable (write-only in AWS; original
+# tfvars lost in the account migration). The module ignores password changes,
+# so any placeholder works. Reset via `aws rds modify-db-instance` if master
+# access is ever needed — the app uses the per-site DB user, not master.
+db_password    = "UNKNOWN-not-managed-by-terraform"
 ssh_public_key = "ssh-rsa AAAA... (public key of the live deltaspmu-dev-key pair)"
