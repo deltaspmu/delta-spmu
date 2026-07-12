@@ -103,6 +103,14 @@ ssh ubuntu@<STAGING-IP> "sudo -u frappe bash -c 'cd /home/frappe/deltaspmu && \
 
 
 
+## Syncing prod course content down
+
+`./scripts/sync-prod-courses.sh [staging] [dev]` copies course CONTENT
+(courses, chapters, lessons, quizzes, questions, categories, public files)
+from prod into staging/dev. Read-only on prod; excludes all user activity
+and PII (enrollments, progress, reviews, certificates, submissions, users,
+transactions). First run: 2026-07-12 — all three envs verified identical.
+
 ## Vercel staging (Hobby plan)
 
 Same two Vercel projects as prod:
