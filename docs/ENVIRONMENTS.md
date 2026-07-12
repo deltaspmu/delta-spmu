@@ -65,6 +65,8 @@ The process, for reference:
 - Web SG: close 8000 and restrict 22 (currently 0.0.0.0/0)
 - Decommission or start using the empty marketing S3 + CloudFront and assets bucket
 - Vendor the email Lambda handler source into the repo (currently placeholders everywhere)
+- **CSRF verification is disabled on ALL environments** (`ignore_csrf: 1`, inherited from prod where it was a cross-origin workaround). A malicious site could forge requests from a logged-in browser. Proper fix: make the admin portal attach valid tokens on every POST, verify on staging, then remove the flag everywhere.
+- `get_course_price` USD-conversion bug (float on dict) is fixed in the repo and deployed to staging+dev, but **prod still has it** — ships with the next `./scripts/deploy-backend.sh prod`.
 
 
 
@@ -156,6 +158,16 @@ Host 3.126.36.245
 ```
 
 
+
+## Site-config behavioral parity (prod = source of truth)
+
+Applied to staging + dev (2026-07-12): `ignore_csrf: 1` (matches prod — see
+Known debt), `cors_allow_headers/methods`, `host_name`; staging additionally
+mirrors `cookie_secure`/`session_cookie_samesite`/`session_cookie_secure`
+(dev is plain http). Frappe core carries three patches replicated from prod:
+samesite-from-config, force-secure, cookie_domain (`scripts/patch_frappe_*`).
+The prod-only overlay modules (course_import_export, _cert_backfill,
+_migrate_doctypes) are now vendored in `backend/frappe-lms/lms/lms/`.
 
 ## Known debt
 

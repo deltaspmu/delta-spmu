@@ -319,6 +319,8 @@ def get_course_price(course, currency="ETB"):
                 rate = get_exchange_rate(from_currency="ETB", to_currency="USD")
             except Exception:
                 rate = frappe.db.get_single_value("Payment Settings", "etb_to_usd_rate") or 0.018
+            if isinstance(rate, dict):  # get_exchange_rate returns {"rate": ...}
+                rate = rate.get("rate") or 0.018
             rate = float(rate)
             individual_total = round(individual_total * rate, 2)
             final_price = round(final_price * rate, 2)
@@ -387,6 +389,8 @@ def get_course_price(course, currency="ETB"):
         except Exception:
             rate = frappe.db.get_single_value("Payment Settings", "etb_to_usd_rate") or 0.018
 
+        if isinstance(rate, dict):  # get_exchange_rate returns {"rate": ...}
+            rate = rate.get("rate") or 0.018
         rate = float(rate)
         course_price = round(course_price * rate, 2)
         final_price = round(final_price * rate, 2)
