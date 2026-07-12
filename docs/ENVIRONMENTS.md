@@ -22,6 +22,10 @@ Three environments: **dev** (local, $0), **staging** (AWS, ~$23/mo), **prod** (A
 | Deploy backend     | `./scripts/dev-sync-backend.sh`                   | `./scripts/deploy-backend.sh staging`                    | `./scripts/deploy-backend.sh prod`                    |
 
 
+Staging logins: Frappe `Administrator` password = the `db_password` value in
+`infrastructure/envs/staging/terraform.tfvars` (local, gitignored) — same value
+as the on-instance MariaDB root password.
+
 Secrets live in each site's `site_config.json` via `bench set-config` (payments, Vimeo, Telegram) — never in git. Terraform secrets live in each env root's local `terraform.tfvars` (gitignored); the RDS password is also in TF state (the state bucket is private + versioned).
 
 ## Terraform
