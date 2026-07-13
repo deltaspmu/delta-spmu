@@ -66,6 +66,17 @@ for dt in frappe.db.sql_list("SELECT DISTINCT dt FROM `tabCustom Field`"):
         frappe.db.updatedb(dt)
     except Exception as e:
         print("updatedb skipped:", dt, str(e)[:80])
+
+# Courses reference prod instructor Users that are excluded from the sync
+# (PII) — create login-less stubs so link validation passes on save.
+for email in frappe.db.sql_list("SELECT DISTINCT instructor FROM `tabCourse Instructor`"):
+    if email and not frappe.db.exists("User", email):
+        frappe.get_doc({
+            "doctype": "User", "email": email,
+            "first_name": email.split("@")[0].replace(".", " ").title(),
+            "send_welcome_email": 0, "roles": [{"role": "Course Creator"}],
+        }).insert(ignore_permissions=True)
+        print("created stub instructor:", email)
 frappe.db.commit()
 print("custom columns applied")
 """)
