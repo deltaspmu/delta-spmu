@@ -159,6 +159,26 @@ Host 3.126.36.245
 
 
 
+## Service credentials per environment
+
+Configured from `~/.deltaspmu/staging-keys.env` (gitignored, outside the repo):
+
+| Service | dev | staging | prod |
+|---|---|---|---|
+| Vimeo | shared token, tag `deltaspmu-lms-dev` | shared token, tag `deltaspmu-lms-staging` | tag `deltaspmu-lms` |
+| Chapa | — | TEST keys | live |
+| Resend | Mailpit (localhost:8025) | key, from `noreply-staging@` | live |
+| Telegram | — | staging bot + webhook | live bot |
+| telebirr / EthSwitch | — | pending (add later) | live |
+
+Vimeo `vimeo_tag` (site_config) isolates each env's uploaded library. New uploads
+on staging/dev are tagged per-env and whitelisted to that env's domains by the
+upload code (`_get_tag()` in vimeo_api.py). NOTE: existing course lessons
+reference videos in PROD's Vimeo account; those won't play on staging/dev unless
+re-uploaded there (or the prod token adds staging domains to each video's embed
+whitelist) — expected with isolated libraries. Dev email goes to Mailpit
+(enable in `dev/docker-compose.yml`, UI at http://localhost:8025).
+
 ## Site-config behavioral parity (prod = source of truth)
 
 Applied to staging + dev (2026-07-12): `ignore_csrf: 1` (matches prod — see

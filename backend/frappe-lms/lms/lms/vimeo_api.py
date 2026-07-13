@@ -15,6 +15,15 @@ import requests
 
 VIMEO_API_BASE = "https://api.vimeo.com"
 DEFAULT_TAG = "deltaspmu-lms"
+
+
+def _get_tag():
+    """Environment-specific library tag. Prod keeps the default; staging/dev
+    set `vimeo_tag` in site_config (e.g. deltaspmu-lms-staging) so uploads
+    from lower environments never appear in prod's admin video library."""
+    return frappe.conf.get("vimeo_tag") or DEFAULT_TAG
+
+
 DEFAULT_EMBED_DOMAINS = [
     "deltaspmu.com",
     "learn.deltaspmu.com",
@@ -250,7 +259,7 @@ def vimeo_list_videos(page=1, per_page=25, query=None):
     for v in videos_raw:
         tags = [t.get("tag", "").lower() for t in (v.get("tags") or [])]
         # When a query is active we include all results; otherwise filter by tag
-        if query or DEFAULT_TAG.lower() in tags:
+        if query or _get_tag().lower() in tags:
             videos.append(_format_video(v))
 
     paging = result.get("paging", {})
@@ -334,11 +343,11 @@ def vimeo_create_upload(name, description=None, size=None):
 
     # Tag the video immediately
     try:
-        _vimeo_request("PUT", f"/videos/{video_id}/tags/{DEFAULT_TAG}")
+        _vimeo_request("PUT", f"/videos/{video_id}/tags/{_get_tag()}")
     except Exception:
         frappe.log_error(
             title="Vimeo tag failed",
-            message=f"Could not tag video {video_id} with '{DEFAULT_TAG}'.",
+            message=f"Could not tag video {video_id} with '{_get_tag()}'.",
         )
 
     return {
@@ -385,11 +394,11 @@ def vimeo_complete_upload(video_id):
 
     # Ensure tag exists
     try:
-        _vimeo_request("PUT", f"/videos/{video_id}/tags/{DEFAULT_TAG}")
+        _vimeo_request("PUT", f"/videos/{video_id}/tags/{_get_tag()}")
     except Exception:
         frappe.log_error(
             title="Vimeo tag failed on complete",
-            message=f"Could not tag video {video_id} with '{DEFAULT_TAG}'.",
+            message=f"Could not tag video {video_id} with '{_get_tag()}'.",
         )
 
     return {"success": True, "video_id": video_id}

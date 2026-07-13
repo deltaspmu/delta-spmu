@@ -27,6 +27,15 @@ services:
       interval: 5s
       retries: 10
 
+  # Local email catcher — all outgoing mail lands here (UI at localhost:8025)
+  mailpit:
+    image: docker.io/axllent/mailpit
+    ports:
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   redis-cache:
     image: docker.io/redis:alpine
 
