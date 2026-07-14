@@ -79,3 +79,10 @@ desktop.ini
 coverage/
 .cache/
 infrastructure/**/lambda_placeholder.zip
+
+# Playwright CLI run artifacts (per-run console logs + page snapshots)
+.playwright-cli/
+
+# Local-only staging E2E report — documents live security weaknesses; must not
+# be committed to this public repo. Keep on disk for reference only.
+docs/STAGING_E2E_TEST_REPORT.md
