@@ -1359,7 +1359,6 @@ VITE_API_URL=https://api.deltaspmu.com
 VITE_FRAPPE_DESK_URL=https://api.deltaspmu.com
 VITE_SKIP_ADMIN_REDIRECT=false
 VITE_GA_MEASUREMENT_ID=
-VITE_MAINTENANCE_MODE=false
 ```
 
 ### Admin Portal (.env)
@@ -1373,7 +1372,6 @@ VITE_EMAIL_API_KEY=<api-key>
 
 ### Marketing Site (.env.production)
 ```
-VITE_MAINTENANCE_MODE=false
 VITE_STUDENT_PORTAL_URL=https://learn.deltaspmu.com
 ```
 
