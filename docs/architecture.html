@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta SPMU Academy — Architecture</title>
+<style>
+  :root{
+    --olive:#8B8D5A; --olive-dark:#73754A; --terra:#C0703C; --terra-dark:#A5592C;
+    --charcoal:#2F3D2A; --tan:#D8C7A1; --cream:#F4F1E8; --ink:#26261f; --muted:#6b6b5c;
+    --line:#d9d4c2; --code-bg:#f3f1e6;
+  }
+  *{box-sizing:border-box}
+  html{font-size:11.2px}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+       color:var(--ink); line-height:1.5; margin:0; background:#fff;}
+  h1,h2,h3,h4{font-family:Georgia,"Times New Roman",serif; color:var(--charcoal); line-height:1.2; margin:0 0 .35em}
+  h1{font-size:2.5rem}
+  h2{font-size:1.5rem; border-bottom:2px solid var(--olive); padding-bottom:.25em; margin-top:1.6em; color:var(--olive-dark)}
+  h3{font-size:1.15rem; margin-top:1.3em; color:var(--terra-dark)}
+  h4{font-size:1rem; margin-top:1em; color:var(--charcoal)}
+  p{margin:.5em 0}
+  a{color:var(--terra-dark); text-decoration:none}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace; background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:.86em; color:var(--charcoal)}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-left:4px solid var(--olive); border-radius:6px;
+      padding:12px 14px; overflow:auto; font-size:.8rem; line-height:1.45; white-space:pre; margin:.8em 0}
+  pre code{background:none; padding:0}
+  table{border-collapse:collapse; width:100%; margin:.7em 0; font-size:.86rem}
+  th,td{border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top}
+  th{background:var(--olive); color:#fff; font-weight:600; font-family:-apple-system,sans-serif}
+  tr:nth-child(even) td{background:#faf8f0}
+  ul,ol{margin:.4em 0 .6em; padding-left:1.3em}
+  li{margin:.18em 0}
+  .lede{font-size:1.05rem; color:var(--muted)}
+  .meta{color:var(--muted); font-size:.9rem}
+  .pill{display:inline-block; background:var(--tan); color:var(--charcoal); border-radius:999px;
+        padding:1px 10px; font-size:.75rem; font-weight:600; margin-right:4px}
+  .sev-high{color:#b60205; font-weight:700}
+  .sev-med{color:#c15a0b; font-weight:700}
+  .sev-low{color:#8a7500; font-weight:700}
+  .cover{padding:70px 0 20px; border-bottom:3px solid var(--terra)}
+  .cover .badge{display:inline-block; background:var(--charcoal); color:var(--cream); padding:4px 14px;
+        border-radius:6px; font-size:.8rem; letter-spacing:.08em; text-transform:uppercase}
+  .callout{background:#fbf6ee; border:1px solid var(--tan); border-left:4px solid var(--terra); border-radius:6px; padding:10px 14px; margin:.9em 0}
+  .callout.warn{border-left-color:#b60205; background:#fdf1f0}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:0 22px}
+  .toc ol{columns:2; column-gap:34px; font-size:.9rem}
+  .toc a{color:var(--charcoal)}
+  footer{margin-top:2.4em; padding-top:.8em; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem}
+  @media print{
+    h2{break-after:avoid} h3,h4{break-after:avoid}
+    pre,table,.callout{break-inside:avoid}
+    .page-break{break-before:page}
+    tr{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <span class="badge">Architecture Reference</span>
+  <h1>Delta SPMU Academy</h1>
+  <p class="lede">E-learning platform for permanent-makeup (SPMU) training — blended model:
+  online theory via a Frappe LMS backend + in-person practical training. Based in Addis Ababa, Ethiopia.</p>
+  <p class="meta">Generated 2026-07-15 &nbsp;·&nbsp; Reflects <code>main</code> @ current working tree &nbsp;·&nbsp; Status: staging live, prod live</p>
+</section>
+
+<section class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#context">System context</a></li>
+    <li><a href="#stack">Technology stack</a></li>
+    <li><a href="#frontend">Frontend architecture</a></li>
+    <li><a href="#backend">Backend architecture</a></li>
+    <li><a href="#data">Data &amp; domain model</a></li>
+    <li><a href="#payments">Payments architecture</a></li>
+    <li><a href="#video">Video architecture</a></li>
+    <li><a href="#auth">Auth, sessions &amp; security</a></li>
+    <li><a href="#envs">Environments</a></li>
+    <li><a href="#infra">Infrastructure (Terraform)</a></li>
+    <li><a href="#flows">Key data flows</a></li>
+    <li><a href="#delivery">Branching &amp; delivery</a></li>
+  </ol>
+</section>
+
+<h2 id="context">1 · System context</h2>
+<p>Three separately-hosted frontends talk to one Frappe backend over HTTPS. DNS/TLS is fronted by
+Cloudflare. The architecture mirrors the production Afritutors platform.</p>
+<pre>
+                          Cloudflare  (DNS + TLS, full-strict)
+                                     |
+      +--------------------+---------+----------+--------------------+
+      |                    |                    |                    |
+  Marketing site      Student portal       Admin portal        (shared cookie
+  deltaspmu.com       learn.deltaspmu.com  admin.deltaspmu.com   domain
+  React+Vite          React SPA (Vercel)   React SPA (Vercel)    .deltaspmu.com)
+  (Vercel)                 |                    |
+      |                    +---------+----------+
+      |                              |  HTTPS / JSON  (withCredentials)
+      |                              v
+      |                    api.deltaspmu.com  —  EC2 (t3.small), Nginx
+      |                    Frappe v15 + LMS app + custom Python modules
+      |                              |
+      |            +-----------------+---------------------+
+      |            |                 |                     |
+      |       MariaDB 10.11      Redis (cache/queue)   custom @whitelist APIs
+      |       (RDS in prod,      + background workers   (114 endpoints)
+      |        on-instance                                  |
+      |        in staging)                                  |
+      |                                                     v
+      |          +-----------+-----------+-----------+-----------+----------+
+      |          |           |           |           |          |          |
+      |        Vimeo     Chapa /      Resend     Telegram   AWS Lambda   Exchange
+      |       (video)   telebirr /   (email)      Bot      +DynamoDB     rate API
+      |                 EthSwitch                          (email CRM,   (ETB/USD)
+      |                 (payments)                          prod-only)
+      +--------------------------------------------------------------------------
+</pre>
+
+<h2 id="stack">2 · Technology stack</h2>
+<table>
+  <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
+  <tr><td>Frontend framework</td><td>React 19 + TypeScript + Vite</td><td>All three apps</td></tr>
+  <tr><td>Styling</td><td>Tailwind CSS</td><td>Marketing: v3; portals: v4</td></tr>
+  <tr><td>Server state</td><td>TanStack React Query 5</td><td>Portals</td></tr>
+  <tr><td>Auth state</td><td>React Context</td><td>Portals</td></tr>
+  <tr><td>Forms / validation</td><td>react-hook-form + zod</td><td>Student portal</td></tr>
+  <tr><td>Rich text</td><td>TipTap 3</td><td>Admin course editor</td></tr>
+  <tr><td>i18n</td><td>i18next (EN + AM)</td><td>Locale files complete; AM not yet rendered</td></tr>
+  <tr><td>Backend</td><td>Frappe v15 (Python) + LMS app fork</td><td>Custom overlay modules</td></tr>
+  <tr><td>Database</td><td>MariaDB 10.11</td><td>RDS (prod) / on-instance (staging) / Docker (dev)</td></tr>
+  <tr><td>Cache / queue</td><td>Redis</td><td>Sessions + background jobs</td></tr>
+  <tr><td>Compute</td><td>AWS EC2 t3.small (eu-central-1)</td><td>Nginx reverse proxy</td></tr>
+  <tr><td>Video</td><td>Vimeo (per-env tag)</td><td>Resumable upload via tus</td></tr>
+  <tr><td>Frontend hosting</td><td>Vercel</td><td>Auto-deploy from GitHub; all 3 apps</td></tr>
+  <tr><td>DNS + TLS</td><td>Cloudflare</td><td>Full-strict</td></tr>
+  <tr><td>Email (transactional)</td><td>Resend</td><td>Mailpit locally in dev</td></tr>
+  <tr><td>Email (CRM)</td><td>AWS Lambda + DynamoDB + API Gateway</td><td>Prod-only; inert on staging</td></tr>
+  <tr><td>Payments</td><td>Chapa, telebirr, EthSwitch, CBE</td><td>Chapa live; others staged</td></tr>
+  <tr><td>Messaging</td><td>Telegram Bot</td><td>Admin broadcast</td></tr>
+  <tr><td>IaC</td><td>Terraform (S3 remote state)</td><td>envs/{staging,prod} + shared modules</td></tr>
+</table>
+
+<h2 id="frontend" class="page-break">3 · Frontend architecture</h2>
+<p>Three independent Vite apps, deployed to Vercel. All portal requests use
+<code>axios</code> with <code>withCredentials:true</code> so Frappe's session cookie rides along.
+localStorage keys use the <code>deltaspmu_</code> prefix.</p>
+
+<h3>3.1 Marketing site — <code>deltaspmu.com</code></h3>
+<p>Root of the repo (<code>src/</code>, <code>index.html</code>). React 19 + Vite + <strong>Tailwind 3</strong>,
+<code>framer-motion</code> for animation and <code>lenis</code> for smooth scrolling. Pure marketing:
+course overview, pricing/bundle, FAQ, contact — deep-links into the student portal to enrol.
+Served by Vercel (a legacy S3+CloudFront pipeline exists but is unused).</p>
+<p><span class="pill">Branding</span> Olive + terracotta on warm cream. Tokens in
+<code>tailwind.config.js</code>; the legacy <code>nude</code> token resolves to terracotta for
+backward compatibility.</p>
+
+<h3>3.2 Student portal — <code>learn.deltaspmu.com</code></h3>
+<p><code>frontend/student-portal/</code> — 27 route pages. Single API surface in
+<code>src/api/client.ts</code>. Key libraries: TanStack Query, react-hook-form + zod,
+<code>@vimeo/player</code>, <code>dompurify</code> (sanitises lesson HTML),
+react-helmet-async, react-hot-toast, react-i18next.</p>
+<table>
+  <tr><th>Area</th><th>Pages</th></tr>
+  <tr><td>Catalog</td><td>Courses, CourseDetail, Wishlist</td></tr>
+  <tr><td>Auth</td><td>Register, Login, VerifyEmail, ForgotPassword, ResetPassword</td></tr>
+  <tr><td>Commerce</td><td>Payment, PaymentSuccess, Transactions</td></tr>
+  <tr><td>Learning</td><td>Learn / LearnCourse / LearnLesson, Quiz / QuizPage</td></tr>
+  <tr><td>Account</td><td>Dashboard, MyCourses, Profile, Certificates</td></tr>
+  <tr><td>Static / legal</td><td>About, Help, Contact, Terms, Privacy, Refund, Cookies</td></tr>
+</table>
+
+<h3>3.3 Admin portal — <code>admin.deltaspmu.com</code></h3>
+<p><code>frontend/admin-portal/</code> — 24 pages, System-Manager-gated. Three API clients:
+<code>client.ts</code> (Frappe), <code>emailClient.ts</code> (Lambda CRM), <code>vimeo.ts</code>
+(resumable upload via <code>tus-js-client</code>). Course body editing uses TipTap.</p>
+<div class="callout"><strong>Cross-origin CSRF:</strong> the admin portal cannot read the
+<code>csrf_token</code> cookie cross-origin, so it fetches a token from the
+<code>get_csrf_token</code> endpoint and caches it for POST/PUT/DELETE.</div>
+<table>
+  <tr><th>Area</th><th>Pages</th></tr>
+  <tr><td>Overview</td><td>Dashboard, Analytics</td></tr>
+  <tr><td>Catalog mgmt</td><td>CourseList, CourseForm, CourseEdit, CourseEditor, Categories</td></tr>
+  <tr><td>Assessment</td><td>Quizzes, Certificates, Reviews</td></tr>
+  <tr><td>People</td><td>Users / UserList, Enrollments</td></tr>
+  <tr><td>Commerce</td><td>Payments, Settings</td></tr>
+  <tr><td>Media &amp; comms</td><td>Videos, TelegramBroadcast, Email* (Inbox, Compose, List, Detail, Addresses)</td></tr>
+</table>
+
+<h2 id="backend" class="page-break">4 · Backend architecture</h2>
+<p>A forked Frappe LMS app with a custom Python overlay. Files deploy to
+<code>/home/frappe/deltaspmu/apps/lms/lms/lms/</code>. <strong>114</strong> whitelisted endpoints
+across 16 modules.</p>
+<table>
+  <tr><th>Module</th><th>Responsibility</th></tr>
+  <tr><td><code>api.py</code></td><td>Core: auth, courses, enrolment, profiles, branding, catalog</td></tr>
+  <tr><td><code>custom_api.py</code></td><td>Learning progress, quiz grading, certificates, progress reports</td></tr>
+  <tr><td><code>payments_api.py</code></td><td>Payment orchestration: initiation, verification, webhooks, bundle pricing</td></tr>
+  <tr><td><code>chapa.py</code></td><td>Chapa gateway integration (live)</td></tr>
+  <tr><td><code>telebirr.py</code>, <code>telebirr_c2b.py</code>, <code>telebirr_c2b_xml.py</code></td><td>telebirr (RSA-PSS, C2B flows)</td></tr>
+  <tr><td><code>ethswitch.py</code></td><td>EthSwitch gateway</td></tr>
+  <tr><td><code>vimeo_api.py</code></td><td>Server-side Vimeo proxy; per-env <code>vimeo_tag</code> resolution</td></tr>
+  <tr><td><code>exchange_rate.py</code></td><td>ETB/USD conversion with live rate + fallback chain</td></tr>
+  <tr><td><code>security.py</code></td><td>Rate limiting, user ban/unban</td></tr>
+  <tr><td><code>user.py</code></td><td>User lifecycle hooks (verification enable/disable)</td></tr>
+  <tr><td><code>telegram_bot.py</code></td><td>Telegram broadcast + link status</td></tr>
+  <tr><td><code>email_templates.py</code></td><td>Transactional email templates (Resend)</td></tr>
+  <tr><td><code>course_import_export.py</code></td><td>prod→staging/dev course-content sync (carries custom fields/doctypes)</td></tr>
+  <tr><td><code>_cert_backfill.py</code>, <code>_migrate_doctypes.py</code></td><td>One-off migration/backfill utilities</td></tr>
+</table>
+
+<h3>4.1 Backend conventions (load-bearing)</h3>
+<ul>
+  <li><strong>Never <code>frappe.get_doc()</code> in guest endpoints</strong> — it raises
+      <code>PermissionError</code> for anonymous callers. Use <code>frappe.db.get_value()</code> /
+      <code>get_list()</code> instead.</li>
+  <li>Course price field is <code>course_price</code> (not <code>price</code>); default fallback applies.</li>
+  <li><strong>CSRF</strong> is required on POST/PUT/DELETE; GET bypasses it — payment callbacks use GET intentionally.
+      (Note: <code>ignore_csrf</code> is currently enabled across envs — see §13.)</li>
+  <li>Sessions are cookie-based → the frontend must send credentials on every request.</li>
+  <li>After adding <code>@frappe.whitelist()</code> methods, clear <code>.pyc</code> cache and
+      <code>bench restart</code>.</li>
+  <li>The <strong>"all 5 courses" bundle</strong> is a <em>virtual</em> product (no LMS Course row):
+      <code>initiate_payment</code> and <code>get_course_price</code> special-case
+      <code>all-courses-bundle</code> at 20,000 ETB (per-course 12,500 ETB).</li>
+  <li>Transaction IDs are prefixed <code>DS-</code>.</li>
+</ul>
+
+<h2 id="data">5 · Data &amp; domain model</h2>
+<p>Persistence is Frappe doctypes on MariaDB. The domain centres on the course→chapter→lesson
+tree, enrolment/access, assessment, and commerce.</p>
+<table>
+  <tr><th>Concept</th><th>Backing / notes</th></tr>
+  <tr><td>Course</td><td>LMS Course (custom field <code>course_price</code>, learning outcomes); published flag</td></tr>
+  <tr><td>Chapter → Lesson</td><td>Curriculum tree; ~10 chapters / 28 lessons per flagship course; Vimeo id per lesson</td></tr>
+  <tr><td>Category</td><td>Course categorisation (catalog filter)</td></tr>
+  <tr><td>Enrolment / Access</td><td>Manual + paid; 365-day access window; progress %</td></tr>
+  <tr><td>Quiz / Question / Attempt</td><td>Per-lesson gating quizzes + final quiz; server-side grading; attempt limits</td></tr>
+  <tr><td>Certificate</td><td>Auto-issued on 100% completion; id format <code>DELTA-SPMU-xxxx</code>; PDF via <code>get_certificate_pdf</code></td></tr>
+  <tr><td>Payment / Transaction</td><td>Gateway records, status, method; <code>DS-</code> prefixed ids</td></tr>
+  <tr><td>User</td><td>Frappe User; disabled until email verification; roles gate portals</td></tr>
+</table>
+<div class="callout"><strong>Content model note:</strong> Course catalog and pricing are seeded/synced from prod
+and are not uniform (flagship 17,000 ETB; others 12,500 ETB), which differs from the "each course 12,500 ETB"
+baseline in project docs.</div>
+
+<h2 id="payments" class="page-break">6 · Payments architecture</h2>
+<p><code>payments_api.py</code> is the orchestrator; each gateway has its own module. Prices are computed
+server-side (<code>get_course_price</code>) with live ETB/USD conversion and bundle special-casing.</p>
+<pre>
+Student → Payment page → initiate_payment (GET) ─┐
+                                                 ├─ Chapa   (live, test keys on staging)
+                                                 ├─ telebirr (RSA-PSS; staged)
+                                                 ├─ EthSwitch (staged)
+                                                 └─ CBE     (manual verification)
+                          gateway hosted checkout → webhook/callback (GET, CSRF-exempt)
+                          → verify → create Course Access → enrol → grant learning access
+</pre>
+<ul>
+  <li>Only <strong>Chapa</strong> is fully wired (test keys live on staging); telebirr / EthSwitch are
+      deferred; CBE is manual transfer verification.</li>
+  <li>Gateway rejects a request (e.g. reserved-domain email) → surfaces as a payment error to the UI.</li>
+  <li>The bundle is virtual — no LMS Course row; priced in code.</li>
+</ul>
+
+<h2 id="video">7 · Video architecture</h2>
+<p>Videos live on Vimeo and are proxied server-side so the API token never reaches the browser.
+Each lesson stores <code>"id/hash"</code> (split on <code>/</code> for id + privacy hash).</p>
+<div class="callout"><strong>Per-environment isolation:</strong> <code>vimeo_api._get_tag()</code> reads
+<code>vimeo_tag</code> from <code>site_config</code>, so uploads never cross environments —
+prod <code>deltaspmu-lms</code>, staging <code>deltaspmu-lms-staging</code>, dev <code>deltaspmu-lms-dev</code>.
+Admin upload is resumable via <code>tus-js-client</code>.</div>
+
+<h2 id="auth">8 · Auth, sessions &amp; security</h2>
+<ul>
+  <li><strong>Session model:</strong> Frappe cookie sessions in Redis; portals send
+      <code>withCredentials:true</code>. The cookie is scoped to <code>.deltaspmu.com</code>.</li>
+  <li><strong>CSRF:</strong> required on mutating requests; admin fetches a token cross-origin via
+      <code>get_csrf_token</code>.</li>
+  <li><strong>Guest safety:</strong> guest endpoints avoid <code>get_doc()</code> to prevent permission errors.</li>
+  <li><strong>Abuse controls:</strong> <code>security.py</code> handles rate limiting + user banning.</li>
+  <li><strong>Email verification:</strong> new users are created disabled and enabled only after
+      verifying via the <code>/verify</code> flow.</li>
+</ul>
+
+<h2 id="envs" class="page-break">9 · Environments</h2>
+<table>
+  <tr><th></th><th>dev</th><th>staging</th><th>prod</th></tr>
+  <tr><td>Compute</td><td>Local Docker Compose</td><td>Single EC2 + on-instance MariaDB</td><td>EC2 + RDS MariaDB</td></tr>
+  <tr><td>API host</td><td><code>lms.localhost</code></td><td><code>staging-api.deltaspmu.com</code></td><td><code>api.deltaspmu.com</code></td></tr>
+  <tr><td>Portals</td><td>local Vite</td><td><code>staging-learn</code> / <code>staging-admin</code> (branch <code>staging</code>)</td><td><code>learn</code> / <code>admin</code></td></tr>
+  <tr><td>Email</td><td>Mailpit (<code>:8025</code>)</td><td>Resend</td><td>Resend + Lambda CRM</td></tr>
+  <tr><td>Video tag</td><td><code>deltaspmu-lms-dev</code></td><td><code>deltaspmu-lms-staging</code></td><td><code>deltaspmu-lms</code></td></tr>
+  <tr><td>Payments</td><td>—</td><td>Chapa (test)</td><td>Chapa (live) + others</td></tr>
+  <tr><td>Marketing/CDN</td><td>—</td><td>not deployed</td><td>Vercel (S3/CDN legacy, unused)</td></tr>
+</table>
+<p>Dev backend edits sync via <code>./scripts/dev-sync-backend.sh</code>; the Docker stack is
+<code>mariadb 10.11</code>, <code>redis</code> (cache + queue), <code>frappe/bench</code>, and
+<code>mailpit</code>. Secrets live in <code>~/.deltaspmu/staging-keys.env</code> and are never committed.</p>
+
+<h2 id="infra">10 · Infrastructure (Terraform)</h2>
+<p>Region <code>eu-central-1</code>. Roots at <code>infrastructure/envs/{staging,prod}</code> compose shared
+<code>infrastructure/modules/</code>. Remote state in S3 <code>deltaspmu-tfstate-*</code>.
+AWS resources are named <code>deltaspmu-dev-*</code> (legacy naming, accepted debt).</p>
+<table>
+  <tr><th>Module</th><th>Purpose</th><th>staging</th><th>prod</th></tr>
+  <tr><td><code>network</code></td><td>VPC, subnets, security groups</td><td>✓ (no DB SG)</td><td>✓</td></tr>
+  <tr><td><code>backend-server</code></td><td>EC2, EIP, optional on-instance MariaDB</td><td>✓ (MariaDB on-box)</td><td>✓</td></tr>
+  <tr><td><code>rds</code></td><td>Managed MariaDB 10.11</td><td>—</td><td>✓</td></tr>
+  <tr><td><code>marketing</code></td><td>S3 + CloudFront (marketing)</td><td>—</td><td>✓ (unused)</td></tr>
+  <tr><td><code>email</code></td><td>Lambda + DynamoDB + API Gateway (CRM)</td><td>—</td><td>✓ (placeholder)</td></tr>
+</table>
+<div class="callout warn"><strong>Guardrail:</strong> never <code>terraform apply</code> in
+<code>envs/prod</code> without a clean plan and explicit approval. Staging is cost-optimised: no RDS,
+no email stack, no CDN.</div>
+
+<h2 id="flows" class="page-break">11 · Key data flows</h2>
+<h3>11.1 Learn-and-certify (verified end-to-end)</h3>
+<pre>
+register → verify email (enable user) → login → browse catalog
+   → buy (gateway) OR admin manual enrol → Course Access (365 days)
+   → learn: lessons render, Vimeo embed, mark_lesson_complete → progress %
+   → per-lesson gating quizzes + final quiz (server-graded, attempt-limited)
+   → 100% lessons + all quizzes passed → certificate auto-issued → PDF
+</pre>
+<h3>11.2 Admin content lifecycle</h3>
+<pre>
+create/clone course → TipTap body + curriculum builder (chapters/lessons)
+   → resumable Vimeo upload (tus) → attach video ids → Save Draft ⇄ Publish
+   → manage quizzes, categories, enrolments, reviews, payments, Telegram broadcast
+</pre>
+
+<h2 id="delivery">12 · Branching &amp; delivery</h2>
+<p>Changes are promoted through environments — never pushed straight to prod.</p>
+<pre>
+feature/bugfix/hotfix branch  →  staging  →  main (prod)
+        (local dev)              (verify)     (release)
+</pre>
+<ul>
+  <li>Never commit directly to <code>main</code> or <code>staging</code>; both advance only via merged PRs.</li>
+  <li>Work on <code>feature/*</code>, <code>bugfix/*</code>, or <code>hotfix/*</code> off <code>staging</code>.</li>
+  <li>Open a PR against <code>staging</code>; tests must pass and the change is verified on staging before merge.</li>
+  <li>Promote by merging <code>staging → main</code>; deploying <code>main</code> is the prod release.</li>
+  <li>Frontends auto-deploy from GitHub via Vercel; backend files deploy with
+      <code>./scripts/deploy-backend.sh {staging|prod}</code>.</li>
+</ul>
+
+<footer>
+  Delta SPMU Academy — internal architecture reference. Generated from the repository working tree on 2026-07-15.
+  Secrets, IP addresses, and account identifiers are intentionally omitted (public repository).
+</footer>
+
+</body>
+</html>
