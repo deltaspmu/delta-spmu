@@ -4,7 +4,7 @@
 Delta SPMU Academy is an e-learning platform for permanent makeup (SPMU) training based in Addis Ababa, Ethiopia. It follows a blended learning model: online theory via LMS + in-person practical training. The architecture is identical to the production Afritutors platform.
 
 ## Domains
-- `deltaspmu.com` — Marketing site (S3 + CloudFront) — ALREADY BUILT (root of this repo)
+- `deltaspmu.com` — Marketing site (served by Vercel; legacy S3+CloudFront pipeline exists but is unused) — ALREADY BUILT (root of this repo)
 - `api.deltaspmu.com` — Frappe backend API (EC2)
 - `learn.deltaspmu.com` — Student portal (Vercel)
 - `admin.deltaspmu.com` — Admin portal (Vercel)
@@ -33,11 +33,11 @@ Delta_SPMU/
 | Backend | Frappe v15 (Python) with LMS app |
 | Database | MariaDB 10.11 on AWS RDS |
 | Compute | AWS EC2 t3.small |
-| Video | Vimeo (tag: `deltaspmu-lms`) |
+| Video | Vimeo (per-env tag, see below) |
 | Frontend hosting | Vercel |
 | Marketing hosting | S3 + CloudFront |
 | DNS + SSL | Cloudflare |
-| Email | AWS Lambda + DynamoDB + API Gateway + Resend |
+| Email | Resend (prod/staging); Mailpit for local dev (`localhost:8025`) |
 | Payments | telebirr, Chapa, EthSwitch, CBE |
 | IaC | Terraform |
 
@@ -121,13 +121,41 @@ BUNDLE_ID = "all-courses-bundle", BUNDLE_PRICE = 20000 ETB (per-course = 12500 E
 The bundle is a *virtual* product (no LMS Course row): `payments_api.initiate_payment`
 and `get_course_price` special-case `BUNDLE_ID` to charge/display BUNDLE_PRICE.
 
-### Vimeo tag: `deltaspmu-lms` (not `afritutors-lms`)
+### Vimeo tag is per-environment
+`vimeo_api._get_tag()` reads `vimeo_tag` from `site_config`, so uploads stay
+isolated per environment:
+- **prod** — `deltaspmu-lms` (default; not `afritutors-lms`)
+- **staging** — `deltaspmu-lms-staging`
+- **dev** — `deltaspmu-lms-dev`
+
+This keeps staging/dev uploads out of prod's admin video library.
 
 ## Environments (see docs/ENVIRONMENTS.md)
-- **dev** — local Docker (`dev/docker-compose.yml`, site `lms.localhost`); sync backend edits with `./scripts/dev-sync-backend.sh`
-- **staging** — EC2 + on-instance MariaDB, `staging-api.deltaspmu.com`; portals on the `staging` branch → `staging-learn`/`staging-admin.deltaspmu.com`
+- **dev** — local Docker (`dev/docker-compose.yml`, site `lms.localhost`); sync backend edits with `./scripts/dev-sync-backend.sh`. Includes a Mailpit service (`localhost:8025`) so outgoing mail is catchable without a real Resend key. Carries Vimeo + Mailpit config only.
+- **staging** — EC2 + on-instance MariaDB, `staging-api.deltaspmu.com`; portals on the `staging` branch → `staging-learn`/`staging-admin.deltaspmu.com`. `site_config` carries Vimeo, Chapa (test), Resend, and Telegram keys. telebirr + EthSwitch are deferred.
 - **prod** — the live stack (`api`/`learn`/`admin.deltaspmu.com`); AWS resources are named `deltaspmu-dev-*` (legacy, accepted debt)
+- Secrets live in `~/.deltaspmu/staging-keys.env` and are **never committed**.
 - Terraform: `infrastructure/envs/{staging,prod}` roots + shared `infrastructure/modules/`; remote state in S3 `deltaspmu-tfstate-534727954268`. NEVER apply in `envs/prod` without a clean plan + explicit user approval.
+
+## Branching Strategy & Workflow
+Changes are **promoted through environments — never pushed straight to prod**:
+
+```
+feature/bugfix/hotfix branch  →  staging  →  main (prod)
+        (local dev)              (verify)     (release)
+```
+
+Rules:
+- **Never commit or push directly to `main`.** `main` is the prod/release branch; it only ever advances via a reviewed merge from `staging`.
+- **Never push directly to `staging` either.** It only advances via merged PRs from working branches.
+- Do all work on a short-lived branch off `staging`, named by intent:
+  - `feature/<slug>` — new functionality
+  - `bugfix/<slug>` — non-urgent fixes
+  - `hotfix/<slug>` — urgent prod fixes (still promoted through staging unless the user explicitly directs otherwise)
+- Validate locally against **dev** (local Docker) first.
+- Open a **PR against `staging`**. CI/tests must pass and the change is verified on the staging stack before merge.
+- Once staging is green and the change is confirmed, promote by **merging `staging` → `main`** (via PR). Deploying `main` is the prod release.
+- Keep `staging` in sync: it should be at or ahead of `main`. (As of this writing `staging` trails `main` because earlier work landed on `main` directly — reconcile before adopting this flow.)
 
 ## Server Commands
 ```bash
