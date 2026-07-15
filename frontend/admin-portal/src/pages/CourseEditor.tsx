@@ -904,6 +904,14 @@ export default function CourseEditor() {
   // Save course mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // title, short_introduction, instructors and description are mandatory
+      // on LMS Course — fail early with a real message instead of a server
+      // MandatoryError.
+      if (!title.trim()) throw new Error('Title is required.');
+      if (!shortIntro.trim()) throw new Error('Short introduction is required.');
+      if (!instructor) throw new Error('An instructor is required.');
+      if (!description.replace(/<[^>]*>/g, '').trim()) throw new Error('Description is required.');
+
       const courseData = {
         title,
         short_introduction: shortIntro,
@@ -920,15 +928,14 @@ export default function CourseEditor() {
 
       let courseName = id;
       if (isNew) {
-        const res = await createCourse(courseData);
+        // instructors is a mandatory child table — it must be in the create
+        // payload itself; a post-create call can't satisfy the validator.
+        const res = await createCourse({ ...courseData, instructors: [{ instructor }] });
         courseName = res.name;
       } else {
         await updateCourse(id!, courseData);
-      }
-
-      // Persist the selected instructor (Course Instructor child table).
-      if (courseName) {
-        await setCourseInstructor(courseName, instructor);
+        // Persist the selected instructor (Course Instructor child table).
+        await setCourseInstructor(id!, instructor);
       }
 
       // Save chapters & lessons. NOTE: Course Chapter and Course Lesson
@@ -1096,7 +1103,7 @@ export default function CourseEditor() {
 
       {saveMutation.isError && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-          Failed to save course. Please try again.
+          {(saveMutation.error as Error)?.message || 'Failed to save course. Please try again.'}
         </div>
       )}
       {actionError && (
@@ -1150,17 +1157,17 @@ export default function CourseEditor() {
         <h2 className="font-heading text-lg font-semibold text-dark">Basic Information</h2>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Course title" />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Short Introduction</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Short Introduction *</label>
           <input type="text" value={shortIntro} onChange={(e) => setShortIntro(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Brief description for cards and previews" />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
           <RichTextEditor content={description} onChange={setDescription} placeholder="Full course description..." uploadDocname={isNew ? undefined : id} />
         </div>
 
@@ -1246,9 +1253,9 @@ export default function CourseEditor() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instructor *</label>
             <select value={instructor} onChange={(e) => setInstructor(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-              <option value="">No instructor</option>
+              <option value="">Select an instructor</option>
               {instructors.map((u: any) => (
                 <option key={u.name} value={u.name}>{u.full_name || u.name}</option>
               ))}
