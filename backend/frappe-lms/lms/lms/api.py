@@ -3761,6 +3761,17 @@ def admin_delete_lesson(lesson=None):
     if not frappe.db.exists("Course Lesson", lesson):
         return {"deleted": False, "reason": "not_found", "lesson": lesson}
 
+    removed_progress = _delete_lesson_cascade(lesson)
+    frappe.db.commit()
+    return {"deleted": True, "lesson": lesson, "removed_progress": removed_progress}
+
+
+def _delete_lesson_cascade(lesson):
+    """Delete a Course Lesson after clearing records that would block it.
+
+    Returns the number of LMS Course Progress rows removed. No commit —
+    callers commit once at the end of their cascade.
+    """
     # Remove dependent progress records (these trigger LinkExistsError).
     removed_progress = 0
     for p in frappe.get_all("LMS Course Progress", filters={"lesson": lesson}, pluck="name"):
@@ -3779,8 +3790,81 @@ def admin_delete_lesson(lesson=None):
 
     # force=1 bypasses any residual link check after known dependents are cleared.
     frappe.delete_doc("Course Lesson", lesson, ignore_permissions=True, force=True)
+    return removed_progress
+
+
+def _require_system_manager(action):
+    actor = frappe.session.user
+    if actor == "Guest":
+        frappe.throw(_("Authentication required."), frappe.AuthenticationError)
+    if "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Only administrators can {0}.").format(action), frappe.PermissionError)
+
+
+def _delete_chapter_cascade(chapter):
+    """Delete a Course Chapter and all its lessons. No commit."""
+    removed_lessons = 0
+    for lesson in frappe.get_all("Course Lesson", filters={"chapter": chapter}, pluck="name"):
+        _delete_lesson_cascade(lesson)
+        removed_lessons += 1
+    frappe.delete_doc("Course Chapter", chapter, ignore_permissions=True, force=True)
+    return removed_lessons
+
+
+@frappe.whitelist()
+def admin_delete_chapter(chapter=None):
+    """Delete a Course Chapter and all lessons inside it (admin only).
+
+    A raw resource DELETE fails with LinkExistsError while Course Lesson rows
+    still link to the chapter; this cascades through them first.
+    """
+    _require_system_manager("delete chapters")
+
+    if not chapter:
+        frappe.throw(_("chapter is required."), frappe.MandatoryError)
+    if not frappe.db.exists("Course Chapter", chapter):
+        return {"deleted": False, "reason": "not_found", "chapter": chapter}
+
+    removed_lessons = _delete_chapter_cascade(chapter)
     frappe.db.commit()
-    return {"deleted": True, "lesson": lesson, "removed_progress": removed_progress}
+    return {"deleted": True, "chapter": chapter, "removed_lessons": removed_lessons}
+
+
+@frappe.whitelist()
+def admin_delete_course(course=None):
+    """Hard-delete an LMS Course and everything inside it (admin only).
+
+    Cascades through chapters and lessons, then removes the course's own
+    student data (LMS Course Progress, LMS Enrollment) and reviews, which
+    would otherwise raise LinkExistsError. Anything else still linking
+    (e.g. payment records) fails loudly with Frappe's message — deliberate.
+    The soft-archive path (`delete_course`) is unaffected.
+    """
+    _require_system_manager("delete courses")
+
+    if not course:
+        frappe.throw(_("course is required."), frappe.MandatoryError)
+    if not frappe.db.exists("LMS Course", course):
+        return {"deleted": False, "reason": "not_found", "course": course}
+
+    removed_chapters = 0
+    removed_lessons = 0
+    for chapter in frappe.get_all("Course Chapter", filters={"course": course}, pluck="name"):
+        removed_lessons += _delete_chapter_cascade(chapter)
+        removed_chapters += 1
+
+    for doctype in ("LMS Course Progress", "LMS Enrollment", "LMS Course Review"):
+        for name in frappe.get_all(doctype, filters={"course": course}, pluck="name"):
+            frappe.delete_doc(doctype, name, ignore_permissions=True, force=True)
+
+    frappe.delete_doc("LMS Course", course, ignore_permissions=True, force=True)
+    frappe.db.commit()
+    return {
+        "deleted": True,
+        "course": course,
+        "removed_chapters": removed_chapters,
+        "removed_lessons": removed_lessons,
+    }
 
 
 # ---------------------------------------------------------------------------

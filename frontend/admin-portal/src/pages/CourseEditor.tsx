@@ -992,10 +992,36 @@ export default function CourseEditor() {
     setChapters((prev) => prev.map((ch) => (ch._key === key ? { ...ch, ...data } : ch)));
   };
 
+  // Chapter deletion cascades through its lessons on the server, so saved
+  // chapters go through a confirmation modal; unsaved ones just drop locally.
+  const [deleteChapterTarget, setDeleteChapterTarget] = useState<ChapterState | null>(null);
+  const [deletingChapter, setDeletingChapter] = useState(false);
+
   const removeChapter = (key: string) => {
     const ch = chapters.find((c) => c._key === key);
-    if (ch?.name) deleteChapter(ch.name);
-    setChapters((prev) => prev.filter((c) => c._key !== key));
+    if (!ch) return;
+    if (ch.name) {
+      setDeleteChapterTarget(ch);
+    } else {
+      setChapters((prev) => prev.filter((c) => c._key !== key));
+    }
+  };
+
+  const confirmDeleteChapter = async () => {
+    const ch = deleteChapterTarget;
+    if (!ch?.name) return;
+    setDeletingChapter(true);
+    try {
+      await deleteChapter(ch.name);
+      setChapters((prev) => prev.filter((c) => c._key !== ch._key));
+      setDeleteChapterTarget(null);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete chapter.';
+      setActionError(String(msg));
+      setDeleteChapterTarget(null);
+    } finally {
+      setDeletingChapter(false);
+    }
   };
 
   // Chapter drag-and-drop reorder. Reordering the array is all that's needed —
@@ -1420,6 +1446,38 @@ export default function CourseEditor() {
         )}
       </div>
       </>
+      )}
+
+      {/* Delete Chapter Confirmation Modal */}
+      {deleteChapterTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="font-heading font-semibold text-dark">Delete Chapter</h3>
+              <button onClick={() => setDeleteChapterTarget(null)} className="ml-auto text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Deleting <strong>{deleteChapterTarget.title || 'this chapter'}</strong> will
+              permanently delete <strong>all {deleteChapterTarget._lessons.length} lesson{deleteChapterTarget._lessons.length === 1 ? '' : 's'}</strong> inside
+              it. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteChapterTarget(null)} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button
+                onClick={confirmDeleteChapter}
+                disabled={deletingChapter}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingChapter ? 'Deleting...' : 'Delete Chapter'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

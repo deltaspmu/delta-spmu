@@ -180,8 +180,9 @@ export async function updateCourse(name: string, data: Record<string, any>) {
 }
 
 export async function deleteCourse(name: string) {
-  const res = await api.delete(docResource('LMS Course', name));
-  return unwrap(res);
+  // Cascade delete (chapters, lessons, enrollments, progress) — a raw
+  // resource DELETE fails with LinkExistsError while any of those exist.
+  return call('lms.lms.api.admin_delete_course', { course: name });
 }
 
 export async function cloneCourse(name: string) {
@@ -210,8 +211,8 @@ export async function updateChapter(name: string, data: Record<string, any>) {
 }
 
 export async function deleteChapter(name: string) {
-  const res = await api.delete(docResource('Course Chapter', name));
-  return unwrap(res);
+  // Cascade delete (lessons first) — see deleteCourse.
+  return call('lms.lms.api.admin_delete_chapter', { chapter: name });
 }
 
 // Lessons
