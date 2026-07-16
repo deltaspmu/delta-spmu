@@ -34,6 +34,13 @@ export default function CourseList() {
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const openDeleteModal = (course: Course | null) => {
+    setDeleteConfirmText('');
+    deleteMutation.reset();
+    setDeleteTarget(course);
+  };
 
   // Field names match the real LMS Course columns. instructor_name lives on
   // a child table (Course Instructor → User) so we don't query it here —
@@ -169,7 +176,7 @@ export default function CourseList() {
                   <button onClick={() => cloneMutation.mutate(course.name)} className="flex items-center gap-1 text-xs text-gray-600 hover:text-dark">
                     <Copy className="w-3.5 h-3.5" /> Clone
                   </button>
-                  <button onClick={() => setDeleteTarget(course)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 ml-auto">
+                  <button onClick={() => openDeleteModal(course)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 ml-auto">
                     <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
                 </div>
@@ -212,7 +219,7 @@ export default function CourseList() {
                     <div className="flex gap-2">
                       <button onClick={() => navigate(`/courses/${course.name}`)} className="p-1 text-gray-500 hover:text-dark"><Edit className="w-4 h-4" /></button>
                       <button onClick={() => cloneMutation.mutate(course.name)} className="p-1 text-gray-500 hover:text-dark"><Copy className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteTarget(course)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => openDeleteModal(course)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -239,17 +246,36 @@ export default function CourseList() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{deleteTarget.title}</strong>? This action cannot be undone.
+            <p className="text-sm text-gray-600 mb-4">
+              Deleting <strong>{deleteTarget.title}</strong> will permanently delete{' '}
+              <strong>all chapters and lessons</strong> inside it, along with all student
+              enrollment and progress records for this course. This action cannot be undone.
             </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type the course title to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteTarget.title}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4"
+            />
+            {deleteMutation.isError && (
+              <p className="text-sm text-red-600 mb-4">
+                {(deleteMutation.error as any)?.response?.data?.message ||
+                  (deleteMutation.error as Error)?.message ||
+                  'Failed to delete course.'}
+              </p>
+            )}
             <div className="flex justify-end gap-3">
               <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
               <button
                 onClick={() => deleteMutation.mutate(deleteTarget.name)}
-                disabled={deleteMutation.isPending}
+                disabled={deleteMutation.isPending || deleteConfirmText !== deleteTarget.title}
                 className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Course'}
               </button>
             </div>
           </div>
