@@ -912,6 +912,21 @@ export default function CourseEditor() {
       if (!instructor) throw new Error('An instructor is required.');
       if (!description.replace(/<[^>]*>/g, '').trim()) throw new Error('Description is required.');
 
+      // Validate the entire curriculum before the first API write. Chapters and
+      // lessons are saved sequentially below, so discovering an empty lesson
+      // title inside that loop would leave everything saved before it in the
+      // database while the remaining local changes are not persisted.
+      for (let ci = 0; ci < chapters.length; ci++) {
+        const chapter = chapters[ci];
+        for (let li = 0; li < chapter._lessons.length; li++) {
+          if (!(chapter._lessons[li].title || '').trim()) {
+            throw new Error(
+              `Lesson ${li + 1} in "${chapter.title || `Chapter ${ci + 1}`}" needs a title before the course can be saved.`,
+            );
+          }
+        }
+      }
+
       const courseData = {
         title,
         short_introduction: shortIntro,
