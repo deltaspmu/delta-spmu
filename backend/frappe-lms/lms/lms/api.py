@@ -437,7 +437,7 @@ def get_categories(doctype=None, filters=None):
     classification lists for filter dropdowns on the frontend.
 
     Args:
-        doctype (str, optional): Doctype to query. Defaults to "Course Category".
+        doctype (str, optional): Doctype to query. Defaults to "LMS Category".
         filters (str|dict, optional): Additional filters as JSON or dict.
 
     Returns:
@@ -449,13 +449,27 @@ def get_categories(doctype=None, filters=None):
             "LMS Category",
         ]
 
-        doctype = cstr(doctype).strip() if doctype else "Course Category"
+        doctype = cstr(doctype).strip() if doctype else "LMS Category"
 
         if doctype not in allowed_doctypes:
             frappe.throw(
                 _("Invalid category doctype: {0}").format(doctype),
                 frappe.ValidationError,
             )
+
+        # ``Course Category`` was the name used by an older LMS version. This
+        # fork stores course categories in ``LMS Category`` and does not have a
+        # physical ``tabCourse Category`` table. Keep legacy callers working
+        # without letting Frappe fail while trying to inspect that missing
+        # table's columns.
+        if doctype == "Course Category":
+            doctype = "LMS Category"
+
+        # A newly provisioned or partially migrated site can have the DocType
+        # metadata before its SQL table exists. Category filters should degrade
+        # to an empty list instead of failing the entire catalog/admin page.
+        if not frappe.db.table_exists(doctype):
+            return []
 
         parsed_filters = _parse_json_param(filters) or {}
 
@@ -483,13 +497,14 @@ def get_categories(doctype=None, filters=None):
         for r in rows:
             cat = {
                 "name": r["name"],
+                "category": r.get("category") or r["name"],
                 "title": r.get("category") or r["name"],
                 "image": None,
                 "description": None,
                 "creation": r.get("creation"),
                 "course_count": frappe.db.count(
                     "LMS Course",
-                    filters={"category": r["name"], "published": 1},
+                    filters={"category": r["name"]},
                 ),
             }
             categories.append(cat)
