@@ -356,6 +356,10 @@ export async function addQuizQuestion(quiz: string, data: Record<string, any>) {
   return call('lms.lms.custom_api.add_quiz_question', { quiz, ...data });
 }
 
+export async function updateQuizQuestion(question: string, data: Record<string, any>) {
+  return call('lms.lms.custom_api.update_quiz_question', { question_name: question, ...data });
+}
+
 export async function deleteQuizQuestion(_quiz: string, question: string) {
   return call('lms.lms.custom_api.delete_quiz_question', { question_name: question });
 }

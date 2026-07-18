@@ -7,6 +7,7 @@ import {
   updateQuiz,
   deleteQuiz,
   addQuizQuestion,
+  updateQuizQuestion,
   deleteQuizQuestion,
   getCourses,
 } from '@/api/client';
@@ -20,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
+  Pencil,
   CheckCircle,
   Circle,
 } from 'lucide-react';
@@ -128,26 +130,33 @@ function QuizModal({
 }
 
 // ---------------------------------------------------------------------------
-// Add Question Form
+// Add/Edit Question Form
 // ---------------------------------------------------------------------------
-function AddQuestionForm({
+function QuestionForm({
   quizName,
+  initialQuestion,
   onAdded,
+  onCancel,
 }: {
   quizName: string;
+  initialQuestion?: QuizQuestion;
   onAdded: () => void;
+  onCancel?: () => void;
 }) {
-  const [question, setQuestion] = useState('');
-  const [questionType, setQuestionType] = useState<'Single Choice' | 'Multiple Choice'>('Single Choice');
-  const [options, setOptions] = useState<{ option: string; is_correct: boolean }[]>([
-    { option: '', is_correct: false },
-    { option: '', is_correct: false },
-  ]);
-  const [marks, setMarks] = useState(1);
+  const [question, setQuestion] = useState(initialQuestion?.question || '');
+  const [questionType, setQuestionType] = useState<'Single Choice' | 'Multiple Choice'>(initialQuestion?.question_type || 'Single Choice');
+  const [options, setOptions] = useState<{ option: string; is_correct: boolean }[]>(
+    initialQuestion?.options.map((option) => ({ option: option.option, is_correct: !!option.is_correct })) ||
+    [{ option: '', is_correct: false }, { option: '', is_correct: false }],
+  );
+  const [marks, setMarks] = useState(initialQuestion?.marks || 1);
   const [negativeMarks, setNegativeMarks] = useState(0);
 
-  const addMutation = useMutation({
-    mutationFn: (data: Record<string, any>) => addQuizQuestion(quizName, data),
+  const saveMutation = useMutation({
+    mutationFn: (data: Record<string, any>) =>
+      initialQuestion
+        ? updateQuizQuestion(initialQuestion.name, data)
+        : addQuizQuestion(quizName, data),
     onSuccess: () => {
       setQuestion('');
       setOptions([{ option: '', is_correct: false }, { option: '', is_correct: false }]);
@@ -157,7 +166,9 @@ function AddQuestionForm({
     },
   });
 
-  const addOption = () => setOptions([...options, { option: '', is_correct: false }]);
+  const addOption = () => {
+    if (options.length < 4) setOptions([...options, { option: '', is_correct: false }]);
+  };
 
   const removeOption = (index: number) => {
     if (options.length <= 2) return;
@@ -177,7 +188,7 @@ function AddQuestionForm({
   };
 
   const handleSubmit = () => {
-    addMutation.mutate({
+    saveMutation.mutate({
       question,
       question_type: questionType,
       options: JSON.stringify(options),
@@ -186,9 +197,19 @@ function AddQuestionForm({
     });
   };
 
+  const validOptions = options.filter((option) => option.option.trim());
+  const canSave =
+    question.trim() &&
+    validOptions.length >= 2 &&
+    validOptions.some((option) => option.is_correct) &&
+    (questionType === 'Multiple Choice' || validOptions.filter((option) => option.is_correct).length === 1);
+
   return (
     <div className="border border-dashed border-gray-300 rounded-lg p-4 space-y-3 bg-gray-50/50">
-      <h5 className="text-sm font-medium text-dark">Add Question</h5>
+      <div className="flex items-center justify-between">
+        <h5 className="text-sm font-medium text-dark">{initialQuestion ? 'Edit Question' : 'Add Question'}</h5>
+        {onCancel && <button type="button" onClick={onCancel} className="text-xs text-gray-500 hover:text-dark">Cancel editing</button>}
+      </div>
       <div>
         <input
           type="text"
@@ -235,15 +256,20 @@ function AddQuestionForm({
             </button>
           </div>
         ))}
-        <button type="button" onClick={addOption} className="text-xs text-primary-dark hover:text-dark">+ Add Option</button>
+        {options.length < 4 && <button type="button" onClick={addOption} className="text-xs text-primary-dark hover:text-dark">+ Add Option</button>}
       </div>
+      {saveMutation.isError && (
+        <p className="text-xs text-red-600">
+          {(saveMutation.error as any)?.response?.data?.exception || (saveMutation.error as Error).message || 'Unable to save question'}
+        </p>
+      )}
       <div className="flex justify-end">
         <button
           onClick={handleSubmit}
-          disabled={!question || options.every((o) => !o.option) || addMutation.isPending}
+          disabled={!canSave || saveMutation.isPending}
           className="px-4 py-1.5 text-sm bg-primary text-dark rounded-lg hover:bg-primary-dark disabled:opacity-50"
         >
-          {addMutation.isPending ? 'Adding...' : 'Add Question'}
+          {saveMutation.isPending ? 'Saving...' : initialQuestion ? 'Save Question' : 'Add Question'}
         </button>
       </div>
     </div>
@@ -255,6 +281,7 @@ function AddQuestionForm({
 // ---------------------------------------------------------------------------
 function QuizQuestions({ quizName }: { quizName: string }) {
   const queryClient = useQueryClient();
+  const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['quiz-questions', quizName],
@@ -263,7 +290,10 @@ function QuizQuestions({ quizName }: { quizName: string }) {
 
   const deleteQMutation = useMutation({
     mutationFn: (questionName: string) => deleteQuizQuestion(quizName, questionName),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] }),
+    onSuccess: () => {
+      setEditingQuestion(null);
+      queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] });
+    },
   });
 
   const questions: QuizQuestion[] = Array.isArray(data) ? data : data?.questions || [];
@@ -285,12 +315,18 @@ function QuizQuestions({ quizName }: { quizName: string }) {
                 <span className="text-sm font-medium text-dark">{q.question}</span>
                 <span className="ml-2 text-xs text-gray-400">({q.question_type} | {q.marks} marks)</span>
               </div>
-              <button
-                onClick={() => { if (confirm('Delete this question?')) deleteQMutation.mutate(q.name); }}
-                className="p-1 text-red-400 hover:text-red-600 shrink-0"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex shrink-0 gap-1">
+                <button onClick={() => setEditingQuestion(q)} aria-label={`Edit question ${idx + 1}`} className="p-1 text-gray-400 hover:text-dark">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => { if (confirm('Delete this question?')) deleteQMutation.mutate(q.name); }}
+                  aria-label={`Delete question ${idx + 1}`}
+                  className="p-1 text-red-400 hover:text-red-600"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-1">
               {q.options.map((opt, oi) => (
@@ -303,7 +339,16 @@ function QuizQuestions({ quizName }: { quizName: string }) {
           </div>
         ))
       )}
-      <AddQuestionForm quizName={quizName} onAdded={() => queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] })} />
+      <QuestionForm
+        key={editingQuestion?.name || 'new'}
+        quizName={quizName}
+        initialQuestion={editingQuestion || undefined}
+        onCancel={editingQuestion ? () => setEditingQuestion(null) : undefined}
+        onAdded={() => {
+          setEditingQuestion(null);
+          queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] });
+        }}
+      />
     </div>
   );
 }
