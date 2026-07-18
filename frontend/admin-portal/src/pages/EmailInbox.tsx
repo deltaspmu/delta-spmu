@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getEmails, getEmail, updateEmail, deleteEmail } from '@/api/emailClient';
+import {
+  deleteEmail,
+  getEmail,
+  getEmails,
+  isEmailApiConfigured,
+  updateEmail,
+} from '@/api/emailClient';
 import type { Email } from '@/api/emailClient';
+import EmailCrmUnavailable from '@/components/EmailCrmUnavailable';
 import {
   Mail, Search, Inbox, Send, Archive, Trash2, Eye, MailOpen,
   ArrowUpRight, ArrowDownLeft, PenSquare,
@@ -11,6 +18,14 @@ import { useNavigate } from 'react-router-dom';
 type Tab = 'all' | 'inbox' | 'sent' | 'archived';
 
 export default function EmailInbox() {
+  if (!isEmailApiConfigured) {
+    return <EmailCrmUnavailable />;
+  }
+
+  return <EmailInboxContent />;
+}
+
+function EmailInboxContent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('all');

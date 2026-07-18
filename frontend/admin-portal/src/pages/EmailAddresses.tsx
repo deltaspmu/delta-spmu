@@ -1,10 +1,24 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getEmailAddresses, addEmailAddress, deleteEmailAddress } from '@/api/emailClient';
+import {
+  addEmailAddress,
+  deleteEmailAddress,
+  getEmailAddresses,
+  isEmailApiConfigured,
+} from '@/api/emailClient';
 import type { EmailAddress } from '@/api/emailClient';
+import EmailCrmUnavailable from '@/components/EmailCrmUnavailable';
 import { Plus, Trash2, Mail, CheckCircle } from 'lucide-react';
 
 export default function EmailAddresses() {
+  if (!isEmailApiConfigured) {
+    return <EmailCrmUnavailable />;
+  }
+
+  return <EmailAddressesContent />;
+}
+
+function EmailAddressesContent() {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
