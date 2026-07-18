@@ -16,7 +16,12 @@ export default function Categories() {
     queryFn: () => getCategories({ limit_page_length: 100, order_by: 'category asc' }),
   });
 
-  const categories: Category[] = data ?? [];
+  const categories: Category[] = Array.isArray(data)
+    ? data.map((cat: Category) => ({
+        ...cat,
+        category: cat.category || cat.title || cat.name,
+      }))
+    : [];
 
   const createMut = useMutation({
     mutationFn: (catName: string) => createCategory({ category: catName }),
@@ -51,7 +56,7 @@ export default function Categories() {
 
   const openEdit = (cat: Category) => {
     setEditing(cat);
-    setName(cat.category);
+    setName(cat.category || cat.title || cat.name);
     setModalOpen(true);
   };
 

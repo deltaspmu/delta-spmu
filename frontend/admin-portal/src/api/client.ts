@@ -239,8 +239,10 @@ export async function deleteLesson(name: string) {
 // ---------------------------------------------------------------------------
 
 export async function getCategories(params?: Record<string, any>) {
-  const res = await api.get(resource('LMS Category'), { params });
-  return unwrap(res);
+  return call('lms.lms.api.get_categories', {
+    doctype: 'LMS Category',
+    filters: params?.filters,
+  });
 }
 
 export async function createCategory(data: Record<string, any>) {
