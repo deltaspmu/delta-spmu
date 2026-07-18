@@ -297,6 +297,10 @@ function QuizQuestions({ quizName }: { quizName: string }) {
   });
 
   const questions: QuizQuestion[] = Array.isArray(data) ? data : data?.questions || [];
+  const handleQuestionSaved = () => {
+    setEditingQuestion(null);
+    queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] });
+  };
 
   if (isLoading) {
     return <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary-dark" /></div>;
@@ -308,47 +312,55 @@ function QuizQuestions({ quizName }: { quizName: string }) {
         <p className="text-sm text-gray-400 text-center py-2">No questions yet</p>
       ) : (
         questions.map((q, idx) => (
-          <div key={q.name} className="bg-white border border-gray-200 rounded-lg p-3">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div>
-                <span className="text-xs text-gray-400 mr-2">Q{idx + 1}</span>
-                <span className="text-sm font-medium text-dark">{q.question}</span>
-                <span className="ml-2 text-xs text-gray-400">({q.question_type} | {q.marks} marks)</span>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <button onClick={() => setEditingQuestion(q)} aria-label={`Edit question ${idx + 1}`} className="p-1 text-gray-400 hover:text-dark">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => { if (confirm('Delete this question?')) deleteQMutation.mutate(q.name); }}
-                  aria-label={`Delete question ${idx + 1}`}
-                  className="p-1 text-red-400 hover:text-red-600"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-1">
-              {q.options.map((opt, oi) => (
-                <div key={oi} className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded ${opt.is_correct ? 'bg-green-50 text-green-700' : 'text-gray-500'}`}>
-                  {opt.is_correct ? <CheckCircle className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
-                  {opt.option}
+          <React.Fragment key={q.name}>
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <span className="text-xs text-gray-400 mr-2">Q{idx + 1}</span>
+                  <span className="text-sm font-medium text-dark">{q.question}</span>
+                  <span className="ml-2 text-xs text-gray-400">({q.question_type} | {q.marks} marks)</span>
                 </div>
-              ))}
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => setEditingQuestion(q)} aria-label={`Edit question ${idx + 1}`} className="p-1 text-gray-400 hover:text-dark">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm('Delete this question?')) deleteQMutation.mutate(q.name); }}
+                    aria-label={`Delete question ${idx + 1}`}
+                    className="p-1 text-red-400 hover:text-red-600"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {q.options.map((opt, oi) => (
+                  <div key={oi} className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded ${opt.is_correct ? 'bg-green-50 text-green-700' : 'text-gray-500'}`}>
+                    {opt.is_correct ? <CheckCircle className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+                    {opt.option}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+            {editingQuestion?.name === q.name && (
+              <QuestionForm
+                key={q.name}
+                quizName={quizName}
+                initialQuestion={editingQuestion}
+                onCancel={() => setEditingQuestion(null)}
+                onAdded={handleQuestionSaved}
+              />
+            )}
+          </React.Fragment>
         ))
       )}
-      <QuestionForm
-        key={editingQuestion?.name || 'new'}
-        quizName={quizName}
-        initialQuestion={editingQuestion || undefined}
-        onCancel={editingQuestion ? () => setEditingQuestion(null) : undefined}
-        onAdded={() => {
-          setEditingQuestion(null);
-          queryClient.invalidateQueries({ queryKey: ['quiz-questions', quizName] });
-        }}
-      />
+      {!editingQuestion && (
+        <QuestionForm
+          key="new"
+          quizName={quizName}
+          onAdded={handleQuestionSaved}
+        />
+      )}
     </div>
   );
 }
