@@ -7,6 +7,8 @@ import axios, { type AxiosInstance } from 'axios';
 const EMAIL_API_URL = import.meta.env.VITE_EMAIL_API_URL;
 const EMAIL_API_KEY = import.meta.env.VITE_EMAIL_API_KEY;
 
+export const isEmailApiConfigured = Boolean(EMAIL_API_URL && EMAIL_API_KEY);
+
 const emailApi: AxiosInstance = axios.create({
   baseURL: EMAIL_API_URL,
   timeout: 15000,
@@ -80,6 +82,20 @@ export interface PresignedUrlResponse {
 // Error handler
 // ---------------------------------------------------------------------------
 
+function requireEmailApi(): void {
+  if (!isEmailApiConfigured) {
+    throw new Error('Email CRM is not configured for this environment.');
+  }
+}
+
+function unwrapList<T>(data: unknown): T[] {
+  const payload =
+    data && typeof data === 'object' && 'data' in data
+      ? (data as { data: unknown }).data
+      : data;
+  return Array.isArray(payload) ? payload : [];
+}
+
 function handleError(error: unknown): never {
   if (axios.isAxiosError(error)) {
     const message =
@@ -98,8 +114,9 @@ function handleError(error: unknown): never {
 
 export async function getEmails(params?: EmailListParams): Promise<Email[]> {
   try {
+    requireEmailApi();
     const res = await emailApi.get('/emails', { params });
-    return res.data?.data ?? res.data;
+    return unwrapList<Email>(res.data);
   } catch (error) {
     handleError(error);
   }
@@ -107,6 +124,7 @@ export async function getEmails(params?: EmailListParams): Promise<Email[]> {
 
 export async function getEmail(id: string): Promise<Email> {
   try {
+    requireEmailApi();
     const res = await emailApi.get(`/emails/${id}`);
     return res.data?.data ?? res.data;
   } catch (error) {
@@ -116,6 +134,7 @@ export async function getEmail(id: string): Promise<Email> {
 
 export async function sendEmail(data: SendEmailPayload): Promise<Email> {
   try {
+    requireEmailApi();
     const res = await emailApi.post('/emails', data);
     return res.data?.data ?? res.data;
   } catch (error) {
@@ -128,6 +147,7 @@ export async function updateEmail(
   data: EmailUpdatePayload,
 ): Promise<Email> {
   try {
+    requireEmailApi();
     const res = await emailApi.patch(`/emails/${id}`, data);
     return res.data?.data ?? res.data;
   } catch (error) {
@@ -137,6 +157,7 @@ export async function updateEmail(
 
 export async function deleteEmail(id: string): Promise<void> {
   try {
+    requireEmailApi();
     await emailApi.delete(`/emails/${id}`);
   } catch (error) {
     handleError(error);
@@ -149,8 +170,9 @@ export async function deleteEmail(id: string): Promise<void> {
 
 export async function getEmailAddresses(): Promise<EmailAddress[]> {
   try {
+    requireEmailApi();
     const res = await emailApi.get('/email-addresses');
-    return res.data?.data ?? res.data;
+    return unwrapList<EmailAddress>(res.data);
   } catch (error) {
     handleError(error);
   }
@@ -161,6 +183,7 @@ export async function addEmailAddress(
   name?: string,
 ): Promise<EmailAddress> {
   try {
+    requireEmailApi();
     const res = await emailApi.post('/email-addresses', { email, name });
     return res.data?.data ?? res.data;
   } catch (error) {
@@ -170,6 +193,7 @@ export async function addEmailAddress(
 
 export async function deleteEmailAddress(id: string): Promise<void> {
   try {
+    requireEmailApi();
     await emailApi.delete(`/email-addresses/${id}`);
   } catch (error) {
     handleError(error);
@@ -185,6 +209,7 @@ export async function getPresignedUrl(
   contentType: string,
 ): Promise<PresignedUrlResponse> {
   try {
+    requireEmailApi();
     const res = await emailApi.post('/attachments/presign', {
       filename,
       content_type: contentType,

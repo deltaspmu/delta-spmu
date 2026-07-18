@@ -2,15 +2,24 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  getEmailAddresses, getEmail, sendEmail, getPresignedUrl,
+  getEmailAddresses, getEmail, getPresignedUrl, isEmailApiConfigured, sendEmail,
 } from '@/api/emailClient';
 import type { EmailAddress } from '@/api/emailClient';
+import EmailCrmUnavailable from '@/components/EmailCrmUnavailable';
 import { Send, Paperclip, Loader2, ArrowLeft, X } from 'lucide-react';
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500';
 
 export default function EmailCompose() {
+  if (!isEmailApiConfigured) {
+    return <EmailCrmUnavailable />;
+  }
+
+  return <EmailComposeContent />;
+}
+
+function EmailComposeContent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const replyId = searchParams.get('reply');
