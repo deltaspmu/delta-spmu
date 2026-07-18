@@ -251,8 +251,10 @@ export async function createCategory(data: Record<string, any>) {
 }
 
 export async function updateCategory(name: string, data: Record<string, any>) {
-  const res = await api.put(docResource('LMS Category', name), data);
-  return unwrap(res);
+  return call('lms.lms.api.admin_rename_category', {
+    category: name,
+    new_category: data.category,
+  });
 }
 
 export async function deleteCategory(name: string) {
