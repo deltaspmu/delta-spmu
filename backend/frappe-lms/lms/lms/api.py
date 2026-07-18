@@ -518,6 +518,51 @@ def get_categories(doctype=None, filters=None):
         frappe.throw(_("Unable to retrieve categories."))
 
 
+@frappe.whitelist()
+def admin_rename_category(category=None, new_category=None):
+    """Rename an LMS category and update every linked course."""
+    _require_login()
+    user = _get_current_user()
+    if not (_has_role(user, "System Manager") or _has_role(user, "LMS Manager")):
+        frappe.throw(
+            _("Only LMS Managers can rename categories."),
+            frappe.PermissionError,
+        )
+
+    category = cstr(category).strip()
+    new_category = cstr(new_category).strip()
+    if not category or not new_category:
+        frappe.throw(_("Both the current and new category names are required."))
+    if len(new_category) > 140:
+        frappe.throw(_("Category name cannot exceed 140 characters."))
+    if not frappe.db.exists("LMS Category", category):
+        frappe.throw(_("Category {0} does not exist.").format(category))
+    if category == new_category:
+        return {"name": category, "category": category}
+    if frappe.db.exists("LMS Category", new_category):
+        frappe.throw(_("Category {0} already exists.").format(new_category))
+
+    # LMS Category uses ``field:category`` autonaming. Updating that field via
+    # the REST resource endpoint is reset to the existing document name during
+    # validation, so the request returns 200 without changing anything. A real
+    # document rename also updates Link fields such as LMS Course.category.
+    frappe.rename_doc(
+        "LMS Category",
+        category,
+        new_category,
+        force=False,
+        merge=False,
+    )
+    frappe.db.set_value(
+        "LMS Category",
+        new_category,
+        "category",
+        new_category,
+        update_modified=False,
+    )
+    return {"name": new_category, "category": new_category}
+
+
 # ---------------------------------------------------------------------------
 # 7. get_lms_settings  (guest)
 # ---------------------------------------------------------------------------
