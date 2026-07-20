@@ -437,7 +437,7 @@ def get_categories(doctype=None, filters=None):
     classification lists for filter dropdowns on the frontend.
 
     Args:
-        doctype (str, optional): Doctype to query. Defaults to "Course Category".
+        doctype (str, optional): Doctype to query. Defaults to "LMS Category".
         filters (str|dict, optional): Additional filters as JSON or dict.
 
     Returns:
@@ -449,13 +449,27 @@ def get_categories(doctype=None, filters=None):
             "LMS Category",
         ]
 
-        doctype = cstr(doctype).strip() if doctype else "Course Category"
+        doctype = cstr(doctype).strip() if doctype else "LMS Category"
 
         if doctype not in allowed_doctypes:
             frappe.throw(
                 _("Invalid category doctype: {0}").format(doctype),
                 frappe.ValidationError,
             )
+
+        # ``Course Category`` was the name used by an older LMS version. This
+        # fork stores course categories in ``LMS Category`` and does not have a
+        # physical ``tabCourse Category`` table. Keep legacy callers working
+        # without letting Frappe fail while trying to inspect that missing
+        # table's columns.
+        if doctype == "Course Category":
+            doctype = "LMS Category"
+
+        # A newly provisioned or partially migrated site can have the DocType
+        # metadata before its SQL table exists. Category filters should degrade
+        # to an empty list instead of failing the entire catalog/admin page.
+        if not frappe.db.table_exists(doctype):
+            return []
 
         parsed_filters = _parse_json_param(filters) or {}
 
@@ -483,13 +497,14 @@ def get_categories(doctype=None, filters=None):
         for r in rows:
             cat = {
                 "name": r["name"],
+                "category": r.get("category") or r["name"],
                 "title": r.get("category") or r["name"],
                 "image": None,
                 "description": None,
                 "creation": r.get("creation"),
                 "course_count": frappe.db.count(
                     "LMS Course",
-                    filters={"category": r["name"], "published": 1},
+                    filters={"category": r["name"]},
                 ),
             }
             categories.append(cat)
@@ -501,6 +516,51 @@ def get_categories(doctype=None, filters=None):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "get_categories failed")
         frappe.throw(_("Unable to retrieve categories."))
+
+
+@frappe.whitelist()
+def admin_rename_category(category=None, new_category=None):
+    """Rename an LMS category and update every linked course."""
+    _require_login()
+    user = _get_current_user()
+    if not (_has_role(user, "System Manager") or _has_role(user, "LMS Manager")):
+        frappe.throw(
+            _("Only LMS Managers can rename categories."),
+            frappe.PermissionError,
+        )
+
+    category = cstr(category).strip()
+    new_category = cstr(new_category).strip()
+    if not category or not new_category:
+        frappe.throw(_("Both the current and new category names are required."))
+    if len(new_category) > 140:
+        frappe.throw(_("Category name cannot exceed 140 characters."))
+    if not frappe.db.exists("LMS Category", category):
+        frappe.throw(_("Category {0} does not exist.").format(category))
+    if category == new_category:
+        return {"name": category, "category": category}
+    if frappe.db.exists("LMS Category", new_category):
+        frappe.throw(_("Category {0} already exists.").format(new_category))
+
+    # LMS Category uses ``field:category`` autonaming. Updating that field via
+    # the REST resource endpoint is reset to the existing document name during
+    # validation, so the request returns 200 without changing anything. A real
+    # document rename also updates Link fields such as LMS Course.category.
+    frappe.rename_doc(
+        "LMS Category",
+        category,
+        new_category,
+        force=False,
+        merge=False,
+    )
+    frappe.db.set_value(
+        "LMS Category",
+        new_category,
+        "category",
+        new_category,
+        update_modified=False,
+    )
+    return {"name": new_category, "category": new_category}
 
 
 # ---------------------------------------------------------------------------

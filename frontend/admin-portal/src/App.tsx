@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, type ReactNode } from 'react';
+import React, { Suspense, useState, useEffect, type ReactNode } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,11 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import {
+  clearChunkRecoveryMarkers,
+  isChunkLoadError,
+  lazyWithRetry,
+} from './utils/lazyWithRetry';
 import {
   LayoutDashboard,
   BookOpen,
@@ -51,26 +56,29 @@ const queryClient = new QueryClient({
 // ---------------------------------------------------------------------------
 // Lazy-loaded pages
 // ---------------------------------------------------------------------------
-const Login = lazy(() => import('./pages/Login'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const CourseList = lazy(() => import('./pages/CourseList'));
-const CourseForm = lazy(() => import('./pages/CourseForm'));
-const CourseEdit = lazy(() => import('./pages/CourseEdit'));
-const Categories = lazy(() => import('./pages/Categories'));
-const Videos = lazy(() => import('./pages/Videos'));
-const UserList = lazy(() => import('./pages/UserList'));
-const Enrollments = lazy(() => import('./pages/Enrollments'));
-const Quizzes = lazy(() => import('./pages/Quizzes'));
-const Certificates = lazy(() => import('./pages/Certificates'));
-const Reviews = lazy(() => import('./pages/Reviews'));
-const Payments = lazy(() => import('./pages/Payments'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const EmailList = lazy(() => import('./pages/EmailList'));
-const EmailCompose = lazy(() => import('./pages/EmailCompose'));
-const EmailDetail = lazy(() => import('./pages/EmailDetail'));
-const EmailAddresses = lazy(() => import('./pages/EmailAddresses'));
-const TelegramBroadcast = lazy(() => import('./pages/TelegramBroadcast'));
-const SettingsPage = lazy(() => import('./pages/Settings'));
+const Login = lazyWithRetry(() => import('./pages/Login'), 'login');
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), 'dashboard');
+const CourseList = lazyWithRetry(() => import('./pages/CourseList'), 'course-list');
+const CourseForm = lazyWithRetry(() => import('./pages/CourseForm'), 'course-form');
+const CourseEdit = lazyWithRetry(() => import('./pages/CourseEdit'), 'course-edit');
+const Categories = lazyWithRetry(() => import('./pages/Categories'), 'categories');
+const Videos = lazyWithRetry(() => import('./pages/Videos'), 'videos');
+const UserList = lazyWithRetry(() => import('./pages/UserList'), 'user-list');
+const Enrollments = lazyWithRetry(() => import('./pages/Enrollments'), 'enrollments');
+const Quizzes = lazyWithRetry(() => import('./pages/Quizzes'), 'quizzes');
+const Certificates = lazyWithRetry(() => import('./pages/Certificates'), 'certificates');
+const Reviews = lazyWithRetry(() => import('./pages/Reviews'), 'reviews');
+const Payments = lazyWithRetry(() => import('./pages/Payments'), 'payments');
+const Analytics = lazyWithRetry(() => import('./pages/Analytics'), 'analytics');
+const EmailList = lazyWithRetry(() => import('./pages/EmailList'), 'email-list');
+const EmailCompose = lazyWithRetry(() => import('./pages/EmailCompose'), 'email-compose');
+const EmailDetail = lazyWithRetry(() => import('./pages/EmailDetail'), 'email-detail');
+const EmailAddresses = lazyWithRetry(() => import('./pages/EmailAddresses'), 'email-addresses');
+const TelegramBroadcast = lazyWithRetry(
+  () => import('./pages/TelegramBroadcast'),
+  'telegram-broadcast',
+);
+const SettingsPage = lazyWithRetry(() => import('./pages/Settings'), 'settings');
 
 // ---------------------------------------------------------------------------
 // Sidebar nav items
@@ -146,17 +154,23 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   render() {
     if (this.state.hasError) {
+      const chunkLoadFailed = isChunkLoadError(this.state.error);
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-alabaster px-4 text-center">
           <h1 className="mb-4 text-3xl font-bold text-dark">Something went wrong</h1>
           <p className="mb-6 max-w-md text-dark-light">
-            {this.state.error?.message || 'An unexpected error occurred.'}
+            {chunkLoadFailed
+              ? 'A new version is available, but this page could not be loaded automatically.'
+              : this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              clearChunkRecoveryMarkers();
+              window.location.reload();
+            }}
             className="rounded-lg bg-primary px-6 py-2.5 font-medium text-dark transition-colors hover:bg-primary-dark"
           >
-            Reload page
+            {chunkLoadFailed ? 'Load latest version' : 'Reload page'}
           </button>
         </div>
       );

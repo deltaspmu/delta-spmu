@@ -2,9 +2,11 @@
 # Deploy Frappe backend API files to an environment's EC2.
 # Usage: ./scripts/deploy-backend.sh <staging|prod>
 #
-# This Frappe install runs via `bench start` + honcho (not supervisor or
-# systemd), so the standard `bench restart` doesn't work — it tries to call
-# supervisorctl and fails. Instead we kill honcho and relaunch bench start.
+# Process models differ per host (issue #39): prod runs supervisord-managed
+# gunicorn (--preload, so old code stays in memory until a real restart);
+# staging runs `bench start` + honcho, where `bench restart` doesn't work.
+# The restart step detects the model on the host rather than trusting env
+# names — restarting the wrong stack reports success while old code serves.
 
 set -e
 source "$(cd "$(dirname "$0")" && pwd)/lib/load-env.sh" "$1"
@@ -30,19 +32,31 @@ ssh ${EC2_HOST} "
   echo OK
 "
 
-# Kill honcho (separate SSH so it exits cleanly when honcho dies)
-echo "  Stopping honcho-managed workers..."
-ssh ${EC2_HOST} "sudo pkill -u frappe -f 'honcho start' || true; echo STOPPED"
+# Restart Frappe with whichever process model actually runs on the host.
+if ssh ${EC2_HOST} "sudo supervisorctl status 2>/dev/null | grep -q '^deltaspmu'"; then
+  echo "  supervisord detected — restarting managed services..."
+  ssh ${EC2_HOST} "sudo supervisorctl restart all >/dev/null 2>&1; sleep 2
+    if sudo supervisorctl status 2>/dev/null | grep -v RUNNING | grep -q .; then
+      echo '  ERROR: not all supervisor services are RUNNING:'
+      sudo supervisorctl status 2>/dev/null | grep -v RUNNING
+      exit 1
+    fi
+    echo RESTARTED"
+else
+  # Kill honcho (separate SSH so it exits cleanly when honcho dies)
+  echo "  honcho detected — stopping honcho-managed workers..."
+  ssh ${EC2_HOST} "sudo pkill -u frappe -f 'honcho start' || true; echo STOPPED"
 
-# Sleep server-side so the kill settles before we relaunch
-sleep 3
+  # Sleep server-side so the kill settles before we relaunch
+  sleep 3
 
-# Spawn bench start in a fully-detached SSH session.
-# Using ssh -n (stdin from /dev/null) plus explicit FD redirection on the
-# spawned shell so SSH gets EOF immediately and returns. Without the redirects
-# bench start inherits SSH's channel descriptors and SSH waits forever.
-echo "  Relaunching bench start (detached)..."
-ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && nohup setsid ${BENCH_BIN} start </dev/null >/tmp/bench-start.log 2>&1 &' </dev/null >/dev/null 2>&1; echo SPAWNED"
+  # Spawn bench start in a fully-detached SSH session.
+  # Using ssh -n (stdin from /dev/null) plus explicit FD redirection on the
+  # spawned shell so SSH gets EOF immediately and returns. Without the redirects
+  # bench start inherits SSH's channel descriptors and SSH waits forever.
+  echo "  Relaunching bench start (detached)..."
+  ssh -n ${EC2_HOST} "sudo -u frappe bash -c 'cd ${BENCH_DIR} && nohup setsid ${BENCH_BIN} start </dev/null >/tmp/bench-start.log 2>&1 &' </dev/null >/dev/null 2>&1; echo SPAWNED"
+fi
 
 # Wait for workers to come up, then sanity-check.
 echo "  Waiting for API to respond..."
@@ -55,7 +69,7 @@ ssh ${EC2_HOST} "
     sleep 2
   done
   echo '  WARNING: API did not respond within 16s. Last log lines:'
-  tail -20 /tmp/bench-start.log
+  tail -20 /tmp/bench-start.log 2>/dev/null || sudo supervisorctl status 2>/dev/null
   exit 1
 "
 echo "  Done!"

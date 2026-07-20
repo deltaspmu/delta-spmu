@@ -239,8 +239,10 @@ export async function deleteLesson(name: string) {
 // ---------------------------------------------------------------------------
 
 export async function getCategories(params?: Record<string, any>) {
-  const res = await api.get(resource('LMS Category'), { params });
-  return unwrap(res);
+  return call('lms.lms.api.get_categories', {
+    doctype: 'LMS Category',
+    filters: params?.filters,
+  });
 }
 
 export async function createCategory(data: Record<string, any>) {
@@ -249,8 +251,10 @@ export async function createCategory(data: Record<string, any>) {
 }
 
 export async function updateCategory(name: string, data: Record<string, any>) {
-  const res = await api.put(docResource('LMS Category', name), data);
-  return unwrap(res);
+  return call('lms.lms.api.admin_rename_category', {
+    category: name,
+    new_category: data.category,
+  });
 }
 
 export async function deleteCategory(name: string) {
@@ -354,6 +358,10 @@ export async function deleteQuiz(name: string) {
 
 export async function addQuizQuestion(quiz: string, data: Record<string, any>) {
   return call('lms.lms.custom_api.add_quiz_question', { quiz, ...data });
+}
+
+export async function updateQuizQuestion(question: string, data: Record<string, any>) {
+  return call('lms.lms.custom_api.update_quiz_question', { question_name: question, ...data });
 }
 
 export async function deleteQuizQuestion(_quiz: string, question: string) {

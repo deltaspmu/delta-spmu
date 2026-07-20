@@ -951,13 +951,16 @@ def add_quiz_question(quiz, question, question_type="SingleChoice", options=None
     if not cor:
         frappe.throw(_("Mark at least one option as correct"))
 
+    if len(options) < 2:
+        frappe.throw(_("At least two non-empty options are required"))
+    if len(options) > 4:
+        frappe.throw(_("A maximum of 4 options is allowed"))
+    if not is_multi and len(cor) != 1:
+        frappe.throw(_("Single choice questions must have exactly one correct answer"))
+
     bad = cor - set(options)
     if bad:
         frappe.throw(_("Correct answers not in options: {0}").format(", ".join(bad)))
-
-    options = options[:4]
-    if cor - set(options):
-        frappe.throw(_("A correct answer was dropped — max 4 options allowed."))
 
     # This fork stores options INLINE on a standalone LMS Question, then links
     # it to the quiz via an LMS Quiz Question child row.
@@ -969,6 +972,13 @@ def add_quiz_question(quiz, question, question_type="SingleChoice", options=None
     qd = frappe.get_doc(payload)
     try:
         qd.insert(ignore_permissions=True)
+    except frappe.DuplicateEntryError:
+        # Restored databases can contain records beyond the local naming-series
+        # counter. Use a collision-resistant explicit name instead of making
+        # question creation fail until an administrator repairs the counter.
+        qd = frappe.get_doc(payload)
+        qd.name = "QTS-{0}".format(frappe.generate_hash(length=10))
+        qd.insert(ignore_permissions=True, set_name=qd.name)
     except Exception as e:
         frappe.log_error(title="Add Question Error", message=str(e))
         frappe.throw(_("Failed to add question."))
@@ -992,7 +1002,71 @@ def add_quiz_question(quiz, question, question_type="SingleChoice", options=None
 
 
 # ---------------------------------------------------------------------------
-# 11. delete_quiz_question  (Admin)
+# 11. update_quiz_question  (Admin)
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def update_quiz_question(question_name, question, question_type="SingleChoice",
+                         options=None, marks=1, negative_marks=0):
+    """Admin endpoint: update a quiz question and its answer options."""
+    _require_admin()
+    if not question_name or not frappe.db.exists("LMS Quiz Question", question_name):
+        frappe.throw(_("Question not found"), frappe.DoesNotExistError)
+    if not question or not str(question).strip():
+        frappe.throw(_("Question text is required"))
+
+    if isinstance(options, str):
+        try:
+            options = json.loads(options)
+        except Exception:
+            frappe.throw(_("options must be valid JSON array"))
+    if not options or not isinstance(options, list):
+        frappe.throw(_("options must be a non-empty list"))
+
+    opt_texts, correct = [], set()
+    for option in options:
+        if not isinstance(option, dict):
+            frappe.throw(_("Each option must include option and is_correct values"))
+        text = str(option.get("option") or "").strip()
+        if not text:
+            continue
+        opt_texts.append(text)
+        if option.get("is_correct"):
+            correct.add(text)
+
+    if len(opt_texts) < 2:
+        frappe.throw(_("At least two non-empty options are required"))
+    if len(opt_texts) > 4:
+        frappe.throw(_("A maximum of 4 options is allowed"))
+    if not correct:
+        frappe.throw(_("Mark at least one option as correct"))
+
+    is_multi = 1 if question_type in ("MultipleChoice", "Multiple Choice") else 0
+    if not is_multi and len(correct) != 1:
+        frappe.throw(_("Single choice questions must have exactly one correct answer"))
+
+    quiz, linked_question = frappe.db.get_value(
+        "LMS Quiz Question", question_name, ["parent", "question"])
+    if not linked_question or not frappe.db.exists("LMS Question", linked_question):
+        frappe.throw(_("Linked question not found"), frappe.DoesNotExistError)
+
+    values = {"question": str(question).strip(), "type": "Choices", "multiple": is_multi}
+    for index in (1, 2, 3, 4):
+        text = opt_texts[index - 1] if index <= len(opt_texts) else None
+        values["option_%d" % index] = text
+        values["is_correct_%d" % index] = 1 if text in correct else 0
+
+    frappe.db.set_value("LMS Question", linked_question, values)
+    frappe.db.set_value("LMS Quiz Question", question_name, "marks", flt(marks) or 1)
+    frappe.db.commit()
+    _recompute_quiz_marks(quiz)
+
+    return {"message": _("Question updated"), "question_name": question_name,
+            "quiz": quiz, "options_count": len(opt_texts)}
+
+
+# ---------------------------------------------------------------------------
+# 12. delete_quiz_question  (Admin)
 # ---------------------------------------------------------------------------
 
 @frappe.whitelist()

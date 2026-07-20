@@ -192,6 +192,7 @@ export interface Review {
 export interface Category {
   name: string;
   category: string;
+  title?: string;
   description: string | null;
   image: string | null;
   course_count: number;
