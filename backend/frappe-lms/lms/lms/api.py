@@ -2005,6 +2005,17 @@ def get_enrolled_courses():
             )
             course_data["chapter_count"] = chap_cnt
 
+            # Total lesson duration (minutes) — powers the dashboard
+            # "Hours Learned" estimate (duration × progress). Guard the
+            # column for older deploys that predate Course Lesson.duration.
+            if frappe.db.has_column("Course Lesson", "duration"):
+                course_data["total_duration"] = frappe.db.sql(
+                    "SELECT COALESCE(SUM(duration), 0) FROM `tabCourse Lesson` WHERE course=%s",
+                    enrollment["course"],
+                )[0][0] or 0
+            else:
+                course_data["total_duration"] = 0
+
             # Instructor — from child table
             inst = frappe.db.sql(
                 """SELECT instructor FROM `tabCourse Instructor`
