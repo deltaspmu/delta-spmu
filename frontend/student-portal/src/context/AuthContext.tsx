@@ -11,6 +11,17 @@ import type { User } from '../types';
 
 const STORAGE_KEY = 'deltaspmu_user';
 const ADMIN_USERS = ['Administrator', 'administrator@deltaspmu.com'];
+const PROD_ADMIN_PORTAL_URL = 'https://admin.deltaspmu.com';
+const STAGING_ADMIN_PORTAL_URL = 'https://staging-admin.deltaspmu.com';
+
+function getAdminPortalUrl() {
+  const configuredUrl = import.meta.env.VITE_ADMIN_PORTAL_URL;
+  if (configuredUrl) return configuredUrl;
+
+  return window.location.hostname === 'staging-learn.deltaspmu.com'
+    ? STAGING_ADMIN_PORTAL_URL
+    : PROD_ADMIN_PORTAL_URL;
+}
 
 interface AuthContextValue {
   user: User | null;
@@ -111,8 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ---------------------------------------------------------------------------
   // Admin redirect — System Managers belong on the admin portal, not the
-  // student portal. We send them to admin.deltaspmu.com (overridable via
-  // VITE_ADMIN_PORTAL_URL).
+  // student portal. The matching admin host is selected from the current
+  // student host and can be overridden via VITE_ADMIN_PORTAL_URL.
   //
   // Previous bug: redirected to "/app" assuming we were on the same origin
   // as Frappe Desk, but on Vercel that path 404s and the SPA catch-all sent
@@ -130,8 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user.roles.includes('System Manager');
     if (!isAdmin) return;
 
-    const adminUrl =
-      import.meta.env.VITE_ADMIN_PORTAL_URL || 'https://admin.deltaspmu.com';
+    const adminUrl = getAdminPortalUrl();
 
     // Don't redirect if we're already on the admin portal (which would
     // re-trigger when the user navigates back here on purpose).
