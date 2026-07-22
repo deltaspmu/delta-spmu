@@ -1135,6 +1135,9 @@ def create_quiz(title, course=None, lesson=None, passing_percentage=70,
     if not title:
         frappe.throw(_("title is required"))
 
+    course_name = course if (course and frappe.db.exists("LMS Course", course)) else None
+    lesson_name = lesson if (lesson and frappe.db.exists("Course Lesson", lesson)) else None
+
     doc = frappe.get_doc({
         "doctype": "LMS Quiz",
         "title": title,
@@ -1147,11 +1150,17 @@ def create_quiz(title, course=None, lesson=None, passing_percentage=70,
         "show_submission_history": cint(show_submission_history),
         "total_marks": 0,
     })
-    if course and frappe.db.exists("LMS Course", course):
-        doc.course = course
-    if lesson and frappe.db.exists("Course Lesson", lesson):
-        doc.lesson = lesson
+    if course_name:
+        doc.course = course_name
+    if lesson_name:
+        doc.lesson = lesson_name
     doc.insert(ignore_permissions=True)
+
+    # `course` is a read-only field fetched from `lesson.course` in LMS Quiz.
+    # Persist an explicitly selected course after insert as well, because some
+    # LMS/Frappe versions clear fetched fields when no lesson is selected.
+    if course_name:
+        frappe.db.set_value("LMS Quiz", doc.name, "course", course_name)
 
     # The LMSQuiz controller forces passing_percentage=100 for a question-less
     # quiz (calculate_total_marks). Since questions are attached afterwards via
@@ -1161,12 +1170,12 @@ def create_quiz(title, course=None, lesson=None, passing_percentage=70,
     if cint(doc.passing_percentage) != want_pct:
         frappe.db.set_value("LMS Quiz", doc.name, "passing_percentage", want_pct)
 
-    if lesson and frappe.db.exists("Course Lesson", lesson):
-        frappe.db.set_value("Course Lesson", lesson, "quiz_id", doc.name)
+    if lesson_name:
+        frappe.db.set_value("Course Lesson", lesson_name, "quiz_id", doc.name)
     frappe.db.commit()
 
     return {"message": _("Quiz created"), "name": doc.name, "title": doc.title,
-            "course": doc.get("course"), "lesson": doc.get("lesson")}
+            "course": course_name or doc.get("course"), "lesson": doc.get("lesson")}
 
 
 @frappe.whitelist()
