@@ -953,7 +953,11 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             # Frontend aliases
             course["avg_rating"] = course.get("rating") or 0
             course["enrollment_count"] = course.get("enrollments") or 0
-            course["lesson_count"] = lesson_counts.get(course["name"], 0) or (course.get("lessons") or 0)
+            # The stored LMS Course.lessons counter is not maintained when
+            # lessons are seeded or edited directly. Keep both public count
+            # fields aligned with the live aggregate loaded above.
+            course["lessons"] = lesson_counts.get(course["name"], 0)
+            course["lesson_count"] = course["lessons"]
             course["chapter_count"] = chapter_counts.get(course["name"], 0)
             course["total_duration"] = duration_sums.get(course["name"], 0) or 0
 
