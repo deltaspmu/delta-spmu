@@ -96,13 +96,46 @@ def _all_lessons(course):
 
 
 def _completed_set(course, member):
-    """Return a *set* of lesson names marked ``Complete`` for *member*."""
+    """Return lesson names completed explicitly or by a passing quiz.
+
+    Quiz-backed lessons normally receive an ``LMS Course Progress`` row when
+    :func:`submit_quiz` records a passing attempt.  Older code only created a
+    row for one lesson when the same quiz was attached to multiple lessons.
+    Include every same-course lesson covered by an already-passing submission
+    so affected learners are unblocked immediately after this fix is deployed,
+    without requiring another quiz attempt or a one-off data repair.
+    """
     rows = frappe.db.get_all(
         "LMS Course Progress",
         filters={"course": course, "member": member, "status": "Complete"},
         fields=["lesson"],
     )
-    return {r.lesson for r in rows}
+    completed = {r.lesson for r in rows}
+
+    quiz_lessons = frappe.db.sql(
+        """
+        SELECT DISTINCT lesson.name AS lesson
+        FROM `tabCourse Lesson` lesson
+        INNER JOIN `tabCourse Chapter` chapter
+            ON chapter.name = lesson.chapter
+        INNER JOIN `tabLMS Quiz` quiz
+            ON quiz.name = lesson.quiz_id
+        INNER JOIN `tabLMS Quiz Submission` submission
+            ON submission.quiz = quiz.name
+        WHERE chapter.course = %s
+          AND submission.member = %s
+          AND submission.percentage >=
+              CASE
+                  WHEN COALESCE(quiz.passing_percentage, 0) > 0
+                  THEN quiz.passing_percentage
+                  ELSE 70
+              END
+        """,
+        (course, member),
+        as_dict=True,
+    )
+    completed.update(row.lesson for row in quiz_lessons)
+    return completed
 
 
 def _course_quiz(course):
@@ -720,36 +753,71 @@ def submit_quiz(quiz, answers):
 
 def _auto_complete_quiz_lesson(quiz, member):
     """
-    Auto-mark the lesson that owns *quiz* as complete for *member*.
+    Auto-mark every same-course lesson that owns *quiz* as complete.
 
     Tries two lookup strategies:
-      1. ``Course Lesson`` doctype with a ``quiz_id`` field matching the quiz name.
+      1. Every ``Course Lesson`` whose ``quiz_id`` matches the quiz name.
       2. ``LMS Quiz`` doctype with a ``lesson`` back-reference field.
 
-    If neither yields a lesson, the function silently returns (the quiz
-    may not be attached to any specific lesson — e.g. a standalone final
-    course quiz).
+    A quiz can intentionally cover multiple lessons (for example the two
+    Machine & Needle Knowledge lessons).  Restrict matches to the canonical
+    ``LMS Quiz.course`` when it is set so reuse in another course cannot grant
+    unrelated progress.  If neither lookup yields a lesson, the function
+    silently returns (the quiz may be a standalone final course quiz).
     """
-    lesson = frappe.db.get_value("Course Lesson", {"quiz_id": quiz}, "name")
-    if not lesson:
-        lesson = frappe.db.get_value("LMS Quiz", quiz, "lesson")
-    if not lesson:
-        return
-    chapter = frappe.db.get_value("Course Lesson", lesson, "chapter")
-    if not chapter:
-        return
-    course = frappe.db.get_value("Course Chapter", chapter, "course")
-    if not course:
+    quiz_course = frappe.db.get_value("LMS Quiz", quiz, "course")
+    lessons = frappe.db.get_all(
+        "Course Lesson",
+        filters={"quiz_id": quiz},
+        fields=["name", "chapter"],
+        order_by="idx asc",
+    )
+
+    if not lessons:
+        legacy_lesson = frappe.db.get_value("LMS Quiz", quiz, "lesson")
+        if legacy_lesson:
+            lessons = frappe.db.get_all(
+                "Course Lesson",
+                filters={"name": legacy_lesson},
+                fields=["name", "chapter"],
+            )
+    if not lessons:
         return
 
-    ex = frappe.db.get_value("LMS Course Progress",
-        {"course": course, "lesson": lesson, "member": member}, "name")
-    if ex:
-        frappe.db.set_value("LMS Course Progress", ex, "status", "Complete")
-    else:
-        d = frappe.new_doc("LMS Course Progress")
-        d.update({"course": course, "lesson": lesson, "member": member, "status": "Complete"})
-        d.insert(ignore_permissions=True)
+    course = quiz_course
+    linked_lessons = []
+    for lesson in lessons:
+        lesson_course = frappe.db.get_value(
+            "Course Chapter", lesson.chapter, "course"
+        )
+        if not lesson_course:
+            continue
+        if course and lesson_course != course:
+            continue
+        if not course:
+            course = lesson_course
+        linked_lessons.append(lesson.name)
+
+    if not course or not linked_lessons:
+        return
+
+    for lesson in linked_lessons:
+        ex = frappe.db.get_value(
+            "LMS Course Progress",
+            {"course": course, "lesson": lesson, "member": member},
+            "name",
+        )
+        if ex:
+            frappe.db.set_value("LMS Course Progress", ex, "status", "Complete")
+        else:
+            d = frappe.new_doc("LMS Course Progress")
+            d.update({
+                "course": course,
+                "lesson": lesson,
+                "member": member,
+                "status": "Complete",
+            })
+            d.insert(ignore_permissions=True)
     frappe.db.commit()
     # Return the resolved course so the caller can check course-level completion
     # (e.g. issue the certificate when this quiz was the final lesson).
