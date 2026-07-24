@@ -163,6 +163,13 @@ Host 3.126.36.245
 
 Configured from `~/.deltaspmu/staging-keys.env` (gitignored, outside the repo):
 
+Canonical site branding is stored in the Frappe singleton settings. Apply it
+after the backend overlay is deployed (the command is idempotent):
+
+```bash
+./scripts/configure-branding.sh staging
+```
+
 | Service | dev | staging | prod |
 |---|---|---|---|
 | Vimeo | shared token, tag `deltaspmu-lms-dev` | shared token, tag `deltaspmu-lms-staging` | tag `deltaspmu-lms` |
@@ -195,4 +202,3 @@ _migrate_doctypes) are now vendored in `backend/frappe-lms/lms/lms/`.
 - Prod email CRM stack is placeholder-only scaffolding (never activated); staging doesn't replicate it.
 - Marketing S3 + CloudFront + assets bucket are empty/unused (site moved to Vercel).
 - Docs history: DNS is at **GoDaddy** (not Cloudflare as DEPLOYMENT_GUIDE.md once said); old EC2 IP `18.194.169.111` is dead — live is `3.126.36.245`.
-

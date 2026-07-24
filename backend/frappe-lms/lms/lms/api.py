@@ -35,6 +35,7 @@ from frappe.utils import (
     today,
     validate_email_address,
 )
+from lms.lms.branding import PRIMARY_COLOR, SECONDARY_COLOR, SITE_NAME
 
 
 # ---------------------------------------------------------------------------
@@ -250,11 +251,23 @@ def get_branding():
         dict: Branding data including site name, logo, favicon, etc.
     """
     try:
+        # LMS Settings fields vary across upstream versions. Preserve falsey
+        # values such as disable_signup=0 instead of replacing them with the
+        # fallback.
+        def _safe_single(doctype, field, default=None):
+            try:
+                value = frappe.db.get_single_value(doctype, field)
+                return default if value is None else value
+            except Exception:
+                return default
+
         site_name = (
             frappe.db.get_single_value("Website Settings", "app_name")
             or frappe.db.get_single_value("System Settings", "app_name")
-            or "Delta SPMU Academy"
+            or SITE_NAME
         )
+        if site_name == "Frappe":
+            site_name = SITE_NAME
         logo = frappe.db.get_single_value("Website Settings", "app_logo") or None
         favicon = frappe.db.get_single_value("Website Settings", "favicon") or None
         banner_image = frappe.db.get_single_value("Website Settings", "banner_image") or None
@@ -264,25 +277,31 @@ def get_branding():
         footer_powered = frappe.db.get_single_value("Website Settings", "footer_powered") or ""
         top_bar_items = frappe.db.get_single_value("Website Settings", "top_bar_items") or ""
         disable_signup = cint(
-            frappe.db.get_single_value("Website Settings", "disable_signup")
+            _safe_single(
+                "LMS Settings",
+                "disable_signup",
+                frappe.db.get_single_value("Website Settings", "disable_signup"),
+            )
         )
 
-        # LMS-specific branding — some fields may not exist on stock LMS
-        # Settings, so read safely via try/except per field.
-        def _safe_single(doctype, field, default=None):
-            try:
-                return frappe.db.get_single_value(doctype, field) or default
-            except Exception:
-                return default
-
-        lms_title = _safe_single("LMS Settings", "lms_title", site_name)
-        lms_description = _safe_single("LMS Settings", "meta_description", "")
-        hero_title = site_name
-        hero_subtitle = lms_description
-        hero_image = None
-        primary_color = "#D1BFAE"
-        secondary_color = "#121212"
-        custom_css = ""
+        lms_title = _safe_single("LMS Settings", "lms_title", site_name) or site_name
+        if lms_title == "Frappe":
+            lms_title = site_name
+        lms_description = _safe_single("LMS Settings", "meta_description", "") or ""
+        hero_title = (
+            _safe_single("LMS Settings", "hero_title", site_name) or site_name
+        )
+        hero_subtitle = _safe_single(
+            "LMS Settings", "hero_subtitle", lms_description
+        ) or lms_description
+        hero_image = _safe_single("LMS Settings", "hero_image", None)
+        primary_color = _safe_single(
+            "LMS Settings", "primary_color", PRIMARY_COLOR
+        ) or PRIMARY_COLOR
+        secondary_color = _safe_single(
+            "LMS Settings", "secondary_color", SECONDARY_COLOR
+        ) or SECONDARY_COLOR
+        custom_css = _safe_single("LMS Settings", "custom_css", "") or ""
 
         return {
             "site_name": site_name,
@@ -953,7 +972,11 @@ def get_courses(filters=None, limit=20, offset=0, order_by=None):
             # Frontend aliases
             course["avg_rating"] = course.get("rating") or 0
             course["enrollment_count"] = course.get("enrollments") or 0
-            course["lesson_count"] = lesson_counts.get(course["name"], 0) or (course.get("lessons") or 0)
+            # The stored LMS Course.lessons counter is not maintained when
+            # lessons are seeded or edited directly. Keep both public count
+            # fields aligned with the live aggregate loaded above.
+            course["lessons"] = lesson_counts.get(course["name"], 0)
+            course["lesson_count"] = course["lessons"]
             course["chapter_count"] = chapter_counts.get(course["name"], 0)
             course["total_duration"] = duration_sums.get(course["name"], 0) or 0
 
@@ -2004,6 +2027,17 @@ def get_enrolled_courses():
                 {"course": enrollment["course"]},
             )
             course_data["chapter_count"] = chap_cnt
+
+            # Total lesson duration (minutes) — powers the dashboard
+            # "Hours Learned" estimate (duration × progress). Guard the
+            # column for older deploys that predate Course Lesson.duration.
+            if frappe.db.has_column("Course Lesson", "duration"):
+                course_data["total_duration"] = frappe.db.sql(
+                    "SELECT COALESCE(SUM(duration), 0) FROM `tabCourse Lesson` WHERE course=%s",
+                    enrollment["course"],
+                )[0][0] or 0
+            else:
+                course_data["total_duration"] = 0
 
             # Instructor — from child table
             inst = frappe.db.sql(
