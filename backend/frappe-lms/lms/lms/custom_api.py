@@ -24,7 +24,7 @@ import uuid
 import math
 
 from frappe import _
-from frappe.utils import nowdate, now_datetime, cint, flt
+from frappe.utils import nowdate, now_datetime, cint, flt, getdate, today
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +55,33 @@ def _require_admin():
     _require_login()
     if not _is_admin():
         frappe.throw(_("System Manager role required."), frappe.PermissionError)
+
+
+def _has_active_course_access(member, course):
+    """Honor explicit Course Access state while preserving legacy enrollments."""
+    if not frappe.db.exists("LMS Enrollment", {"member": member, "course": course}):
+        return False
+    access = frappe.db.get_value(
+        "Course Access",
+        {"user": member, "course": course},
+        ["is_active", "access_end"],
+        as_dict=True,
+    )
+    if not access:
+        return True
+    if not cint(access.get("is_active")):
+        return False
+    access_end = access.get("access_end")
+    return not access_end or getdate(access_end) >= getdate(today())
+
+
+def _course_for_quiz(quiz):
+    """Resolve a quiz's course, including legacy lesson-only associations."""
+    course = frappe.db.get_value("LMS Quiz", quiz, "course")
+    if course:
+        return course
+    chapter = frappe.db.get_value("Course Lesson", {"quiz_id": quiz}, "chapter")
+    return frappe.db.get_value("Course Chapter", chapter, "course") if chapter else None
 
 
 def _all_lessons(course):
@@ -375,18 +402,18 @@ def _quiz_correct_set(question_name):
 
 
 # ---------------------------------------------------------------------------
-# 3. get_quiz  (Guest — NO correct answers)
+# 3. get_quiz  (Authenticated — NO correct answers)
 # ---------------------------------------------------------------------------
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_quiz(quiz):
     """
     Return quiz metadata and questions WITHOUT correct answers.
 
-    Guest-safe.  Only question text, option text, and quiz configuration
-    (passing_score, max_attempts, negative_marking settings, etc.) are
-    returned.  The ``is_correct`` flag is deliberately stripped from every
-    option so that the client can never cheat.
+    Only question text, option text, and quiz configuration (passing_score,
+    max_attempts, negative_marking settings, etc.) are returned. The caller
+    must have active course access. The ``is_correct`` flag is deliberately
+    stripped from every option so that the client can never cheat.
 
     Args:
         quiz: LMS Quiz name.
@@ -396,12 +423,18 @@ def get_quiz(quiz):
     """
     if not quiz:
         frappe.throw(_("quiz is required"))
+    _require_login()
     qf = frappe.db.get_value("LMS Quiz", quiz,
         ["name", "title", "max_attempts", "passing_percentage",
-         "show_answers", "show_submission_history",
+         "show_answers", "show_submission_history", "course",
          "enable_negative_marking", "marks_to_cut", "duration"], as_dict=True)
     if not qf:
         frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
+    quiz_course = qf.course or _course_for_quiz(quiz)
+    if quiz_course and not _is_admin() and not _has_active_course_access(
+        frappe.session.user, quiz_course
+    ):
+        frappe.throw(_("Your access to this course is not active."), frappe.PermissionError)
 
     questions = _quiz_questions(quiz, with_correct=False)
 
@@ -474,6 +507,8 @@ def mark_lesson_complete(course, lesson):
         frappe.throw(_("course and lesson are required"))
     if not frappe.db.exists("LMS Course", course):
         frappe.throw(_("Course not found"), frappe.DoesNotExistError)
+    if not _is_admin() and not _has_active_course_access(member, course):
+        frappe.throw(_("Your access to this course is not active."), frappe.PermissionError)
 
     existing = frappe.db.get_value("LMS Course Progress",
         {"course": course, "lesson": lesson, "member": member}, "name")
@@ -533,6 +568,8 @@ def check_lesson_access(course, lesson):
         frappe.throw(_("Course not found"), frappe.DoesNotExistError)
     if _is_admin():
         return {"access": True, "reason": _("Admin bypass")}
+    if not _has_active_course_access(member, course):
+        return {"access": False, "reason": _("Your course access is not active.")}
 
     all_ls = _all_lessons(course)
     target = next((l for l in all_ls if l["lesson"] == lesson), None)
@@ -575,6 +612,12 @@ def check_final_quiz_access(course):
         frappe.throw(_("Course not found"), frappe.DoesNotExistError)
     if _is_admin():
         return {"access": True, "reason": _("Admin bypass"), "progress": 100}
+    if not _has_active_course_access(member, course):
+        return {
+            "access": False,
+            "reason": _("Your course access is not active."),
+            "progress": 0,
+        }
 
     fq = _course_quiz(course)
     if not fq:
@@ -655,6 +698,10 @@ def submit_quiz(quiz, answers):
     if not qf:
         frappe.throw(_("Quiz not found"), frappe.DoesNotExistError)
 
+    course = _course_for_quiz(quiz)
+    if course and not _is_admin() and not _has_active_course_access(member, course):
+        frappe.throw(_("Your access to this course is not active."), frappe.PermissionError)
+
     max_att = cint(qf.max_attempts)
     pass_pct = flt(qf.passing_percentage) or 70
     neg_on = cint(qf.enable_negative_marking)
@@ -713,7 +760,6 @@ def submit_quiz(quiz, answers):
     passed = pct >= pass_pct
     att_num = att + 1
 
-    course = frappe.db.get_value("LMS Quiz", quiz, "course")
     sub = frappe.new_doc("LMS Quiz Submission")
     sub.update({"quiz": quiz, "quiz_title": qf.title, "member": member,
                 "member_name": frappe.db.get_value("User", member, "full_name") or member,
@@ -858,6 +904,8 @@ def check_and_generate_certificate(course, member=None):
     member = member or frappe.session.user
     if not course or not frappe.db.exists("LMS Course", course):
         frappe.throw(_("Course not found"), frappe.DoesNotExistError)
+    if not _is_admin() and not _has_active_course_access(member, course):
+        frappe.throw(_("Your access to this course is not active."), frappe.PermissionError)
 
     # Already issued?
     ec = frappe.db.get_value("LMS Certificate", {"course": course, "member": member},
