@@ -21,8 +21,8 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    document.title = 'Login — Delta SPMU Academy';
-  }, []);
+    document.title = `${t('auth.login')} — ${t('app_name')}`;
+  }, [t]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -38,15 +38,15 @@ export default function Login() {
     setError('');
 
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setError(t('pages:login.errors.email_required'));
       return;
     }
     if (!validateEmail(email)) {
-      setError('Please enter a valid email address.');
+      setError(t('pages:login.errors.email_invalid'));
       return;
     }
     if (!password) {
-      setError('Please enter your password.');
+      setError(t('pages:login.errors.password_required'));
       return;
     }
 
@@ -61,12 +61,12 @@ export default function Login() {
     } catch (err: unknown) {
       const message = extractFrappeError(err);
       if (message.toLowerCase().includes('disabled')) {
-        setError('Your account has been disabled. Please contact support.');
+        setError(t('pages:login.errors.account_disabled'));
       } else if (
         message.toLowerCase().includes('invalid') ||
         message.toLowerCase().includes('incorrect')
       ) {
-        setError('Invalid email or password.');
+        setError(t('pages:login.errors.invalid_credentials'));
       } else {
         setError(message);
       }
@@ -98,7 +98,7 @@ export default function Login() {
             className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-            Back to courses
+            {t('pages:login.back_to_courses')}
           </Link>
           <span className="text-[10px] uppercase tracking-[0.3em] text-primary/80 font-mono">
             est. 2026
@@ -110,25 +110,22 @@ export default function Login() {
           <div className="flex items-center gap-3 mb-6">
             <Sparkles className="w-4 h-4 text-primary" strokeWidth={1.5} />
             <span className="text-[11px] uppercase tracking-[0.3em] text-primary/90 font-medium">
-              Sacred Transformation
+              {t('tagline')}
             </span>
           </div>
           <h1 className="font-heading text-4xl lg:text-6xl leading-[1.05] mb-6">
-            Welcome to <br />
-            <span className="italic text-primary-light">Delta SPMU</span> <br />
-            Academy.
+            {t('pages:login.welcome')}
           </h1>
           <p className="text-white/65 leading-relaxed text-base lg:text-lg max-w-md">
-            Master the art of permanent makeup with world-class training &mdash;
-            elevate your craft, build your confidence, transform lives.
+            {t('pages:login.welcome_description')}
           </p>
         </div>
 
         {/* Bottom — credit strip */}
         <div className="relative z-10 flex items-center gap-6 text-xs text-white/40 border-t border-white/10 pt-6">
-          <span>Video lessons</span>
+          <span>{t('pages:login.video_lessons')}</span>
           <span className="w-px h-3 bg-white/20" />
-          <span>4 certificate programs</span>
+          <span>{t('pages:login.certificate_programs', { count: 4 })}</span>
           <span className="w-px h-3 bg-white/20" />
           <span>Addis Ababa</span>
         </div>
@@ -145,18 +142,18 @@ export default function Login() {
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-3.5 h-3.5 text-primary-dark" strokeWidth={1.5} />
               <span className="text-[10px] uppercase tracking-[0.3em] text-primary-dark font-medium">
-                Delta SPMU
+                {t('app_name')}
               </span>
             </div>
-            <h1 className="font-heading text-3xl text-dark">Academy</h1>
+            <h1 className="font-heading text-3xl text-dark">{t('tagline')}</h1>
           </div>
 
           <div className="mb-8">
             <h2 className="font-heading text-3xl sm:text-4xl text-dark mb-2 leading-tight">
-              Welcome <span className="italic text-primary-dark">back</span>.
+              {t('pages:login.title')}
             </h2>
             <p className="text-dark/60">
-              Sign in to continue your learning journey.
+              {t('pages:login.subtitle')}
             </p>
           </div>
 
@@ -173,7 +170,7 @@ export default function Login() {
                 htmlFor="email"
                 className="block text-sm font-medium text-dark/80 mb-1.5"
               >
-                Email Address
+                {t('auth.email')}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -182,7 +179,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t('auth.email')}
                   autoComplete="email"
                   className="w-full rounded-lg border border-dark/10 bg-white py-3 pl-10 pr-4 text-dark placeholder:text-dark/30 transition-all focus:border-primary-dark focus:ring-4 focus:ring-primary/15 outline-none shadow-sm hover:border-dark/20"
                 />
@@ -195,7 +192,7 @@ export default function Login() {
                 htmlFor="password"
                 className="block text-sm font-medium text-dark/80 mb-1.5"
               >
-                Password
+                {t('auth.password')}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -204,7 +201,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.password')}
                   autoComplete="current-password"
                   className="w-full rounded-lg border border-dark/10 bg-white py-3 pl-10 pr-11 text-dark placeholder:text-dark/30 transition-all focus:border-primary-dark focus:ring-4 focus:ring-primary/15 outline-none shadow-sm hover:border-dark/20"
                 />
@@ -212,7 +209,7 @@ export default function Login() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-dark/40 hover:text-dark/70 transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -229,7 +226,7 @@ export default function Login() {
                 to="/forgot-password"
                 className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
-                Forgot Password?
+                {t('auth.forgot_password')}
               </Link>
             </div>
 
@@ -242,11 +239,11 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Signing in...
+                  {t('auth.logging_in')}
                 </>
               ) : (
                 <>
-                  Sign In
+                  {t('auth.login')}
                   <span className="text-primary-light group-hover:translate-x-0.5 transition-transform">&rarr;</span>
                 </>
               )}
@@ -257,18 +254,18 @@ export default function Login() {
           <div className="my-8 flex items-center gap-4">
             <span className="flex-1 h-px bg-dark/10" />
             <span className="text-[11px] uppercase tracking-[0.2em] text-dark/40">
-              or
+              {t('auth.or')}
             </span>
             <span className="flex-1 h-px bg-dark/10" />
           </div>
 
           <p className="text-center text-sm text-dark/60">
-            New to the academy?{' '}
+            {t('auth.dont_have_account')}{' '}
             <Link
               to="/register"
               className="text-primary-dark font-semibold hover:text-dark transition-colors underline-offset-2 hover:underline"
             >
-              Create an account
+              {t('auth.register')}
             </Link>
           </p>
         </div>

@@ -3,13 +3,38 @@
     "title": "እንኳን ደህና መጡ",
     "subtitle": "የመማሪያ ጉዞዎን ለመቀጠል ይግቡ",
     "welcome": "ወደ ዴልታ SPMU አካዳሚ እንኳን በደህና መጡ",
-    "welcome_description": "ከአዲስ አበባ፣ ኢትዮጵያ በሙያዊ ስልጠና የቋሚ ማስዋቢያ ጥበብን ይማሩ።"
+    "welcome_description": "ከአዲስ አበባ፣ ኢትዮጵያ በሙያዊ ስልጠና የቋሚ ማስዋቢያ ጥበብን ይማሩ።",
+    "back_to_courses": "ወደ ኮርሶች ተመለስ",
+    "video_lessons": "የቪዲዮ ትምህርቶች",
+    "certificate_programs_one": "{{count}} የሰርቲፊኬት ፕሮግራም",
+    "certificate_programs_other": "{{count}} የሰርቲፊኬት ፕሮግራሞች",
+    "errors": {
+      "email_required": "እባክዎ ኢሜይልዎን ያስገቡ።",
+      "email_invalid": "እባክዎ ትክክለኛ ኢሜይል ያስገቡ።",
+      "password_required": "እባክዎ የይለፍ ቃልዎን ያስገቡ።",
+      "account_disabled": "መለያዎ ታግዷል። እባክዎ ድጋፍን ያግኙ።",
+      "invalid_credentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክል አይደለም።"
+    }
   },
   "register": {
     "title": "መለያዎን ይፍጠሩ",
     "subtitle": "በቋሚ ማስዋቢያ ትምህርት ጉዞዎን ይጀምሩ",
     "success_title": "መለያ ተፈጥሯል!",
-    "success_message": "የማረጋገጫ ኢሜይል ወደ {{email}} ልከናል። እባክዎ የገቢ ሳጥንዎን ያረጋግጡ።"
+    "success_message": "የማረጋገጫ ኢሜይል ወደ {{email}} ልከናል። እባክዎ የገቢ ሳጥንዎን ያረጋግጡ።",
+    "sending": "በመላክ ላይ...",
+    "resend_countdown": "የማረጋገጫ ኢሜይል ዳግም ላክ ({{seconds}} ሰ)",
+    "back_to_login": "ወደ መግቢያ ተመለስ",
+    "minimum_characters": "ቢያንስ {{count}} ፊደላት",
+    "errors": {
+      "name_required": "እባክዎ ሙሉ ስምዎን ያስገቡ።",
+      "email_required": "እባክዎ ኢሜይልዎን ያስገቡ።",
+      "email_invalid": "እባክዎ ትክክለኛ ኢሜይል ያስገቡ።",
+      "phone_required": "እባክዎ ስልክ ቁጥርዎን ያስገቡ።",
+      "phone_invalid": "እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ።",
+      "password_required": "እባክዎ የይለፍ ቃል ያስገቡ።",
+      "password_length": "የይለፍ ቃሉ ቢያንስ 8 ፊደላት ሊኖሩት ይገባል።",
+      "account_exists": "በዚህ ኢሜይል መለያ አለ። እባክዎ ይግቡ።"
+    }
   },
   "forgot_password": {
     "title": "የይለፍ ቃል ረሱ",
@@ -42,7 +67,65 @@
     "sort_popular": "ታዋቂ",
     "sort_price_low": "ዋጋ: ዝቅተኛ ወደ ከፍተኛ",
     "sort_price_high": "ዋጋ: ከፍተኛ ወደ ዝቅተኛ",
-    "sort_rating": "ከፍተኛ ደረጃ"
+    "sort_rating": "ከፍተኛ ደረጃ",
+    "coming_soon": "በቅርቡ",
+    "discount": "{{percent}}% ቅናሽ",
+    "new": "አዲስ",
+    "programs": "ፕሮግራሞች",
+    "certificates_count_one": "{{count}} ሰርቲፊኬት",
+    "certificates_count_other": "{{count}} ሰርቲፊኬቶች",
+    "video_theory": "ቪዲዮ + ንድፈ ሐሳብ",
+    "certified": "የተረጋገጠ",
+    "on_completion": "ሲጠናቀቅ",
+    "blended": "የተቀላቀለ",
+    "online_studio": "ኦንላይን + ስቱዲዮ",
+    "adjust_filters": "ፍለጋዎን ወይም ማጣሪያዎችዎን ያስተካክሉ።",
+    "check_back": "አዳዲስ ኮርሶችን ለማየት በቅርቡ ይመለሱ።",
+    "go_to_slide": "ወደ ስላይድ {{number}} ሂድ",
+    "topics_title": "ስምንቱ የሙያ መሠረቶች",
+    "topics_description": "እያንዳንዱ የዴልታ SPMU ፕሮግራም ከሙያዊ የሥልጠና መመሪያዎቻችን በተወሰዱ መሠረታዊ የክህሎት ዘርፎች ላይ የተገነባ ነው። ቀጣዩን ርዕስ በጥልቀት ያስሱ።",
+    "explore": "ያስሱ",
+    "topics": {
+      "skin_anatomy": {
+        "title": "የቆዳ አካላዊ አወቃቀር እና ፈውስ",
+        "description": "የቆዳ ንብርብሮች፣ የፊትዝፓትሪክ መለኪያ፣ ተቃራኒ ሁኔታዎች"
+      },
+      "hygiene_safety": {
+        "title": "ንጽህና እና ደህንነት",
+        "description": "ተላላፊ ብክለት፣ ማምከን፣ የሥራ ቦታ ዝግጅት"
+      },
+      "color_theory": {
+        "title": "የቀለም ንድፈ ሐሳብ",
+        "description": "የቀለም መሠረቶች፣ የፒግመንት ምርጫ፣ ገለልተኛ ማድረግ"
+      },
+      "brow_mapping": {
+        "title": "የቅንድብ ንድፍ መለካት",
+        "description": "ወርቃማ ሬሾ፣ የፊት ሚዛናዊነት፣ ዲዛይን"
+      },
+      "signature_techniques": {
+        "title": "ልዩ ቴክኒኮች",
+        "description": "ኦምብሬ · ፓውደር · ናኖ · ኮምቦ ብሮውስ"
+      },
+      "aftercare": {
+        "title": "ከሕክምና በኋላ እንክብካቤ እና ፈውስ",
+        "description": "የዕለት በዕለት ማገገም እና የደንበኛ መመሪያ"
+      },
+      "studio_business": {
+        "title": "ስቱዲዮ እና ንግድ",
+        "description": "ዋጋ አሰጣጥ፣ የደንበኛ ማቆየት፣ የምርት ስም ግንባታ"
+      },
+      "teach_train": {
+        "title": "ማስተማር እና ማሰልጠን",
+        "description": "የራስዎን አካዳሚ ይክፈቱ እና ተማሪዎችን ያሰልጥኑ"
+      }
+    },
+    "instructor_image_alt": "የዴልታ SPMU አካዳሚ መሥራች እና ዋና አስተማሪ ኤደን ካሳሁን",
+    "meet_instructor": "አስተማሪዎን ይተዋወቁ",
+    "instructor_role": "መሥራች እና ዋና አስተማሪ፣ ዴልታ SPMU አካዳሚ",
+    "instructor_bio": "ኤደን የዴልታ SPMU አካዳሚ መሥራች እና ዋና አስተማሪ በመሆን ተማሪዎችን ከመሠረታዊ ንጽህናና ደህንነት እስከ የላቀ የቅንድብ ጥበብ እና የአስተማሪነት ሥልጠና ድረስ በአካዳሚው ልዩ ሥርዓተ ትምህርት ይመራሉ።",
+    "cta_title": "ጉዞዎን ለመጀመር ዝግጁ ነዎት?",
+    "cta_description": "ከመጀመሪያ እየጀመሩም ሆነ ክህሎትዎን እያሳደጉ፣ ለቀጣዩ እርምጃዎ የሚሆን ፕሮግራም አለ።",
+    "browse_programs": "ፕሮግራሞችን ያስሱ"
   },
   "course_detail": {
     "what_youll_learn": "የሚማሩት",

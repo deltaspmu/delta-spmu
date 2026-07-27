@@ -21,6 +21,7 @@
     "email": "ኢሜይል",
     "password": "የይለፍ ቃል",
     "full_name": "ሙሉ ስም",
+    "phone": "ስልክ ቁጥር",
     "forgot_password": "የይለፍ ቃል ረሱ?",
     "reset_password": "የይለፍ ቃል ዳግም አስቀምጥ",
     "new_password": "አዲስ የይለፍ ቃል",
@@ -36,7 +37,10 @@
     "verify_email_sent": "የማረጋገጫ ማገናኛ ወደ ኢሜይልዎ ልከናል።",
     "resend_verification": "የማረጋገጫ ኢሜይል ዳግም ላክ",
     "verification_success": "ኢሜይል በተሳካ ሁኔታ ተረጋግጧል!",
-    "reset_email_sent": "የይለፍ ቃል ዳግም ማስቀመጫ ማገናኛ ተልኳል።"
+    "reset_email_sent": "የይለፍ ቃል ዳግም ማስቀመጫ ማገናኛ ተልኳል።",
+    "show_password": "የይለፍ ቃል አሳይ",
+    "hide_password": "የይለፍ ቃል ደብቅ",
+    "or": "ወይም"
   },
   "buttons": {
     "enroll": "አሁን ተመዝገብ",
@@ -124,10 +128,21 @@
     "terms": "የአገልግሎት ውሎች",
     "refund": "የተመላሽ ፖሊሲ",
     "cookies": "የኩኪ ፖሊሲ",
-    "copyright": "© {{year}} ዴልታ SPMU አካዳሚ። መብቱ በሕግ የተጠበቀ ነው።"
+    "copyright": "© {{year}} ዴልታ SPMU አካዳሚ። መብቱ በሕግ የተጠበቀ ነው።",
+    "tagline": "የከፊል ቋሚ ማስዋቢያ ጥበብን ይማሩ",
+    "description": "በማይክሮብሌዲንግ፣ በሊፕ ብላሽ፣ በአይላይነር እና በሌሎችም ሙያዊ ሥልጠና ያግኙ። ከባለሙያዎች ይማሩ እና እውቅና ያላቸው ሰርቲፊኬቶችን ያግኙ።",
+    "quick_links": "ፈጣን ማገናኛዎች",
+    "legal": "ሕጋዊ",
+    "powered_by": "በዚህ የተጎለበተ"
+  },
+  "menu": {
+    "title": "ምናሌ",
+    "open": "ምናሌ ክፈት",
+    "close": "ምናሌ ዝጋ"
   },
   "language": {
     "en": "English",
-    "am": "አማርኛ"
+    "am": "አማርኛ",
+    "switch_to": "ቋንቋውን ወደ {{language}} ቀይር"
   }
 }

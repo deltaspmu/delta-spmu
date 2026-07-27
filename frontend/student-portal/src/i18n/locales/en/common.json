@@ -21,6 +21,7 @@
     "email": "Email Address",
     "password": "Password",
     "full_name": "Full Name",
+    "phone": "Phone Number",
     "forgot_password": "Forgot Password?",
     "reset_password": "Reset Password",
     "new_password": "New Password",
@@ -36,7 +37,10 @@
     "verify_email_sent": "We've sent a verification link to your email. Please check your inbox.",
     "resend_verification": "Resend Verification Email",
     "verification_success": "Email verified successfully! You can now log in.",
-    "reset_email_sent": "Password reset link sent to your email."
+    "reset_email_sent": "Password reset link sent to your email.",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "or": "or"
   },
   "buttons": {
     "enroll": "Enroll Now",
@@ -124,10 +128,21 @@
     "terms": "Terms of Service",
     "refund": "Refund Policy",
     "cookies": "Cookie Policy",
-    "copyright": "© {{year}} Delta SPMU Academy. All rights reserved."
+    "copyright": "© {{year}} Delta SPMU Academy. All rights reserved.",
+    "tagline": "Master the Art of Semi-Permanent Makeup",
+    "description": "Professional training in microblading, lip blush, eyeliner, and more. Learn from industry experts and earn recognized certifications.",
+    "quick_links": "Quick Links",
+    "legal": "Legal",
+    "powered_by": "Powered by"
+  },
+  "menu": {
+    "title": "Menu",
+    "open": "Open menu",
+    "close": "Close menu"
   },
   "language": {
     "en": "English",
-    "am": "አማርኛ"
+    "am": "አማርኛ",
+    "switch_to": "Switch language to {{language}}"
   }
 }

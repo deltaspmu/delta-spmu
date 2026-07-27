@@ -41,9 +41,15 @@ i18n
     },
   });
 
-// Update document lang attribute when language changes
-i18n.on('languageChanged', (lng) => {
-  document.documentElement.lang = lng;
-});
+const setDocumentLanguage = (lng: string) => {
+  document.documentElement.lang = lng.startsWith('am') ? 'am' : 'en';
+};
+
+// The detector can resolve the stored language during init, before a
+// languageChanged listener is attached. Apply it immediately as well as on
+// subsequent switches so a reload preserves both the translated UI and the
+// document language metadata.
+setDocumentLanguage(i18n.resolvedLanguage || i18n.language || 'en');
+i18n.on('languageChanged', setDocumentLanguage);
 
 export default i18n;

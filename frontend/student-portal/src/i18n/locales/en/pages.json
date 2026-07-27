@@ -3,13 +3,38 @@
     "title": "Welcome Back",
     "subtitle": "Log in to continue your learning journey",
     "welcome": "Welcome to Delta SPMU Academy",
-    "welcome_description": "Master the art of permanent makeup with professional training from Addis Ababa, Ethiopia."
+    "welcome_description": "Master the art of permanent makeup with professional training from Addis Ababa, Ethiopia.",
+    "back_to_courses": "Back to courses",
+    "video_lessons": "Video lessons",
+    "certificate_programs_one": "{{count}} certificate program",
+    "certificate_programs_other": "{{count}} certificate programs",
+    "errors": {
+      "email_required": "Please enter your email address.",
+      "email_invalid": "Please enter a valid email address.",
+      "password_required": "Please enter your password.",
+      "account_disabled": "Your account has been disabled. Please contact support.",
+      "invalid_credentials": "Invalid email or password."
+    }
   },
   "register": {
     "title": "Create Your Account",
     "subtitle": "Start your journey in permanent makeup education",
     "success_title": "Account Created!",
-    "success_message": "We've sent a verification email to {{email}}. Please check your inbox and click the verification link."
+    "success_message": "We've sent a verification email to {{email}}. Please check your inbox and click the verification link.",
+    "sending": "Sending...",
+    "resend_countdown": "Resend Verification Email ({{seconds}}s)",
+    "back_to_login": "Back to Login",
+    "minimum_characters": "Minimum {{count}} characters",
+    "errors": {
+      "name_required": "Please enter your full name.",
+      "email_required": "Please enter your email address.",
+      "email_invalid": "Please enter a valid email address.",
+      "phone_required": "Please enter your phone number.",
+      "phone_invalid": "Please enter a valid phone number.",
+      "password_required": "Please enter a password.",
+      "password_length": "Password must be at least 8 characters.",
+      "account_exists": "An account with this email already exists. Please log in instead."
+    }
   },
   "forgot_password": {
     "title": "Forgot Password",
@@ -42,7 +67,65 @@
     "sort_popular": "Most Popular",
     "sort_price_low": "Price: Low to High",
     "sort_price_high": "Price: High to Low",
-    "sort_rating": "Highest Rated"
+    "sort_rating": "Highest Rated",
+    "coming_soon": "Coming Soon",
+    "discount": "{{percent}}% OFF",
+    "new": "New",
+    "programs": "Programs",
+    "certificates_count_one": "{{count}} certificate",
+    "certificates_count_other": "{{count}} certificates",
+    "video_theory": "Video + theory",
+    "certified": "Certified",
+    "on_completion": "On completion",
+    "blended": "Blended",
+    "online_studio": "Online + Studio",
+    "adjust_filters": "Try adjusting your search or filters.",
+    "check_back": "Check back soon for new courses.",
+    "go_to_slide": "Go to slide {{number}}",
+    "topics_title": "The eight pillars of the practice",
+    "topics_description": "Every program at Delta SPMU is built from these foundational skill areas, drawn directly from our professional training manuals. Dig deeper into the topic that's calling you next.",
+    "explore": "Explore",
+    "topics": {
+      "skin_anatomy": {
+        "title": "Skin Anatomy & Healing",
+        "description": "Layers, Fitzpatrick scale, contraindications"
+      },
+      "hygiene_safety": {
+        "title": "Hygiene & Safety",
+        "description": "Cross-contamination, sterilization, station setup"
+      },
+      "color_theory": {
+        "title": "Color Theory",
+        "description": "Undertones, pigment selection, neutralization"
+      },
+      "brow_mapping": {
+        "title": "Brow Mapping",
+        "description": "Golden ratio, facial symmetry, design"
+      },
+      "signature_techniques": {
+        "title": "Signature Techniques",
+        "description": "Ombré · Powder · Nano · Combo brows"
+      },
+      "aftercare": {
+        "title": "Aftercare & Healing",
+        "description": "Day-by-day recovery and client guidance"
+      },
+      "studio_business": {
+        "title": "Studio & Business",
+        "description": "Pricing, client retention, brand building"
+      },
+      "teach_train": {
+        "title": "Teach & Train",
+        "description": "Open your own academy and license students"
+      }
+    },
+    "instructor_image_alt": "Eden Kassahun, Founder & Lead Educator of Delta SPMU Academy",
+    "meet_instructor": "Meet Your Instructor",
+    "instructor_role": "Founder & Lead Educator, Delta SPMU Academy",
+    "instructor_bio": "As the founder and lead educator of Delta SPMU Academy, Eden guides students through the academy's signature curriculum with a deep passion for the craft of permanent makeup — from foundational hygiene and safety through advanced brow artistry and instructor-level training.",
+    "cta_title": "Ready to begin your journey?",
+    "cta_description": "Whether you're starting from scratch or refining a craft — there's a program ready for the next step.",
+    "browse_programs": "Browse Programs"
   },
   "course_detail": {
     "what_youll_learn": "What You'll Learn",
