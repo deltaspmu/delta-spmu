@@ -39,11 +39,11 @@ const PAGE_SIZE = 12;
 // (lms.lms.api.get_courses). Mismatched keys silently fall back to
 // "creation desc", so keep this in sync with that mapping.
 const SORT_OPTIONS = [
-  { value: 'creation', label: 'Newest' },
-  { value: 'enrollment_count', label: 'Popular' },
-  { value: 'course_price', label: 'Price: Low to High' },
-  { value: 'course_price_desc', label: 'Price: High to Low' },
-  { value: 'avg_rating', label: 'Highest Rated' },
+  { value: 'creation', labelKey: 'pages:courses.sort_newest' },
+  { value: 'enrollment_count', labelKey: 'pages:courses.sort_popular' },
+  { value: 'course_price', labelKey: 'pages:courses.sort_price_low' },
+  { value: 'course_price_desc', labelKey: 'pages:courses.sort_price_high' },
+  { value: 'avg_rating', labelKey: 'pages:courses.sort_rating' },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -84,6 +84,7 @@ interface CourseCardProps {
 }
 
 function CourseCard({ course }: CourseCardProps) {
+  const { t } = useTranslation(['common', 'pages']);
   const { toggleWishlist, isInWishlist } = useWishlist();
   const wishlisted = isInWishlist(course.name);
 
@@ -119,14 +120,14 @@ function CourseCard({ course }: CourseCardProps) {
               ? 'bg-red-500 text-white'
               : 'bg-white/80 text-gray-600 hover:bg-white hover:text-red-500'
           )}
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-label={wishlisted ? t('buttons.remove_from_wishlist') : t('buttons.add_to_wishlist')}
         >
           <Heart className="w-4 h-4" fill={wishlisted ? 'currentColor' : 'none'} />
         </button>
         {/* Coming soon badge */}
         {course.upcoming === 1 && (
           <span className="absolute bottom-3 left-3 bg-dark/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-            Coming Soon
+            {t('pages:courses.coming_soon')}
           </span>
         )}
         {/* Promo badge */}
@@ -134,7 +135,7 @@ function CourseCard({ course }: CourseCardProps) {
           !!course.discount_percent &&
           course.discount_percent > 0 && (
             <span className="absolute bottom-3 left-3 bg-primary text-dark text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
-              {course.discount_percent}% OFF
+              {t('pages:courses.discount', { percent: course.discount_percent })}
             </span>
           )}
       </div>
@@ -163,7 +164,7 @@ function CourseCard({ course }: CourseCardProps) {
         <div className="flex items-center gap-1 mb-3">
           <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
           <span className="text-sm font-medium text-dark">
-            {course.avg_rating > 0 ? course.avg_rating.toFixed(1) : 'New'}
+            {course.avg_rating > 0 ? course.avg_rating.toFixed(1) : t('pages:courses.new')}
           </span>
           {course.review_count > 0 && (
             <span className="text-sm text-gray-400">
@@ -189,7 +190,7 @@ function CourseCard({ course }: CourseCardProps) {
           </div>
           {course.upcoming === 1 ? (
             <span className="font-heading font-bold text-primary text-sm">
-              Coming Soon
+              {t('pages:courses.coming_soon')}
             </span>
           ) : !!course.discount_percent && course.discount_percent > 0 ? (
             <span className="flex items-baseline gap-1.5">
@@ -204,7 +205,7 @@ function CourseCard({ course }: CourseCardProps) {
             <span className="font-heading font-bold text-primary text-sm">
               {course.course_price > 0
                 ? formatPrice(course.course_price, course.currency)
-                : 'Free'}
+                : t('course.free')}
             </span>
           )}
         </div>
@@ -329,11 +330,10 @@ export default function Courses() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold mb-3">
-              {t('common:courses', 'Courses')}
+              {t('pages:courses.title')}
             </h1>
             <p className="text-primary-light text-lg max-w-2xl">
-              Professional permanent makeup &amp; beauty certificates &mdash;
-              from ombré brows to bridal artistry.
+              {t('pages:courses.subtitle')}
             </p>
           </div>
         </div>
@@ -347,8 +347,10 @@ export default function Courses() {
               <GraduationCap className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs text-dark-light">Programs</p>
-              <p className="text-base font-semibold text-dark">4 certificates</p>
+              <p className="text-xs text-dark-light">{t('pages:courses.programs')}</p>
+              <p className="text-base font-semibold text-dark">
+                {t('pages:courses.certificates_count', { count: 4 })}
+              </p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -356,8 +358,8 @@ export default function Courses() {
               <BookOpen className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs text-dark-light">Curriculum</p>
-              <p className="text-base font-semibold text-dark">Video + theory</p>
+              <p className="text-xs text-dark-light">{t('course.curriculum')}</p>
+              <p className="text-base font-semibold text-dark">{t('pages:courses.video_theory')}</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -365,8 +367,8 @@ export default function Courses() {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs text-dark-light">Certified</p>
-              <p className="text-base font-semibold text-dark">On completion</p>
+              <p className="text-xs text-dark-light">{t('pages:courses.certified')}</p>
+              <p className="text-base font-semibold text-dark">{t('pages:courses.on_completion')}</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -374,8 +376,8 @@ export default function Courses() {
               <Users className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs text-dark-light">Blended</p>
-              <p className="text-base font-semibold text-dark">Online + Studio</p>
+              <p className="text-xs text-dark-light">{t('pages:courses.blended')}</p>
+              <p className="text-base font-semibold text-dark">{t('pages:courses.online_studio')}</p>
             </div>
           </div>
         </div>
@@ -391,7 +393,7 @@ export default function Courses() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search courses..."
+              placeholder={t('pages:courses.search_placeholder')}
               className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
             />
           </div>
@@ -403,7 +405,7 @@ export default function Courses() {
               onChange={(e) => setCategory(e.target.value)}
               className="appearance-none w-full sm:w-48 px-4 py-3 pr-10 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors cursor-pointer"
             >
-              <option value="">All Categories</option>
+              <option value="">{t('pages:courses.all_categories')}</option>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
@@ -422,7 +424,7 @@ export default function Courses() {
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
@@ -440,25 +442,25 @@ export default function Courses() {
         ) : coursesError ? (
           <div className="text-center py-16">
             <p className="text-gray-500 mb-4">
-              Something went wrong while loading courses.
+              {t('errors.generic')}
             </p>
             <button
               onClick={() => refetchCourses()}
               className="px-6 py-2 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
             >
-              Try Again
+              {t('buttons.retry')}
             </button>
           </div>
         ) : courses.length === 0 ? (
           <div className="text-center py-16">
             <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="font-heading text-lg font-semibold text-dark mb-1">
-              No courses found
+              {t('course.no_courses')}
             </h3>
             <p className="text-gray-500 text-sm">
               {debouncedSearch || category
-                ? 'Try adjusting your search or filters.'
-                : 'Check back soon for new courses.'}
+                ? t('pages:courses.adjust_filters')
+                : t('pages:courses.check_back')}
             </p>
           </div>
         ) : (
@@ -477,7 +479,7 @@ export default function Courses() {
                   disabled={page === 1}
                   className="px-3 py-2 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Previous
+                  {t('buttons.previous')}
                 </button>
 
                 {Array.from({ length: totalPages }).map((_, i) => {
@@ -522,7 +524,7 @@ export default function Courses() {
                   disabled={page === totalPages}
                   className="px-3 py-2 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Next
+                  {t('buttons.next')}
                 </button>
               </div>
             )}
@@ -543,27 +545,23 @@ export default function Courses() {
           <div className="aspect-square md:aspect-auto md:min-h-[260px] bg-primary/15">
             <img
               src="/images/eden-kassahun.jpg"
-              alt="Eden Kassahun, Founder & Lead Educator of Delta SPMU Academy"
+              alt={t('pages:courses.instructor_image_alt')}
               className="w-full h-full object-cover object-top"
             />
           </div>
           <div className="p-6 sm:p-8 flex flex-col justify-center">
             <div className="flex items-center gap-2 text-primary-dark text-xs uppercase tracking-[0.2em] font-medium mb-2">
               <Award className="w-3.5 h-3.5" />
-              <span>Meet Your Instructor</span>
+              <span>{t('pages:courses.meet_instructor')}</span>
             </div>
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-dark mb-2">
               Eden Kassahun
             </h2>
             <p className="text-sm text-dark-light mb-4">
-              Founder &amp; Lead Educator, Delta SPMU Academy
+              {t('pages:courses.instructor_role')}
             </p>
             <p className="text-sm text-dark-light leading-relaxed">
-              As the founder and lead educator of Delta SPMU Academy, Eden
-              guides students through the academy&rsquo;s signature curriculum
-              with a deep passion for the craft of permanent makeup — from
-              foundational hygiene and safety through advanced brow artistry and
-              instructor-level training.
+              {t('pages:courses.instructor_bio')}
             </p>
           </div>
         </div>
@@ -577,11 +575,10 @@ export default function Courses() {
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center">
             <div>
               <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white mb-2">
-                Ready to begin your journey?
+                {t('pages:courses.cta_title')}
               </h2>
               <p className="text-primary-light text-base max-w-xl">
-                Whether you're starting from scratch or refining a craft —
-                there's a program ready for the next step.
+                {t('pages:courses.cta_description')}
               </p>
             </div>
             <Link
@@ -592,7 +589,7 @@ export default function Courses() {
               }}
               className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-dark font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap"
             >
-              Browse Programs <ArrowRight className="w-4 h-4" />
+              {t('pages:courses.browse_programs')} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>

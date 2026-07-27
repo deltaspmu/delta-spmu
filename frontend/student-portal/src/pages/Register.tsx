@@ -25,8 +25,8 @@ export default function Register() {
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    document.title = 'Create Account — Delta SPMU Academy';
-  }, []);
+    document.title = `${t('pages:register.title')} — ${t('app_name')}`;
+  }, [t]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -66,31 +66,31 @@ export default function Register() {
     setError('');
 
     if (!fullName.trim()) {
-      setError('Please enter your full name.');
+      setError(t('pages:register.errors.name_required'));
       return;
     }
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setError(t('pages:register.errors.email_required'));
       return;
     }
     if (!validateEmail(email)) {
-      setError('Please enter a valid email address.');
+      setError(t('pages:register.errors.email_invalid'));
       return;
     }
     if (!phone.trim()) {
-      setError('Please enter your phone number.');
+      setError(t('pages:register.errors.phone_required'));
       return;
     }
     if (!validatePhone(phone)) {
-      setError('Please enter a valid phone number.');
+      setError(t('pages:register.errors.phone_invalid'));
       return;
     }
     if (!password) {
-      setError('Please enter a password.');
+      setError(t('pages:register.errors.password_required'));
       return;
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('pages:register.errors.password_length'));
       return;
     }
 
@@ -104,7 +104,7 @@ export default function Register() {
         const [code] = result as [number, string];
         if (code === 0) {
           setError(
-            'An account with this email already exists. Please log in instead.'
+            t('pages:register.errors.account_exists')
           );
           return;
         }
@@ -141,12 +141,10 @@ export default function Register() {
             <CheckCircle className="h-16 w-16 text-green-500" />
           </div>
           <h1 className="font-heading text-3xl text-dark mb-3">
-            Account Created!
+            {t('pages:register.success_title')}
           </h1>
           <p className="text-dark/60 mb-8">
-            We've sent a verification email to{' '}
-            <span className="font-medium text-dark">{email}</span>. Please
-            check your inbox and click the link to activate your account.
+            {t('pages:register.success_message', { email })}
           </p>
 
           <button
@@ -158,12 +156,12 @@ export default function Register() {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sending...
+                {t('pages:register.sending')}
               </>
             ) : resendCooldown > 0 ? (
-              `Resend Verification Email (${resendCooldown}s)`
+              t('pages:register.resend_countdown', { seconds: resendCooldown })
             ) : (
-              'Resend Verification Email'
+              t('auth.resend_verification')
             )}
           </button>
 
@@ -171,7 +169,7 @@ export default function Register() {
             to="/login"
             className="text-sm text-primary font-medium hover:text-primary/80 transition-colors"
           >
-            Back to Login
+            {t('pages:register.back_to_login')}
           </Link>
         </div>
       </div>
@@ -184,10 +182,10 @@ export default function Register() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading text-3xl text-dark mb-1">
-            Create Account
+            {t('pages:register.title')}
           </h1>
           <p className="text-dark/60">
-            Join Delta SPMU Academy and start learning today.
+            {t('pages:register.subtitle')}
           </p>
         </div>
 
@@ -204,7 +202,7 @@ export default function Register() {
               htmlFor="fullName"
               className="block text-sm font-medium text-dark/80 mb-1.5"
             >
-              Full Name
+              {t('auth.full_name')}
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -213,7 +211,7 @@ export default function Register() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your full name"
+                placeholder={t('auth.full_name')}
                 autoComplete="name"
                 className="w-full rounded-lg border border-dark/10 bg-white py-2.5 pl-10 pr-4 text-dark placeholder:text-dark/30 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
@@ -226,7 +224,7 @@ export default function Register() {
               htmlFor="email"
               className="block text-sm font-medium text-dark/80 mb-1.5"
             >
-              Email Address
+              {t('auth.email')}
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -235,7 +233,7 @@ export default function Register() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={t('auth.email')}
                 autoComplete="email"
                 className="w-full rounded-lg border border-dark/10 bg-white py-2.5 pl-10 pr-4 text-dark placeholder:text-dark/30 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
@@ -248,7 +246,7 @@ export default function Register() {
               htmlFor="phone"
               className="block text-sm font-medium text-dark/80 mb-1.5"
             >
-              Phone Number
+              {t('auth.phone')}
             </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -270,7 +268,7 @@ export default function Register() {
               htmlFor="password"
               className="block text-sm font-medium text-dark/80 mb-1.5"
             >
-              Password
+              {t('auth.password')}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark/40" />
@@ -279,7 +277,7 @@ export default function Register() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a password"
+                placeholder={t('auth.new_password')}
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-dark/10 bg-white py-2.5 pl-10 pr-11 text-dark placeholder:text-dark/30 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
               />
@@ -287,7 +285,7 @@ export default function Register() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-dark/40 hover:text-dark/70 transition-colors"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -297,7 +295,7 @@ export default function Register() {
               </button>
             </div>
             <p className="mt-1.5 text-xs text-dark/40">
-              Minimum 8 characters
+              {t('pages:register.minimum_characters', { count: 8 })}
             </p>
           </div>
 
@@ -310,21 +308,21 @@ export default function Register() {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Creating Account...
+                {t('auth.registering')}
               </>
             ) : (
-              'Create Account'
+              t('pages:register.title')
             )}
           </button>
         </form>
 
         <p className="mt-8 text-center text-sm text-dark/60">
-          Already have an account?{' '}
+          {t('auth.already_have_account')}{' '}
           <Link
             to="/login"
             className="text-primary font-medium hover:text-primary/80 transition-colors"
           >
-            Log in
+            {t('auth.login')}
           </Link>
         </p>
       </div>
