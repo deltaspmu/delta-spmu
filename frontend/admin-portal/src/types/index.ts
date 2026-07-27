@@ -122,16 +122,16 @@ export interface Certificate {
 // ---------------------------------------------------------------------------
 export interface Enrollment {
   name: string;
-  student: string;
-  student_name: string;
-  student_email: string;
+  member: string;
+  member_name: string;
   course: string;
   course_title: string;
   enrollment_date: string;
   progress: number;
   access_start: string | null;
   access_end: string | null;
-  status: 'Active' | 'Expired' | 'Suspended';
+  is_active: 0 | 1 | null;
+  status: 'Active' | 'Completed' | 'Expired' | 'Suspended';
   creation: string;
 }
 

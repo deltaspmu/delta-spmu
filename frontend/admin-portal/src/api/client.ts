@@ -319,9 +319,16 @@ export async function manualEnroll(student: string, course: string) {
   return call('lms.lms.api.admin_manual_enroll', { student, course });
 }
 
-export async function deleteEnrollment(name: string) {
-  const res = await api.delete(docResource('LMS Enrollment', name));
-  return unwrap(res);
+export async function updateEnrollment(
+  enrollment: string,
+  action: 'suspend' | 'reactivate' | 'set_expiry' | 'revoke',
+  accessEnd?: string,
+) {
+  return call('lms.lms.api.admin_update_enrollment', {
+    enrollment,
+    action,
+    access_end: accessEnd,
+  });
 }
 
 // ---------------------------------------------------------------------------
