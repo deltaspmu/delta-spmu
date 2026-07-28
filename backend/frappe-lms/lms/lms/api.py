@@ -36,6 +36,7 @@ from frappe.utils import (
     validate_email_address,
 )
 from lms.lms.branding import PRIMARY_COLOR, SECONDARY_COLOR, SITE_NAME
+from lms.lms.platform_settings import DEFAULT_CURRENCY
 
 
 # ---------------------------------------------------------------------------
@@ -625,39 +626,63 @@ def get_lms_settings():
         dict: Platform configuration values.
     """
     try:
-        fields_map = {
-            "lms_title": "lms_title",
-            "description": "description",
-            "force_published_on_creation": "force_published_on_creation",
-            "allow_self_enrollment": "allow_self_enrollment",
-            "send_enrollment_email": "send_enrollment_email",
-            "show_reviews": "show_reviews",
-            "allow_reviews": "allow_reviews",
-            "show_progress": "show_progress",
-            "enable_certificates": "enable_certificates",
-            "certificate_template": "certificate_template",
-            "enable_gamification": "enable_gamification",
-            "max_rating": "max_rating",
-            "payment_gateway": "payment_gateway",
-            "currency": "currency",
-            "enable_payments": "enable_payments",
-            "hero_title": "hero_title",
-            "hero_subtitle": "hero_subtitle",
-            "hero_image": "hero_image",
-            "primary_color": "primary_color",
-            "enrollment_requires_approval": "enrollment_requires_approval",
-            "default_course_image": "default_course_image",
-            "terms_of_use": "terms_of_use",
-            "privacy_policy": "privacy_policy",
-        }
+        # Upstream LMS releases use different names for several settings. Read
+        # only fields present in this site's schema: calling get_single_value
+        # for an absent field adds a Frappe error to the otherwise-successful
+        # guest response via ``_server_messages``.
+        meta = frappe.get_meta("LMS Settings")
 
-        settings = {}
-        for key, field_name in fields_map.items():
-            try:
-                value = frappe.db.get_single_value("LMS Settings", field_name)
-                settings[key] = value
-            except Exception:
-                settings[key] = None
+        def _read(*field_names, default=None):
+            for field_name in field_names:
+                if meta.has_field(field_name):
+                    value = frappe.db.get_single_value("LMS Settings", field_name)
+                    if value is not None:
+                        return value
+            return default
+
+        site_name = (
+            _read("lms_title")
+            or frappe.db.get_single_value("Website Settings", "app_name")
+            or SITE_NAME
+        )
+        if site_name == "Frappe":
+            site_name = SITE_NAME
+
+        description = _read("description", "meta_description", default="") or ""
+        payment_gateway = _read("payment_gateway", default="") or ""
+        settings = {
+            "lms_title": site_name,
+            "description": description,
+            "force_published_on_creation": _read("force_published_on_creation", default=0),
+            "allow_self_enrollment": _read("allow_self_enrollment", default=0),
+            "send_enrollment_email": _read("send_enrollment_email", default=0),
+            "show_reviews": _read("show_reviews", default=0),
+            "allow_reviews": _read("allow_reviews", default=0),
+            "show_progress": _read("show_progress", default=0),
+            "enable_certificates": _read(
+                "enable_certificates", "certifications", default=0
+            ),
+            "certificate_template": _read(
+                "certificate_template", "certification_template"
+            ),
+            "enable_gamification": _read("enable_gamification", default=0),
+            "max_rating": _read("max_rating", default=5),
+            "payment_gateway": payment_gateway,
+            "currency": _read("currency", "default_currency", default=DEFAULT_CURRENCY),
+            "enable_payments": _read(
+                "enable_payments", default=bool(payment_gateway)
+            ),
+            "hero_title": _read("hero_title", default=site_name) or site_name,
+            "hero_subtitle": _read("hero_subtitle", default=description) or description,
+            "hero_image": _read("hero_image", "meta_image"),
+            "primary_color": _read("primary_color", default=PRIMARY_COLOR) or PRIMARY_COLOR,
+            "enrollment_requires_approval": _read(
+                "enrollment_requires_approval", default=0
+            ),
+            "default_course_image": _read("default_course_image", "meta_image"),
+            "terms_of_use": _read("terms_of_use"),
+            "privacy_policy": _read("privacy_policy"),
+        }
 
         # Normalise boolean fields
         bool_fields = [
