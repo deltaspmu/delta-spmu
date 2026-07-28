@@ -9,6 +9,7 @@
  */
 
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Brain,
   Droplets,
@@ -24,8 +25,8 @@ import {
 
 interface TopicTile {
   key: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: typeof Brain;
   courseHint?: string;
 }
@@ -33,57 +34,57 @@ interface TopicTile {
 const TOPICS: TopicTile[] = [
   {
     key: 'skin-anatomy',
-    title: 'Skin Anatomy & Healing',
-    description: 'Layers, Fitzpatrick scale, contraindications',
+    titleKey: 'pages:courses.topics.skin_anatomy.title',
+    descriptionKey: 'pages:courses.topics.skin_anatomy.description',
     icon: Stethoscope,
     courseHint: 'foundation-certification',
   },
   {
     key: 'hygiene-safety',
-    title: 'Hygiene & Safety',
-    description: 'Cross-contamination, sterilization, station setup',
+    titleKey: 'pages:courses.topics.hygiene_safety.title',
+    descriptionKey: 'pages:courses.topics.hygiene_safety.description',
     icon: Droplets,
     courseHint: 'foundation-certification',
   },
   {
     key: 'color-theory',
-    title: 'Color Theory',
-    description: 'Undertones, pigment selection, neutralization',
+    titleKey: 'pages:courses.topics.color_theory.title',
+    descriptionKey: 'pages:courses.topics.color_theory.description',
     icon: Palette,
     courseHint: 'foundation-certification',
   },
   {
     key: 'brow-mapping',
-    title: 'Brow Mapping',
-    description: 'Golden ratio, facial symmetry, design',
+    titleKey: 'pages:courses.topics.brow_mapping.title',
+    descriptionKey: 'pages:courses.topics.brow_mapping.description',
     icon: Ruler,
     courseHint: 'foundation-certification',
   },
   {
     key: 'signature-techniques',
-    title: 'Signature Techniques',
-    description: 'Ombré · Powder · Nano · Combo brows',
+    titleKey: 'pages:courses.topics.signature_techniques.title',
+    descriptionKey: 'pages:courses.topics.signature_techniques.description',
     icon: Sparkles,
     courseHint: 'advanced-certification',
   },
   {
     key: 'aftercare',
-    title: 'Aftercare & Healing',
-    description: 'Day-by-day recovery and client guidance',
+    titleKey: 'pages:courses.topics.aftercare.title',
+    descriptionKey: 'pages:courses.topics.aftercare.description',
     icon: Heart,
     courseHint: 'foundation-certification',
   },
   {
     key: 'studio-business',
-    title: 'Studio & Business',
-    description: 'Pricing, client retention, brand building',
+    titleKey: 'pages:courses.topics.studio_business.title',
+    descriptionKey: 'pages:courses.topics.studio_business.description',
     icon: Briefcase,
     courseHint: 'master-artist-program',
   },
   {
     key: 'teach-train',
-    title: 'Teach & Train',
-    description: 'Open your own academy and license students',
+    titleKey: 'pages:courses.topics.teach_train.title',
+    descriptionKey: 'pages:courses.topics.teach_train.description',
     icon: Award,
     courseHint: 'instructor-licensing',
   },
@@ -94,21 +95,21 @@ interface Props {
 }
 
 export default function SPMUTopics({ onTopicClick }: Props) {
+  const { t } = useTranslation(['common', 'pages']);
+
   return (
     <section className="py-12 sm:py-14">
       {/* Section header */}
       <div className="mb-10 max-w-2xl">
         <div className="flex items-center gap-3 text-primary-dark text-[11px] uppercase tracking-[0.25em] font-medium mb-3">
           <span className="h-px w-8 bg-primary-dark/40" />
-          <span>Curriculum</span>
+          <span>{t('course.curriculum')}</span>
         </div>
         <h2 className="font-heading text-3xl sm:text-4xl font-bold text-dark leading-tight">
-          The eight pillars of the practice
+          {t('pages:courses.topics_title')}
         </h2>
         <p className="text-dark-light text-base mt-3 leading-relaxed">
-          Every program at Delta SPMU is built from these foundational skill
-          areas, drawn directly from our professional training manuals. Dig
-          deeper into the topic that's calling you next.
+          {t('pages:courses.topics_description')}
         </p>
       </div>
 
@@ -135,15 +136,15 @@ export default function SPMUTopics({ onTopicClick }: Props) {
 
               {/* Text */}
               <h3 className="relative z-10 font-heading text-lg sm:text-xl font-semibold leading-tight mb-2">
-                {topic.title}
+                {t(topic.titleKey)}
               </h3>
               <p className="relative z-10 text-[13px] text-white/60 leading-relaxed flex-1">
-                {topic.description}
+                {t(topic.descriptionKey)}
               </p>
 
               {/* Hover arrow */}
               <div className="relative z-10 mt-4 flex items-center gap-1.5 text-[12px] text-primary opacity-60 group-hover:opacity-100 transition-opacity">
-                <span className="uppercase tracking-wider">Explore</span>
+                <span className="uppercase tracking-wider">{t('pages:courses.explore')}</span>
                 <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </div>
             </div>

@@ -10,7 +10,7 @@ interface HeroBannerCarouselProps {
 }
 
 export default function HeroBannerCarousel({ courses }: HeroBannerCarouselProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'pages']);
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -73,7 +73,7 @@ export default function HeroBannerCarousel({ courses }: HeroBannerCarouselProps)
               to={`/courses/${course.name}`}
               className="inline-flex items-center gap-2 bg-dark text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity w-fit"
             >
-              {t('Explore Course', 'Explore Course')}
+              {t('buttons.view_course')}
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>
@@ -93,7 +93,7 @@ export default function HeroBannerCarousel({ courses }: HeroBannerCarouselProps)
                   ? 'w-8 bg-white'
                   : 'w-2.5 bg-white/50 hover:bg-white/70'
               )}
-              aria-label={`Go to slide ${index + 1}`}
+              aria-label={t('pages:courses.go_to_slide', { number: index + 1 })}
             />
           ))}
         </div>

@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getEnrollments, getCourses, manualEnroll } from '@/api/client';
+import { getEnrollments, getCourses, manualEnroll, updateEnrollment } from '@/api/client';
+import type { Enrollment } from '@/types';
 import {
+  AlertTriangle,
+  CalendarDays,
   Search,
   Loader2,
+  PauseCircle,
+  PlayCircle,
   Plus,
+  Trash2,
   X,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { addYears, format } from 'date-fns';
 
 // Pull a human-readable message out of a Frappe error response so the modal can
 // show the real reason (e.g. "No account found for ...") instead of a generic one.
-function enrollErrorMsg(err: any): string {
+function enrollmentErrorMsg(err: any): string {
   const data = err?.response?.data;
   try {
     if (data?._server_messages) {
@@ -26,12 +32,13 @@ function enrollErrorMsg(err: any): string {
     const msg = String(data.exception).split(':').slice(1).join(':').trim();
     if (msg) return msg;
   }
-  return 'Failed to create enrollment. Please check the student email and try again.';
+  return 'The enrollment could not be updated. Please try again.';
 }
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     Active: 'bg-green-100 text-green-700',
+    Completed: 'bg-blue-100 text-blue-700',
     Expired: 'bg-red-100 text-red-700',
     Suspended: 'bg-yellow-100 text-yellow-700',
   };
@@ -59,6 +66,13 @@ export default function Enrollments() {
   const [courseFilter, setCourseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [actionDialog, setActionDialog] = useState<{
+    enrollment: Enrollment;
+    action: 'suspend' | 'reactivate' | 'revoke';
+  } | null>(null);
+  const [expiryEnrollment, setExpiryEnrollment] = useState<Enrollment | null>(null);
+  const [expiryDate, setExpiryDate] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Form state for manual enrollment
   const [newStudentEmail, setNewStudentEmail] = useState('');
@@ -95,7 +109,32 @@ export default function Enrollments() {
     },
   });
 
-  const enrollments: any[] = data?.data || [];
+  const lifecycleMutation = useMutation({
+    mutationFn: ({
+      enrollment,
+      action,
+      accessEnd,
+    }: {
+      enrollment: string;
+      action: 'suspend' | 'reactivate' | 'set_expiry' | 'revoke';
+      accessEnd?: string;
+    }) => updateEnrollment(enrollment, action, accessEnd),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-enrollments'] });
+      const messages = {
+        suspend: 'Enrollment suspended.',
+        reactivate: 'Enrollment reactivated.',
+        set_expiry: 'Access expiry updated.',
+        revoke: 'Enrollment revoked.',
+      };
+      setSuccessMessage(messages[variables.action]);
+      setActionDialog(null);
+      setExpiryEnrollment(null);
+      setExpiryDate('');
+    },
+  });
+
+  const enrollments: Enrollment[] = data?.data || [];
   const courses = Array.isArray(coursesData) ? coursesData : coursesData?.data || [];
 
   // Server already filters by search + course; status filter happens
@@ -104,6 +143,48 @@ export default function Enrollments() {
     const matchesStatus = !statusFilter || e.status === statusFilter;
     return matchesStatus;
   });
+
+  const openExpiryDialog = (enrollment: Enrollment) => {
+    lifecycleMutation.reset();
+    setSuccessMessage('');
+    setExpiryEnrollment(enrollment);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const currentExpiry = enrollment.access_end?.slice(0, 10);
+    setExpiryDate(
+      currentExpiry && currentExpiry >= today
+        ? currentExpiry
+        : format(addYears(new Date(), 1), 'yyyy-MM-dd'),
+    );
+  };
+
+  const openActionDialog = (
+    enrollment: Enrollment,
+    action: 'suspend' | 'reactivate' | 'revoke',
+  ) => {
+    lifecycleMutation.reset();
+    setSuccessMessage('');
+    setActionDialog({ enrollment, action });
+  };
+
+  const confirmCopy = actionDialog
+    ? {
+        suspend: {
+          title: 'Suspend enrollment?',
+          body: 'The student will immediately lose course access. Their enrollment and learning progress will be kept.',
+          button: 'Suspend',
+        },
+        reactivate: {
+          title: 'Reactivate enrollment?',
+          body: 'The student will regain access through the current expiry date.',
+          button: 'Reactivate',
+        },
+        revoke: {
+          title: 'Revoke enrollment?',
+          body: 'This removes the student from the course roster and blocks access. Existing learning progress records are retained.',
+          button: 'Revoke',
+        },
+      }[actionDialog.action]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -120,6 +201,15 @@ export default function Enrollments() {
           <Plus className="w-4 h-4" /> Manual Enrollment
         </button>
       </div>
+
+      {successMessage && (
+        <div
+          role="status"
+          className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+        >
+          {successMessage}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="admin-card flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -150,6 +240,7 @@ export default function Enrollments() {
         >
           <option value="">All Statuses</option>
           <option value="Active">Active</option>
+          <option value="Completed">Completed</option>
           <option value="Expired">Expired</option>
           <option value="Suspended">Suspended</option>
         </select>
@@ -171,15 +262,16 @@ export default function Enrollments() {
                 <th>Progress</th>
                 <th>Access Expiry</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-400 py-8">No enrollments found</td>
+                  <td colSpan={7} className="text-center text-gray-400 py-8">No enrollments found</td>
                 </tr>
               ) : (
-                filtered.map((e: any) => (
+                filtered.map((e) => (
                   <tr key={e.name}>
                     <td>
                       <div>
@@ -198,6 +290,42 @@ export default function Enrollments() {
                       {e.access_end ? format(new Date(e.access_end), 'MMM d, yyyy') : 'No expiry'}
                     </td>
                     <td><StatusBadge status={e.status || 'Active'} /></td>
+                    <td>
+                      <div className="flex min-w-[260px] flex-wrap items-center gap-2">
+                        {e.status === 'Suspended' ? (
+                          <button
+                            type="button"
+                            onClick={() => openActionDialog(e, 'reactivate')}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-green-200 px-2.5 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50"
+                          >
+                            <PlayCircle className="h-3.5 w-3.5" /> Reactivate
+                          </button>
+                        ) : e.status !== 'Expired' ? (
+                          <button
+                            type="button"
+                            onClick={() => openActionDialog(e, 'suspend')}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-yellow-200 px-2.5 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-50"
+                          >
+                            <PauseCircle className="h-3.5 w-3.5" /> Suspend
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => openExpiryDialog(e)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {e.status === 'Expired' ? 'Renew' : 'Edit expiry'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openActionDialog(e, 'revoke')}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Revoke
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -240,7 +368,7 @@ export default function Enrollments() {
               </div>
               {createMutation.isError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-                  {enrollErrorMsg(createMutation.error)}
+                  {enrollmentErrorMsg(createMutation.error)}
                 </div>
               )}
               <div className="flex justify-end gap-3 pt-2">
@@ -253,6 +381,115 @@ export default function Enrollments() {
                   {createMutation.isPending ? 'Enrolling...' : 'Enroll'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expiry / renewal modal */}
+      {expiryEnrollment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading font-semibold text-dark">
+                {expiryEnrollment.status === 'Expired' ? 'Renew enrollment access' : 'Edit access expiry'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setExpiryEnrollment(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close expiry dialog"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-gray-500">
+              {expiryEnrollment.member_name || expiryEnrollment.member} · {expiryEnrollment.course_title || expiryEnrollment.course}
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="access-expiry">
+              Access expiry
+            </label>
+            <input
+              id="access-expiry"
+              type="date"
+              min={format(new Date(), 'yyyy-MM-dd')}
+              value={expiryDate}
+              onChange={(event) => setExpiryDate(event.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            {expiryEnrollment.status === 'Expired' && (
+              <p className="mt-2 text-xs text-gray-500">Saving will reactivate this enrollment.</p>
+            )}
+            {lifecycleMutation.isError && (
+              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+                {enrollmentErrorMsg(lifecycleMutation.error)}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-5">
+              <button
+                type="button"
+                onClick={() => setExpiryEnrollment(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => lifecycleMutation.mutate({
+                  enrollment: expiryEnrollment.name,
+                  action: expiryEnrollment.status === 'Expired' ? 'reactivate' : 'set_expiry',
+                  accessEnd: expiryDate,
+                })}
+                disabled={!expiryDate || lifecycleMutation.isPending}
+                className="px-4 py-2 text-sm bg-dark text-white rounded-lg hover:bg-dark-light disabled:opacity-50"
+              >
+                {lifecycleMutation.isPending ? 'Saving...' : expiryEnrollment.status === 'Expired' ? 'Renew access' : 'Save expiry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend / reactivate / revoke confirmation */}
+      {actionDialog && confirmCopy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-start gap-3">
+              <div className={`rounded-full p-2 ${actionDialog.action === 'revoke' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-semibold text-dark">{confirmCopy.title}</h3>
+                <p className="mt-1 text-sm text-gray-500">{confirmCopy.body}</p>
+                <p className="mt-3 text-sm font-medium text-gray-700">
+                  {actionDialog.enrollment.member_name || actionDialog.enrollment.member} · {actionDialog.enrollment.course_title || actionDialog.enrollment.course}
+                </p>
+              </div>
+            </div>
+            {lifecycleMutation.isError && (
+              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+                {enrollmentErrorMsg(lifecycleMutation.error)}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-5">
+              <button
+                type="button"
+                onClick={() => setActionDialog(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => lifecycleMutation.mutate({
+                  enrollment: actionDialog.enrollment.name,
+                  action: actionDialog.action,
+                })}
+                disabled={lifecycleMutation.isPending}
+                className={`px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${actionDialog.action === 'revoke' ? 'bg-red-600 hover:bg-red-700' : 'bg-dark hover:bg-dark-light'}`}
+              >
+                {lifecycleMutation.isPending ? 'Updating...' : confirmCopy.button}
+              </button>
             </div>
           </div>
         </div>

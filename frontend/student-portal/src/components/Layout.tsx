@@ -21,7 +21,7 @@ import Avatar from './Avatar';
 // Language Switcher (inline — no separate file exists yet)
 // ---------------------------------------------------------------------------
 function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -35,6 +35,7 @@ function LanguageSwitcher() {
   }, [open]);
 
   const current = i18n.language?.startsWith('am') ? 'am' : 'en';
+  const next = current === 'en' ? 'am' : 'en';
 
   function switchTo(lng: string) {
     i18n.changeLanguage(lng);
@@ -46,7 +47,9 @@ function LanguageSwitcher() {
       <button
         onClick={() => setOpen((p) => !p)}
         className="flex items-center gap-1 rounded-lg p-2 text-dark-light transition-colors hover:bg-primary-light/50 hover:text-dark"
-        aria-label="Switch language"
+        aria-label={t('language.switch_to', {
+          language: t(`language.${next}`),
+        })}
       >
         <Globe className="h-4.5 w-4.5" />
         <span className="text-xs font-medium uppercase">{current}</span>
@@ -59,7 +62,7 @@ function LanguageSwitcher() {
               current === 'en' ? 'font-semibold text-dark' : 'text-dark-light'
             }`}
           >
-            English
+            {t('language.en')}
           </button>
           <button
             onClick={() => switchTo('am')}
@@ -67,7 +70,7 @@ function LanguageSwitcher() {
               current === 'am' ? 'font-semibold text-dark' : 'text-dark-light'
             }`}
           >
-            Amharic
+            {t('language.am')}
           </button>
         </div>
       )}
@@ -87,15 +90,15 @@ interface LayoutProps {
 // Nav links config
 // ---------------------------------------------------------------------------
 interface NavItem {
-  label: string;
+  labelKey: string;
   to: string;
   authOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Courses', to: '/courses' },
-  { label: 'My Courses', to: '/my-courses', authOnly: true },
-  { label: 'Dashboard', to: '/dashboard', authOnly: true },
+  { labelKey: 'nav.courses', to: '/courses' },
+  { labelKey: 'nav.my_courses', to: '/my-courses', authOnly: true },
+  { labelKey: 'nav.dashboard', to: '/dashboard', authOnly: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -154,7 +157,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
           className="flex items-center gap-2 text-lg font-bold tracking-tight text-dark"
         >
           <BookOpen className="h-6 w-6 text-primary-dark" />
-          <span className="font-heading">Delta SPMU</span>
+          <span className="font-heading">{t('app_name')}</span>
         </Link>
 
         {/* Desktop nav */}
@@ -169,7 +172,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                   : 'text-dark-light hover:bg-primary-light/30 hover:text-dark'
               }`}
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
         </nav>
@@ -216,28 +219,28 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                     onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-dark-light transition-colors hover:bg-alabaster hover:text-dark"
                   >
-                    <User className="h-4 w-4" /> Profile
+                    <User className="h-4 w-4" /> {t('nav.profile')}
                   </Link>
                   <Link
                     to="/certificates"
                     onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-dark-light transition-colors hover:bg-alabaster hover:text-dark"
                   >
-                    <Award className="h-4 w-4" /> Certificates
+                    <Award className="h-4 w-4" /> {t('nav.certificates')}
                   </Link>
                   <Link
                     to="/transactions"
                     onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-dark-light transition-colors hover:bg-alabaster hover:text-dark"
                   >
-                    <Receipt className="h-4 w-4" /> Transactions
+                    <Receipt className="h-4 w-4" /> {t('nav.transactions')}
                   </Link>
                   <Link
                     to="/wishlist"
                     onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-dark-light transition-colors hover:bg-alabaster hover:text-dark"
                   >
-                    <Heart className="h-4 w-4" /> Wishlist
+                    <Heart className="h-4 w-4" /> {t('nav.wishlist')}
                   </Link>
 
                   <div className="my-1 border-t border-gray-100" />
@@ -249,7 +252,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                     }}
                     className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-error transition-colors hover:bg-error/5"
                   >
-                    <LogOut className="h-4 w-4" /> Log Out
+                    <LogOut className="h-4 w-4" /> {t('auth.logout')}
                   </button>
                 </div>
               )}
@@ -260,13 +263,13 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                 to="/login"
                 className="rounded-lg px-4 py-2 text-sm font-medium text-dark-light transition-colors hover:bg-primary-light/30 hover:text-dark"
               >
-                Login
+                {t('auth.login')}
               </Link>
               <Link
                 to="/register"
                 className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-dark-light"
               >
-                Register
+                {t('auth.register')}
               </Link>
             </div>
           )}
@@ -275,7 +278,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
           <button
             onClick={() => setMobileOpen(true)}
             className="rounded-lg p-2 text-dark-light transition-colors hover:bg-primary-light/50 hover:text-dark md:hidden"
-            aria-label="Open menu"
+            aria-label={t('menu.open')}
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -305,11 +308,11 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
       >
         {/* Close */}
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
-          <span className="font-heading text-sm font-bold text-dark">Menu</span>
+          <span className="font-heading text-sm font-bold text-dark">{t('menu.title')}</span>
           <button
             onClick={() => setMobileOpen(false)}
             className="rounded-lg p-1.5 text-dark-light hover:bg-primary-light/50 hover:text-dark"
-            aria-label="Close menu"
+            aria-label={t('menu.close')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -353,7 +356,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                       : 'text-dark-light hover:bg-primary-light/30 hover:text-dark'
                   }`}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               ))}
             </nav>
@@ -365,25 +368,25 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                   to="/profile"
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-dark-light transition-colors hover:bg-primary-light/30 hover:text-dark"
                 >
-                  <User className="h-4 w-4" /> Profile
+                  <User className="h-4 w-4" /> {t('nav.profile')}
                 </Link>
                 <Link
                   to="/certificates"
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-dark-light transition-colors hover:bg-primary-light/30 hover:text-dark"
                 >
-                  <Award className="h-4 w-4" /> Certificates
+                  <Award className="h-4 w-4" /> {t('nav.certificates')}
                 </Link>
                 <Link
                   to="/transactions"
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-dark-light transition-colors hover:bg-primary-light/30 hover:text-dark"
                 >
-                  <Receipt className="h-4 w-4" /> Transactions
+                  <Receipt className="h-4 w-4" /> {t('nav.transactions')}
                 </Link>
                 <Link
                   to="/wishlist"
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-dark-light transition-colors hover:bg-primary-light/30 hover:text-dark"
                 >
-                  <Heart className="h-4 w-4" /> Wishlist
+                  <Heart className="h-4 w-4" /> {t('nav.wishlist')}
                 </Link>
               </div>
             )}
@@ -399,7 +402,7 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                 }}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-error/10 px-4 py-2.5 text-sm font-medium text-error transition-colors hover:bg-error/20"
               >
-                <LogOut className="h-4 w-4" /> Log Out
+                <LogOut className="h-4 w-4" /> {t('auth.logout')}
               </button>
             ) : (
               <div className="space-y-2">
@@ -407,13 +410,13 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
                   to="/login"
                   className="block w-full rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-dark transition-colors hover:bg-alabaster"
                 >
-                  Login
+                  {t('auth.login')}
                 </Link>
                 <Link
                   to="/register"
                   className="block w-full rounded-lg bg-dark px-4 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-dark-light"
                 >
-                  Register
+                  {t('auth.register')}
                 </Link>
               </div>
             )}
@@ -434,35 +437,34 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
           <div>
             <Link to="/courses" className="flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-primary" />
-              <span className="font-heading text-lg font-bold">Delta SPMU Academy</span>
+              <span className="font-heading text-lg font-bold">{t('app_name')}</span>
             </Link>
             <p className="mt-2 text-sm font-medium text-primary-light">
-              Master the Art of Semi-Permanent Makeup
+              {t('footer.tagline')}
             </p>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/60">
-              Professional training in microblading, lip blush, eyeliner, and more.
-              Learn from industry experts and earn recognized certifications.
+              {t('footer.description')}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
             <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white/80">
-              Quick Links
+              {t('footer.quick_links')}
             </h4>
             <ul className="space-y-2.5">
               {[
-                { label: 'Courses', to: '/courses' },
-                { label: 'About', to: '/about' },
-                { label: 'Contact', to: '/contact' },
-                { label: 'Help Center', to: '/help' },
+                { labelKey: 'nav.courses', to: '/courses' },
+                { labelKey: 'nav.about', to: '/about' },
+                { labelKey: 'nav.contact', to: '/contact' },
+                { labelKey: 'nav.help', to: '/help' },
               ].map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
                     className="text-sm text-white/60 transition-colors hover:text-primary-light"
                   >
-                    {link.label}
+                    {t(link.labelKey)}
                   </Link>
                 </li>
               ))}
@@ -472,21 +474,21 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
           {/* Legal */}
           <div>
             <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white/80">
-              Legal
+              {t('footer.legal')}
             </h4>
             <ul className="space-y-2.5">
               {[
-                { label: 'Terms of Service', to: '/terms' },
-                { label: 'Privacy Policy', to: '/privacy' },
-                { label: 'Refund Policy', to: '/refund' },
-                { label: 'Cookie Policy', to: '/cookies' },
+                { labelKey: 'footer.terms', to: '/terms' },
+                { labelKey: 'footer.privacy', to: '/privacy' },
+                { labelKey: 'footer.refund', to: '/refund' },
+                { labelKey: 'footer.cookies', to: '/cookies' },
               ].map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
                     className="text-sm text-white/60 transition-colors hover:text-primary-light"
                   >
-                    {link.label}
+                    {t(link.labelKey)}
                   </Link>
                 </li>
               ))}
@@ -497,10 +499,10 @@ export default function Layout({ children, showFooter = true }: LayoutProps) {
         {/* Bottom row */}
         <div className="mt-10 border-t border-white/10 pt-6 text-center">
           <p className="text-xs text-white/40">
-            &copy; 2026 Delta SPMU Academy. All rights reserved.
+            {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
           <p className="mt-1 text-xs text-white/30">
-            Powered by{' '}
+            {t('footer.powered_by')}{' '}
             <a
               href="https://philocom.co"
               target="_blank"

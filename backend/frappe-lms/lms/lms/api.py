@@ -117,6 +117,32 @@ def _has_role(user, role):
     return role in roles
 
 
+def _enrollment_has_active_access(user, course):
+    """Return whether an enrollment currently grants course access.
+
+    Older enrollments can legitimately predate the ``Course Access`` doctype,
+    so a missing access row preserves the legacy enrollment behavior. Once an
+    access row exists, its active flag and expiry are authoritative. This lets
+    administrators suspend access without deleting learner progress.
+    """
+    if not frappe.db.exists("LMS Enrollment", {"member": user, "course": course}):
+        return False
+
+    access = frappe.db.get_value(
+        "Course Access",
+        {"user": user, "course": course},
+        ["is_active", "access_end"],
+        as_dict=True,
+    )
+    if not access:
+        return True
+    if not cint(access.get("is_active")):
+        return False
+
+    access_end = access.get("access_end")
+    return not access_end or getdate(access_end) >= getdate(today())
+
+
 # ---------------------------------------------------------------------------
 # 1. get_csrf_token  (guest)
 # ---------------------------------------------------------------------------
@@ -1197,8 +1223,11 @@ def get_course_detail(course_name=None):
                 ["name", "progress", "current_lesson", "enrollment_date", "creation"],
                 as_dict=True,
             )
-            course["is_enrolled"] = bool(enrollment)
-            course["enrollment"] = enrollment
+            has_active_access = bool(enrollment) and _enrollment_has_active_access(
+                user, course_name
+            )
+            course["is_enrolled"] = has_active_access
+            course["enrollment"] = enrollment if has_active_access else None
         else:
             course["is_enrolled"] = False
             course["enrollment"] = None
@@ -1412,11 +1441,7 @@ def get_lesson_details(course=None, chapter_number=None, lesson_number=None):
 
         if not _is_guest():
             user = _get_current_user()
-            # Check enrollment
-            enrolled = frappe.db.exists(
-                "LMS Enrollment", {"member": user, "course": course}
-            )
-            if enrolled:
+            if _enrollment_has_active_access(user, course):
                 has_access = True
             # Instructors and admins always have access
             if _has_role(user, "Course Creator") or _has_role(user, "System Manager"):
@@ -1691,6 +1716,11 @@ def save_current_lesson(course_name=None, lesson_name=None):
                 _("You are not enrolled in this course."),
                 frappe.ValidationError,
             )
+        if not _enrollment_has_active_access(user, course_name):
+            frappe.throw(
+                _("Your access to this course is not active."),
+                frappe.PermissionError,
+            )
 
         # Verify lesson exists
         if not frappe.db.exists("Course Lesson", lesson_name):
@@ -1704,7 +1734,12 @@ def save_current_lesson(course_name=None, lesson_name=None):
 
         return {"success": True}
 
-    except (frappe.AuthenticationError, frappe.ValidationError, frappe.DoesNotExistError):
+    except (
+        frappe.AuthenticationError,
+        frappe.ValidationError,
+        frappe.DoesNotExistError,
+        frappe.PermissionError,
+    ):
         raise
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "save_current_lesson failed")
@@ -1755,6 +1790,11 @@ def mark_lesson_progress(course=None, chapter_number=None, lesson_number=None):
             frappe.throw(
                 _("You are not enrolled in this course."),
                 frappe.ValidationError,
+            )
+        if not _enrollment_has_active_access(user, course):
+            frappe.throw(
+                _("Your access to this course is not active."),
+                frappe.PermissionError,
             )
 
         # Find the chapter
@@ -1861,7 +1901,12 @@ def mark_lesson_progress(course=None, chapter_number=None, lesson_number=None):
             "is_course_complete": is_course_complete,
         }
 
-    except (frappe.AuthenticationError, frappe.ValidationError, frappe.DoesNotExistError):
+    except (
+        frappe.AuthenticationError,
+        frappe.ValidationError,
+        frappe.DoesNotExistError,
+        frappe.PermissionError,
+    ):
         raise
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "mark_lesson_progress failed")
@@ -1945,7 +1990,7 @@ def get_enrollment_status(course=None):
             as_dict=True,
         )
 
-        if enrollment:
+        if enrollment and _enrollment_has_active_access(user, course):
             return {
                 "is_enrolled": True,
                 "progress": flt(enrollment.get("progress"), 2),
@@ -3831,6 +3876,122 @@ def admin_manual_enroll(student=None, course=None, days=365):
 
 
 # ---------------------------------------------------------------------------
+# admin_update_enrollment  (admin only) — lifecycle management
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist(methods=["POST"])
+def admin_update_enrollment(enrollment=None, action=None, access_end=None):
+    """Suspend, reactivate, change expiry, or revoke an enrollment.
+
+    ``Course Access`` is the authoritative access gate. Suspension keeps the
+    roster and progress intact, while revocation removes the roster row and
+    deactivates the access grant. A later paid or manual enrollment can revive
+    the existing Course Access row through the normal enrollment flow.
+    """
+    _require_system_manager("manage enrollments")
+
+    enrollment = _sanitize(enrollment, 200)
+    action = cstr(action).strip().lower()
+    allowed_actions = {"suspend", "reactivate", "set_expiry", "revoke"}
+    if not enrollment or action not in allowed_actions:
+        frappe.throw(
+            _("A valid enrollment and action are required."),
+            frappe.ValidationError,
+        )
+
+    row = frappe.db.get_value(
+        "LMS Enrollment",
+        enrollment,
+        ["name", "member", "course", "enrollment_date", "creation"],
+        as_dict=True,
+    )
+    if not row:
+        frappe.throw(_("Enrollment not found."), frappe.DoesNotExistError)
+
+    access_name = frappe.db.get_value(
+        "Course Access", {"user": row.member, "course": row.course}, "name"
+    )
+    parsed_access_end = None
+    if access_end:
+        try:
+            parsed_access_end = getdate(access_end)
+        except Exception:
+            frappe.throw(_("Access expiry must be a valid date."), frappe.ValidationError)
+        if parsed_access_end < getdate(today()):
+            frappe.throw(
+                _("Access expiry cannot be in the past."),
+                frappe.ValidationError,
+            )
+
+    if action == "set_expiry" and not parsed_access_end:
+        frappe.throw(_("Access expiry is required."), frappe.MandatoryError)
+
+    if action == "reactivate" and access_name and not parsed_access_end:
+        existing_end = frappe.db.get_value("Course Access", access_name, "access_end")
+        if existing_end and getdate(existing_end) < getdate(today()):
+            frappe.throw(
+                _("Choose a new access expiry before reactivating an expired enrollment."),
+                frappe.ValidationError,
+            )
+
+    if action == "revoke":
+        if access_name:
+            frappe.db.set_value("Course Access", access_name, "is_active", 0)
+        frappe.delete_doc(
+            "LMS Enrollment", enrollment, ignore_permissions=True, force=True
+        )
+        frappe.db.commit()
+        return {
+            "enrollment": enrollment,
+            "action": action,
+            "status": "Revoked",
+            "revoked": True,
+        }
+
+    values = {}
+    if action == "suspend":
+        values["is_active"] = 0
+    elif action == "reactivate":
+        values["is_active"] = 1
+        if parsed_access_end:
+            values["access_end"] = parsed_access_end
+    elif action == "set_expiry":
+        values["access_end"] = parsed_access_end
+
+    if access_name:
+        frappe.db.set_value("Course Access", access_name, values)
+    else:
+        # Legacy enrollments have no Course Access row. Create one only when a
+        # lifecycle action needs explicit state; otherwise they remain active.
+        from datetime import timedelta
+
+        default_end = getdate(today()) + timedelta(days=365)
+        access_doc = frappe.get_doc({
+            "doctype": "Course Access",
+            "user": row.member,
+            "course": row.course,
+            "access_start": row.enrollment_date or row.creation or getdate(today()),
+            "access_end": parsed_access_end or default_end,
+            "is_active": values.get("is_active", 1),
+        })
+        access_doc.insert(ignore_permissions=True)
+        access_doc.submit()
+        access_name = access_doc.name
+
+    frappe.db.commit()
+    updated = frappe.db.get_value(
+        "Course Access", access_name, ["is_active", "access_end"], as_dict=True
+    )
+    status = "Suspended" if not cint(updated.is_active) else "Active"
+    return {
+        "enrollment": enrollment,
+        "action": action,
+        "status": status,
+        "access_end": str(updated.access_end) if updated.access_end else None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # admin_delete_lesson  (admin only) — cascade-delete a lesson + its dependents
 # ---------------------------------------------------------------------------
 
@@ -3966,8 +4127,8 @@ def admin_delete_course(course=None):
 # ---------------------------------------------------------------------------
 # Joins LMS Enrollment with LMS Course to return course_title alongside the
 # enrollment row, plus formats progress as a percentage and provides a
-# derived status (Active / Completed / Expired) since LMS Enrollment has no
-# native status column on this fork.
+# derived status (Active / Completed / Expired / Suspended) since LMS
+# Enrollment has no native status column on this fork.
 #
 # Used by admin Dashboard (recent enrollments widget) and Enrollments page.
 
@@ -4033,12 +4194,12 @@ def admin_get_enrollments(limit=50, offset=0, search=None, course=None):
         progress = float(r.get("progress") or 0)
         access_end = r.get("access_end")
         is_active = r.get("is_active")
-        if progress >= 100:
-            r["status"] = "Completed"
-        elif access_end and access_end < today:
+        if access_end and access_end < today:
             r["status"] = "Expired"
         elif is_active == 0:
-            r["status"] = "Inactive"
+            r["status"] = "Suspended"
+        elif progress >= 100:
+            r["status"] = "Completed"
         else:
             r["status"] = "Active"
         # Stringify dates for JSON
