@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getCourseAnalytics, getRevenueStats } from '@/api/client';
+import { getAnalyticsSummary, getRevenueStats } from '@/api/client';
 import type { AnalyticsData } from '@/types';
 import { BarChart3, Users, TrendingUp, Award, DollarSign } from 'lucide-react';
 
@@ -38,7 +38,7 @@ function HorizontalBar({ label, value, max }: { label: string; value: number; ma
 export default function Analytics() {
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
     queryKey: ['analytics'],
-    queryFn: () => getCourseAnalytics('all'),
+    queryFn: getAnalyticsSummary,
   });
 
   const { data: revenue, isLoading: revenueLoading } = useQuery<{ monthly: { month: string; total: number }[]; total: number }>({
@@ -68,14 +68,14 @@ export default function Analytics() {
 
       {/* Stat Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Users} label="Active Students" value={analytics?.unique_users ?? 0} />
-        <StatCard icon={BarChart3} label="Total Views" value={analytics?.total_views ?? 0} />
+        <StatCard icon={Users} label="Active Students" value={analytics?.unique_students ?? 0} />
+        <StatCard icon={BarChart3} label="Total Enrollments" value={analytics?.total_enrollments ?? 0} />
         <StatCard
           icon={TrendingUp}
-          label="Avg Session"
-          value={`${Math.round(analytics?.avg_session_duration ?? 0)}m`}
+          label="Average Progress"
+          value={`${Math.round(analytics?.average_progress ?? 0)}%`}
         />
-        <StatCard icon={DollarSign} label="Total Revenue" value={`ETB ${(revenue?.total ?? 0).toLocaleString()}`} />
+        <StatCard icon={Award} label="Course Completions" value={analytics?.course_completions ?? 0} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -116,29 +116,29 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Course Progress Distribution */}
-      {analytics?.user_activity && analytics.user_activity.length > 0 && (
+      {/* Enrollment Activity */}
+      {analytics?.enrollment_activity && analytics.enrollment_activity.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Daily Active Users</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Daily Enrollments</h2>
           <div className="flex items-end gap-1" style={{ height: 160 }}>
             {(() => {
-              const maxVal = Math.max(...analytics.user_activity.map((d) => d.active_users), 1);
-              return analytics.user_activity.slice(-30).map((d) => (
+              const maxVal = Math.max(...analytics.enrollment_activity.map((d) => d.new_enrollments), 1);
+              return analytics.enrollment_activity.map((d) => (
                 <div key={d.date} className="group relative flex-1">
                   <div
                     className="w-full rounded-t bg-dark transition-all hover:bg-dark/80"
-                    style={{ height: `${(d.active_users / maxVal) * 140}px` }}
+                    style={{ height: `${(d.new_enrollments / maxVal) * 140}px` }}
                   />
                   <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
-                    {d.active_users}
+                    {d.new_enrollments}
                   </div>
                 </div>
               ));
             })()}
           </div>
           <div className="mt-2 flex justify-between text-xs text-gray-400">
-            <span>{analytics.user_activity[Math.max(0, analytics.user_activity.length - 30)]?.date}</span>
-            <span>{analytics.user_activity[analytics.user_activity.length - 1]?.date}</span>
+            <span>{analytics.enrollment_activity[0]?.date}</span>
+            <span>{analytics.enrollment_activity[analytics.enrollment_activity.length - 1]?.date}</span>
           </div>
         </div>
       )}

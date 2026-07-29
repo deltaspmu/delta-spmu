@@ -508,8 +508,8 @@ export async function uploadFile(
 // Analytics
 // ---------------------------------------------------------------------------
 
-export async function getCourseAnalytics(course: string) {
-  return call('lms.lms.custom_api.get_student_progress_report', { course });
+export async function getAnalyticsSummary() {
+  return call('lms.lms.custom_api.get_analytics_summary');
 }
 
 export async function getStudentProgressReport(course: string) {

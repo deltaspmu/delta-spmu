@@ -256,14 +256,13 @@ export interface VideoInfo {
 // ---------------------------------------------------------------------------
 export interface AnalyticsData {
   period: string;
-  total_views: number;
-  unique_users: number;
-  avg_session_duration: number;
-  top_courses: { course: string; title: string; views: number; enrollments: number }[];
-  user_activity: { date: string; active_users: number; new_users: number }[];
+  unique_students: number;
+  total_enrollments: number;
+  average_progress: number;
+  course_completions: number;
+  top_courses: { course: string; title: string; enrollments: number }[];
   completion_by_course: { course: string; title: string; completion_rate: number }[];
-  revenue_by_course: { course: string; title: string; revenue: number }[];
-  geographic_data: { country: string; users: number }[];
+  enrollment_activity: { date: string; new_enrollments: number }[];
 }
 
 // ---------------------------------------------------------------------------

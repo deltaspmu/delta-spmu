@@ -1408,7 +1408,116 @@ def save_instructor_profile(user, title=None, bio=None):
 
 
 # ---------------------------------------------------------------------------
-# 13. get_student_progress_report  (Admin)
+# 13. get_analytics_summary  (Admin)
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_analytics_summary():
+    """Return platform-wide enrollment and course-completion analytics.
+
+    The admin analytics page is platform-wide, while
+    :func:`get_student_progress_report` is intentionally scoped to one course.
+    Keeping this aggregation in a dedicated endpoint avoids sending a fake
+    course name or downloading every student's lesson-level report to the
+    browser.
+    """
+    _require_admin()
+
+    courses = frappe.db.get_all(
+        "LMS Course",
+        fields=["name", "title"],
+        order_by="title asc",
+        limit_page_length=0,
+    )
+    enrollments = frappe.db.get_all(
+        "LMS Enrollment",
+        fields=["member", "course", "creation"],
+        order_by="creation asc",
+        limit_page_length=0,
+    )
+
+    enrollments_by_course = {}
+    for enrollment in enrollments:
+        enrollments_by_course.setdefault(enrollment.course, []).append(enrollment)
+
+    active_members = set()
+    checked_access = set()
+    progress_total = 0
+    completed_courses = 0
+    top_courses = []
+    completion_by_course = []
+
+    for course in courses:
+        course_enrollments = enrollments_by_course.get(course.name, [])
+        lessons = _all_lessons(course.name)
+        total_lessons = len(lessons)
+        completed_in_course = 0
+
+        for enrollment in course_enrollments:
+            access_key = (enrollment.member, course.name)
+            if access_key not in checked_access:
+                checked_access.add(access_key)
+                if _has_active_course_access(enrollment.member, course.name):
+                    active_members.add(enrollment.member)
+
+            completed_lessons = len(_completed_set(course.name, enrollment.member))
+            progress = (
+                math.floor(completed_lessons / total_lessons * 100)
+                if total_lessons else 0
+            )
+            progress_total += progress
+            if progress >= 100:
+                completed_in_course += 1
+                completed_courses += 1
+
+        enrollment_count = len(course_enrollments)
+        top_courses.append({
+            "course": course.name,
+            "title": course.title or course.name,
+            "enrollments": enrollment_count,
+        })
+        completion_by_course.append({
+            "course": course.name,
+            "title": course.title or course.name,
+            "completion_rate": round(
+                completed_in_course / enrollment_count * 100, 1
+            ) if enrollment_count else 0,
+        })
+
+    top_courses.sort(key=lambda row: (-row["enrollments"], row["title"]))
+    completion_by_course.sort(key=lambda row: row["title"])
+
+    enrollment_activity = frappe.db.sql(
+        """
+        SELECT DATE(creation) AS date, COUNT(*) AS new_enrollments
+        FROM `tabLMS Enrollment`
+        WHERE creation >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+        GROUP BY DATE(creation)
+        ORDER BY DATE(creation) ASC
+        """,
+        as_dict=True,
+    )
+    for row in enrollment_activity:
+        row["date"] = str(row.date)
+        row["new_enrollments"] = cint(row.new_enrollments)
+
+    total_enrollments = len(enrollments)
+    return {
+        "period": "last_30_days",
+        "unique_students": len(active_members),
+        "total_enrollments": total_enrollments,
+        "average_progress": round(
+            progress_total / total_enrollments, 1
+        ) if total_enrollments else 0,
+        "course_completions": completed_courses,
+        "top_courses": top_courses,
+        "completion_by_course": completion_by_course,
+        "enrollment_activity": enrollment_activity,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 14. get_student_progress_report  (Admin)
 # ---------------------------------------------------------------------------
 
 @frappe.whitelist()
