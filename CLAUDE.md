@@ -153,9 +153,50 @@ Rules:
   - `bugfix/<slug>` — non-urgent fixes
   - `hotfix/<slug>` — urgent prod fixes (still promoted through staging unless the user explicitly directs otherwise)
 - Validate locally against **dev** (local Docker) first.
-- Open a **PR against `staging`**. CI/tests must pass and the change is verified on the staging stack before merge.
+- Open a **PR against `staging`**. CI/tests and preview deployments must pass
+  before merge. Perform the final environment verification after the merge has
+  deployed to the staging stack.
 - Once staging is green and the change is confirmed, promote by **merging `staging` → `main`** (via PR). Deploying `main` is the prod release.
 - Keep `staging` in sync: it should be at or ahead of `main`. (As of this writing `staging` trails `main` because earlier work landed on `main` directly — reconcile before adopting this flow.)
+
+### GitHub issue fix workflow
+
+Use this complete lifecycle for each bug fix:
+
+1. Confirm there is a dedicated GitHub issue. Create a separate follow-up issue
+   when a newly discovered problem is outside the scope of the current issue.
+2. Fetch the latest `origin/staging` and create a new short-lived
+   `bugfix/<slug>` branch from it. Use a separate worktree when another branch
+   must remain checked out.
+3. Reproduce the failure and record the actual request, response, or UI
+   behavior before changing code.
+4. Implement the smallest scoped fix. Validate backend syntax, frontend
+   production builds, and relevant API behavior locally.
+5. Run the affected workflow end to end with Playwright against local dev.
+   Prefer the in-app browser when an enabled session is available. If it is not
+   enabled, use an issue-scoped Playwright CLI session (for example,
+   `playwright-cli -s=issue8 ...`) as the fallback. Inspect the browser console
+   and relevant network responses with either surface. Reversible test records
+   or renames must be restored before finishing.
+6. Commit and push the bugfix branch, open a PR against `staging`, and wait for
+   all required checks and preview deployments to pass.
+7. Merge the PR into `staging`. Deploy backend changes with
+   `./scripts/deploy-backend.sh staging`; frontend changes deploy from the
+   merged `staging` branch through Vercel.
+8. Wait for both the staging API and merged frontend deployment to become
+   healthy. Run the final Playwright test against staging and check the browser
+   console plus relevant API responses, using the same Playwright CLI fallback
+   when an in-app browser session is not enabled.
+   - The staging admin domain may be behind Vercel Authentication. In that
+     case, use the established local Vite staging harness pointed at
+     `https://staging-api.deltaspmu.com`; load the protected staging browser
+     state and test the exact merged frontend code against the real staging API.
+   - Restore any staging data changed by the verification.
+9. Close the GitHub issue only after the staging test passes. Add a closure
+   comment linking the PR and summarizing concrete verification evidence.
+10. Delete the remote bugfix branch, its local branch, and any temporary
+    worktree. Verify that none remain. Never delete a branch before its commits
+    are safely merged.
 
 ## Server Commands
 ```bash
