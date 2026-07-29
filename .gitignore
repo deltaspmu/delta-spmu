@@ -79,6 +79,7 @@ desktop.ini
 coverage/
 .cache/
 infrastructure/**/lambda_placeholder.zip
+dev/backups/
 
 # Playwright CLI run artifacts (per-run console logs + page snapshots)
 .playwright-cli/
