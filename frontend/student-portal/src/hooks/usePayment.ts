@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { initiatePayment, checkPaymentStatus } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import { extractFrappeError } from '@/lib/errors';
 
 type PaymentStatus = 'idle' | 'initiating' | 'polling' | 'success' | 'failed' | 'expired';
 
@@ -310,9 +311,7 @@ export function usePayment(): UsePaymentReturn {
         pollPaymentStatus(txId, !!instr);
       } catch (err: unknown) {
         setStatus('failed');
-        const message =
-          err instanceof Error ? err.message : 'Payment initiation failed.';
-        setError(message);
+        setError(extractFrappeError(err));
       }
     },
     [savePendingPayment, pollPaymentStatus]

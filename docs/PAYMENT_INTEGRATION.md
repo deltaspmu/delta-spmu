@@ -142,6 +142,9 @@ Chapa webhooks are verified using HMAC SHA-256:
 ### Sandbox Testing
 
 - Use Chapa test secret key (starts with `CHASECK_TEST-`)
+- Use a valid email address on a real domain for the learner account. Chapa
+  rejects reserved or placeholder domains such as `example.com` before opening
+  its hosted checkout.
 - Test card: `4200 0000 0000 0000`, any future expiry, any CVV
 - Test mobile: any valid Ethiopian phone number
 
