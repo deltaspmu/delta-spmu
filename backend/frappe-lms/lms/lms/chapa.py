@@ -20,6 +20,16 @@ from datetime import datetime, timedelta
 CHAPA_API_BASE = "https://api.chapa.co/v1"
 ACCESS_DURATION_DAYS = 30
 BUNDLE_ID = "all-courses-bundle"
+CHAPA_EMAIL_ERROR_MESSAGE = (
+    "Chapa could not accept the email address on your account. "
+    "Please use an email address on a real domain (not example.com or another "
+    "placeholder domain), then try again."
+)
+
+
+class ChapaEmailValidationError(frappe.ValidationError):
+    """Raised when Chapa refuses the learner's account email address."""
+
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -39,6 +49,26 @@ def _log_chapa_event(event_type, data):
         title=f"Chapa | {event_type}",
         message=json.dumps(data, indent=2, default=str),
     )
+
+
+def _is_email_validation_error(body):
+    """Return whether a Chapa error response identifies the email as invalid."""
+    if isinstance(body, str):
+        return "validation.email" in body.lower()
+
+    if isinstance(body, list):
+        return any(_is_email_validation_error(item) for item in body)
+
+    if not isinstance(body, dict):
+        return False
+
+    for key, value in body.items():
+        if str(key).lower() == "email" and value:
+            return True
+        if _is_email_validation_error(value):
+            return True
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +124,13 @@ def _chapa_request(method, path, data=None, params=None):
             "url": url,
             "response": body,
         })
-        message = body.get("message", str(exc))
+        if _is_email_validation_error(body):
+            frappe.throw(CHAPA_EMAIL_ERROR_MESSAGE, ChapaEmailValidationError)
+        message = (
+            body.get("message", str(exc))
+            if isinstance(body, dict)
+            else str(exc)
+        )
         frappe.throw(f"Chapa API error: {message}")
 
 

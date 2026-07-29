@@ -607,8 +607,13 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
         }
 
     elif payment_method in ("chapa", "chapa_international"):
+        chapa_email_validation_error = None
         try:
-            from lms.lms.chapa import initialize_transaction as chapa_init
+            from lms.lms.chapa import (
+                ChapaEmailValidationError,
+                initialize_transaction as chapa_init,
+            )
+            chapa_email_validation_error = ChapaEmailValidationError
 
             chapa_currency = currency if payment_method == "chapa_international" else "ETB"
             chapa_result = chapa_init(tx_doc.name, currency=chapa_currency)
@@ -625,6 +630,8 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             frappe.db.set_value("Payment Transaction", tx_doc.name, "status", "Failed")
             frappe.db.commit()
             frappe.log_error(title="Chapa Payment Init Failed", message=frappe.get_traceback())
+            if chapa_email_validation_error and isinstance(e, chapa_email_validation_error):
+                raise
             frappe.throw(_("Failed to initiate Chapa payment. Please try again."))
 
     elif payment_method == "ethswitch":
