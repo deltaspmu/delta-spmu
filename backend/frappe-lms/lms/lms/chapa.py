@@ -12,6 +12,7 @@ import requests
 import hmac
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------------
@@ -29,6 +30,22 @@ CHAPA_EMAIL_ERROR_MESSAGE = (
 
 class ChapaEmailValidationError(frappe.ValidationError):
     """Raised when Chapa refuses the learner's account email address."""
+
+
+def _chapa_description(text):
+    """Coerce a course title into a Chapa-acceptable customization.description.
+
+    Chapa rejects the whole /transaction/initialize call (400) unless the
+    description is <= 50 chars and contains only letters, numbers, hyphens,
+    underscores, spaces and dots — so "…Lip Blush & Lip Neutralization" (58
+    chars, plus an "&") fails. Strip the disallowed characters, collapse the
+    resulting whitespace, then truncate.
+    """
+    cleaned = re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9\-_. ]+", " ", text or "")).strip()
+    if len(cleaned) > 50:
+        # Cut on a word boundary so the learner doesn't see "…Lip Neutrali".
+        cleaned = cleaned[:50].rsplit(" ", 1)[0]
+    return cleaned.strip() or "Course enrolment"
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +200,9 @@ def initialize_transaction(transaction_doc, currency="ETB"):
         "customization": {
             # Chapa caps customization.title at 16 chars — keep it short.
             "title": "Delta SPMU",
-            "description": (course.title if course else "All Courses Bundle"),
+            "description": _chapa_description(
+                course.title if course else "All Courses Bundle"
+            ),
             "logo": (frappe.conf.get("portal_url") or "https://learn.deltaspmu.com").rstrip("/") + "/assets/logo.png",
         },
     }
