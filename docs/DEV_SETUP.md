@@ -49,6 +49,22 @@ docker compose -f dev/docker-compose.yml exec frappe bash -lc \
    ./env/bin/python /repo/scripts/seed_delta_spmu.py'
 ```
 
+### Refresh from staging
+
+To replace local data with a developer-safe staging clone:
+
+```bash
+aws login
+./scripts/sync-staging-to-dev.sh
+```
+
+The command uses EC2 Instance Connect, backs up the current local site under
+`dev/backups/`, mirrors staging's LMS app, restores the staging database and
+public files, anonymizes identities and payment references, disables outbound
+integrations, clears sessions, and resets the local login to
+`Administrator` / `admin`. Private staging files and `site_config.json` are
+never downloaded.
+
 ## 4. Frontends
 
 `.env.local` files (already created, gitignored) point the Vite proxy at the local backend:

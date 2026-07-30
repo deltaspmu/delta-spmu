@@ -12,6 +12,7 @@ import requests
 import hmac
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------------
@@ -20,6 +21,32 @@ from datetime import datetime, timedelta
 CHAPA_API_BASE = "https://api.chapa.co/v1"
 ACCESS_DURATION_DAYS = 30
 BUNDLE_ID = "all-courses-bundle"
+CHAPA_EMAIL_ERROR_MESSAGE = (
+    "Chapa could not accept the email address on your account. "
+    "Please use an email address on a real domain (not example.com or another "
+    "placeholder domain), then try again."
+)
+
+
+class ChapaEmailValidationError(frappe.ValidationError):
+    """Raised when Chapa refuses the learner's account email address."""
+
+
+def _chapa_description(text):
+    """Coerce a course title into a Chapa-acceptable customization.description.
+
+    Chapa rejects the whole /transaction/initialize call (400) unless the
+    description is <= 50 chars and contains only letters, numbers, hyphens,
+    underscores, spaces and dots — so "…Lip Blush & Lip Neutralization" (58
+    chars, plus an "&") fails. Strip the disallowed characters, collapse the
+    resulting whitespace, then truncate.
+    """
+    cleaned = re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9\-_. ]+", " ", text or "")).strip()
+    if len(cleaned) > 50:
+        # Cut on a word boundary so the learner doesn't see "…Lip Neutrali".
+        cleaned = cleaned[:50].rsplit(" ", 1)[0]
+    return cleaned.strip() or "Course enrolment"
+
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -39,6 +66,26 @@ def _log_chapa_event(event_type, data):
         title=f"Chapa | {event_type}",
         message=json.dumps(data, indent=2, default=str),
     )
+
+
+def _is_email_validation_error(body):
+    """Return whether a Chapa error response identifies the email as invalid."""
+    if isinstance(body, str):
+        return "validation.email" in body.lower()
+
+    if isinstance(body, list):
+        return any(_is_email_validation_error(item) for item in body)
+
+    if not isinstance(body, dict):
+        return False
+
+    for key, value in body.items():
+        if str(key).lower() == "email" and value:
+            return True
+        if _is_email_validation_error(value):
+            return True
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +141,13 @@ def _chapa_request(method, path, data=None, params=None):
             "url": url,
             "response": body,
         })
-        message = body.get("message", str(exc))
+        if _is_email_validation_error(body):
+            frappe.throw(CHAPA_EMAIL_ERROR_MESSAGE, ChapaEmailValidationError)
+        message = (
+            body.get("message", str(exc))
+            if isinstance(body, dict)
+            else str(exc)
+        )
         frappe.throw(f"Chapa API error: {message}")
 
 
@@ -147,7 +200,9 @@ def initialize_transaction(transaction_doc, currency="ETB"):
         "customization": {
             # Chapa caps customization.title at 16 chars — keep it short.
             "title": "Delta SPMU",
-            "description": (course.title if course else "All Courses Bundle"),
+            "description": _chapa_description(
+                course.title if course else "All Courses Bundle"
+            ),
             "logo": (frappe.conf.get("portal_url") or "https://learn.deltaspmu.com").rstrip("/") + "/assets/logo.png",
         },
     }
