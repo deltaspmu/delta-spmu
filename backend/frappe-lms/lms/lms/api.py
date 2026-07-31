@@ -36,6 +36,7 @@ from frappe.utils import (
     validate_email_address,
 )
 from lms.lms.branding import PRIMARY_COLOR, SECONDARY_COLOR, SITE_NAME
+from lms.lms.curriculum import reindex_course_chapters
 from lms.lms.platform_settings import DEFAULT_CURRENCY
 
 
@@ -4105,9 +4106,16 @@ def admin_delete_chapter(chapter=None):
     if not frappe.db.exists("Course Chapter", chapter):
         return {"deleted": False, "reason": "not_found", "chapter": chapter}
 
+    course = frappe.db.get_value("Course Chapter", chapter, "course")
     removed_lessons = _delete_chapter_cascade(chapter)
+    reindexed = reindex_course_chapters(course) if course else []
     frappe.db.commit()
-    return {"deleted": True, "chapter": chapter, "removed_lessons": removed_lessons}
+    return {
+        "deleted": True,
+        "chapter": chapter,
+        "removed_lessons": removed_lessons,
+        "reindexed_chapters": len(reindexed),
+    }
 
 
 @frappe.whitelist()
