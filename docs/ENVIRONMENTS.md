@@ -169,12 +169,18 @@ after the backend overlay is deployed (the command is idempotent):
 ```bash
 ./scripts/configure-branding.sh staging
 ./scripts/configure-lms-settings.sh staging
+./scripts/normalize-ombre-chapters.sh staging
 ```
 
 The LMS settings command creates any Delta feature fields absent from the
 installed upstream LMS version, then enables self-enrollment, reviews,
 progress, certificates, enrollment emails, and Chapa payments in ETB. It is
 safe to run again after a deploy.
+
+The chapter-normalization command repairs persisted ombre-course numbering
+without deleting or recreating content. It preserves indexed order, resolves
+duplicate positions by creation order, renumbers from 1, and is safe to run
+repeatedly.
 
 | Service | dev | staging | prod |
 |---|---|---|---|
