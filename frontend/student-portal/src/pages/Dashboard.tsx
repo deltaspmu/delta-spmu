@@ -321,12 +321,12 @@ export default function Dashboard() {
                 <CourseCardSkeleton key={i} />
               ))}
             </div>
-          ) : inProgressCourses.length === 0 ? (
+          ) : enrolledCourses.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-8 text-center">
               <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 mb-4">
                 {t(
-                  'pages:dashboard.noCourses',
+                  'pages:dashboard.no_courses',
                   "You haven't enrolled in any courses yet."
                 )}
               </p>
@@ -334,7 +334,24 @@ export default function Dashboard() {
                 to="/courses"
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
               >
-                {t('pages:dashboard.exploreCourses', 'Explore Courses')}
+                {t('pages:dashboard.explore_courses', 'Explore Courses')}
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : inProgressCourses.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+              <Award className="w-10 h-10 text-green-500 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">
+                {t(
+                  'pages:dashboard.all_courses_completed',
+                  "You've completed all your enrolled courses."
+                )}
+              </p>
+              <Link
+                to="/my-courses"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+              >
+                {t('pages:dashboard.view_completed_courses', 'View Completed Courses')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

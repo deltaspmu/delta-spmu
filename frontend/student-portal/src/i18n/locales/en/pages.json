@@ -55,6 +55,8 @@
     "continue_learning": "Continue Learning",
     "recommendations": "Recommended for You",
     "no_courses": "You haven't enrolled in any courses yet.",
+    "all_courses_completed": "You've completed all your enrolled courses.",
+    "view_completed_courses": "View Completed Courses",
     "explore_courses": "Explore Courses"
   },
   "courses": {
