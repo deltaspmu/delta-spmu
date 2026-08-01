@@ -158,6 +158,20 @@ export interface PaymentTransaction {
   creation: string;
 }
 
+export interface DailyRevenue {
+  date: string;
+  currency: string;
+  transaction_count: number;
+  total_amount: number;
+}
+
+export interface RevenueStats {
+  total_revenue_etb: number;
+  total_revenue_usd: number;
+  transaction_counts: Record<string, number>;
+  daily_revenue: DailyRevenue[];
+}
+
 // ---------------------------------------------------------------------------
 // Course Access
 // ---------------------------------------------------------------------------
