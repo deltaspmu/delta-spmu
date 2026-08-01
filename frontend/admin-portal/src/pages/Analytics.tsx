@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAnalyticsSummary, getRevenueStats } from '@/api/client';
-import type { AnalyticsData } from '@/types';
+import type { AnalyticsData, RevenueStats } from '@/types';
+import { getEtbDailyRevenue, getTotalRevenueEtb } from '@/utils/revenueStats';
 import { BarChart3, Users, TrendingUp, Award, DollarSign } from 'lucide-react';
 
 function StatCard({ icon: Icon, label, value, sub }: { icon: typeof Users; label: string; value: string | number; sub?: string }) {
@@ -41,7 +42,7 @@ export default function Analytics() {
     queryFn: getAnalyticsSummary,
   });
 
-  const { data: revenue, isLoading: revenueLoading } = useQuery<{ monthly: { month: string; total: number }[]; total: number }>({
+  const { data: revenue, isLoading: revenueLoading } = useQuery<RevenueStats>({
     queryKey: ['revenue-stats'],
     queryFn: () => getRevenueStats(),
   });
@@ -56,7 +57,8 @@ export default function Analytics() {
   const completionByCourse = analytics?.completion_by_course ?? [];
   const maxEnrollments = Math.max(...topCourses.map((c) => c.enrollments), 1);
   const maxCompletion = 100;
-  const monthlyRevenue = revenue?.monthly ?? [];
+  const totalRevenueEtb = getTotalRevenueEtb(revenue);
+  const dailyRevenue = getEtbDailyRevenue(revenue);
 
   return (
     <div className="space-y-8">
@@ -67,7 +69,7 @@ export default function Analytics() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard icon={Users} label="Active Students" value={analytics?.unique_students ?? 0} />
         <StatCard icon={BarChart3} label="Total Enrollments" value={analytics?.total_enrollments ?? 0} />
         <StatCard
@@ -76,6 +78,11 @@ export default function Analytics() {
           value={`${Math.round(analytics?.average_progress ?? 0)}%`}
         />
         <StatCard icon={Award} label="Course Completions" value={analytics?.course_completions ?? 0} />
+        <StatCard
+          icon={DollarSign}
+          label="Total Revenue"
+          value={`ETB ${totalRevenueEtb.toLocaleString()}`}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -147,34 +154,35 @@ export default function Analytics() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <DollarSign className="h-5 w-5 text-dark" />
-          <h2 className="text-lg font-semibold text-gray-900">Monthly Revenue</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Daily Revenue</h2>
+          <span className="text-xs text-gray-400">Last 30 days</span>
         </div>
-        {monthlyRevenue.length === 0 ? (
+        {dailyRevenue.length === 0 ? (
           <p className="text-sm text-gray-500">No revenue data yet.</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-gray-100">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Month</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Date</th>
                   <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Revenue (ETB)</th>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Bar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(() => {
-                  const maxRev = Math.max(...monthlyRevenue.map((m) => m.total), 1);
-                  return monthlyRevenue.map((m) => (
-                    <tr key={m.month}>
-                      <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-700">{m.month}</td>
+                  const maxRev = Math.max(...dailyRevenue.map((day) => day.total_amount), 1);
+                  return dailyRevenue.map((day) => (
+                    <tr key={day.date}>
+                      <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-700">{day.date}</td>
                       <td className="whitespace-nowrap px-4 py-2 text-right text-sm font-medium text-gray-900">
-                        {m.total.toLocaleString()}
+                        {day.total_amount.toLocaleString()}
                       </td>
                       <td className="px-4 py-2">
                         <div className="h-4 w-full overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full bg-dark"
-                            style={{ width: `${(m.total / maxRev) * 100}%` }}
+                            style={{ width: `${(day.total_amount / maxRev) * 100}%` }}
                           />
                         </div>
                       </td>

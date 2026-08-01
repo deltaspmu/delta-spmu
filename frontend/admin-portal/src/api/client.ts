@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
+import type { RevenueStats } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -422,7 +423,7 @@ export async function getPaymentTransactions(params?: Record<string, any>) {
   return unwrap(res);
 }
 
-export async function getRevenueStats(params?: Record<string, any>) {
+export async function getRevenueStats(params?: Record<string, any>): Promise<RevenueStats> {
   return call('lms.lms.payments_api.admin_get_revenue_stats', params);
 }
 

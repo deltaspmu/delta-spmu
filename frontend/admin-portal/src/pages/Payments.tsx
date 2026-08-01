@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPaymentTransactions, getRevenueStats, verifyPayment, exportPaymentsCsv } from '@/api/client';
-import type { PaymentTransaction } from '@/types';
+import type { PaymentTransaction, RevenueStats } from '@/types';
 import {
   DollarSign,
   Clock,
@@ -80,7 +80,7 @@ export default function Payments() {
     }
   }
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<RevenueStats>({
     queryKey: ['revenue-stats'],
     queryFn: () => getRevenueStats(),
   });
