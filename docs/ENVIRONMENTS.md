@@ -170,6 +170,7 @@ after the backend overlay is deployed (the command is idempotent):
 ./scripts/configure-branding.sh staging
 ./scripts/configure-lms-settings.sh staging
 ./scripts/normalize-ombre-chapters.sh staging
+./scripts/cleanup-frappe-demo-content.sh staging
 ```
 
 The LMS settings command creates any Delta feature fields absent from the
