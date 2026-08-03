@@ -204,8 +204,14 @@ whitelist) — expected with isolated libraries. Dev email goes to Mailpit
 Applied to staging + dev (2026-07-12): `ignore_csrf: 1` (matches prod — see
 Known debt), `cors_allow_headers/methods`, `host_name`; staging additionally
 mirrors `cookie_secure`/`session_cookie_samesite`/`session_cookie_secure`
-(dev is plain http). Frappe core carries three patches replicated from prod:
-samesite-from-config, force-secure, cookie_domain (`scripts/patch_frappe_*`).
+(dev is plain http). Frappe core carries two patches replicated from prod:
+samesite-from-config and force-secure (`scripts/patch_frappe_*`).
+
+**Never set `cookie_domain` in site_config** (issue #13). A parent-domain
+cookie (`.deltaspmu.com`) puts staging and prod in one cookie namespace and
+merges the learn/admin sessions. Both portals proxy `/api/*` same-origin via
+Vercel rewrites, so host-only cookies work and keep every host isolated.
+Guard: `python3 scripts/check_cookie_scope.py`.
 The prod-only overlay modules (course_import_export, _cert_backfill,
 _migrate_doctypes) are now vendored in `backend/frappe-lms/lms/lms/`.
 
