@@ -295,7 +295,7 @@ export default function Register() {
               </button>
             </div>
             <p className="mt-1.5 text-xs text-dark/40">
-              {t('pages:register.minimum_characters', { count: 8 })}
+              {t('pages:register.password_hint')}
             </p>
           </div>
 
