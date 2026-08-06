@@ -99,7 +99,7 @@ assert r.returncode == 0, r.stderr.decode()[:300]
 print(\"import OK\")"
 sudo tar xzf /tmp/prod-course-files.tar.gz -C /home/frappe/deltaspmu/sites/staging-api.deltaspmu.com/public/
 sudo chown -R frappe:frappe /home/frappe/deltaspmu/sites/staging-api.deltaspmu.com/public/files
-sudo -u frappe bash -c "cd /home/frappe/deltaspmu && /usr/local/bin/bench --site staging-api.deltaspmu.com migrate >/dev/null 2>&1 && /usr/local/bin/bench --site staging-api.deltaspmu.com clear-cache"
+sudo -u frappe bash -c "cd /home/frappe/deltaspmu && /usr/local/bin/bench --site staging-api.deltaspmu.com migrate >/dev/null 2>&1 && /usr/local/bin/bench --site staging-api.deltaspmu.com execute lms.lms.demo_content.cleanup_frappe_demo_content && /usr/local/bin/bench --site staging-api.deltaspmu.com clear-cache"
 rm -f /tmp/prod-course-*.gz
 echo "staging done"'
     ;;
@@ -117,6 +117,7 @@ gunzip -c /tmp/prod-course-content.sql.gz | mysql -h mariadb -u $DB -p$PW $DB
 tar xzf /tmp/prod-course-files.tar.gz -C sites/lms.localhost/public/
 bench --site lms.localhost migrate >/dev/null 2>&1
 bench --site lms.localhost console < /tmp/apply_custom_columns.py 2>&1 | grep -a "custom columns applied" || true
+bench --site lms.localhost execute lms.lms.demo_content.cleanup_frappe_demo_content
 bench --site lms.localhost clear-cache
 rm -f /tmp/prod-course-*.gz
 echo "dev done"'

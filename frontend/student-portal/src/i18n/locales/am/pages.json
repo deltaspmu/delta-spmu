@@ -24,7 +24,7 @@
     "sending": "በመላክ ላይ...",
     "resend_countdown": "የማረጋገጫ ኢሜይል ዳግም ላክ ({{seconds}} ሰ)",
     "back_to_login": "ወደ መግቢያ ተመለስ",
-    "minimum_characters": "ቢያንስ {{count}} ፊደላት",
+    "password_hint": "ቢያንስ 8 ፊደላት፣ አንድ ትልቅ ፊደል፣ አንድ ትንሽ ፊደል፣ አንድ ቁጥር እና አንድ ምልክት",
     "errors": {
       "name_required": "እባክዎ ሙሉ ስምዎን ያስገቡ።",
       "email_required": "እባክዎ ኢሜይልዎን ያስገቡ።",
@@ -55,6 +55,8 @@
     "continue_learning": "መማር ቀጥል",
     "recommendations": "ለእርስዎ የሚመከሩ",
     "no_courses": "ገና በምንም ኮርስ አልተመዘገቡም።",
+    "all_courses_completed": "የተመዘገቡባቸውን ኮርሶች በሙሉ አጠናቀዋል።",
+    "view_completed_courses": "የተጠናቀቁ ኮርሶችን ይመልከቱ",
     "explore_courses": "ኮርሶችን ያስሱ"
   },
   "courses": {

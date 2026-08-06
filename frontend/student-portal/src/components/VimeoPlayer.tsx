@@ -73,14 +73,21 @@ export default function VimeoPlayer({
       player.ready().then(() => {
         setIsLoading(false);
 
-        // Restore saved progress
+        // Restore saved progress. Vimeo rejects a seek that is not strictly
+        // less than the duration and raises a player `error` — which would
+        // replace the player with the error card on every load, Retry
+        // included. A learner who watched to the end stores exactly that, so
+        // bound the seek and drop a value the current video can't hold.
         if (storageKey) {
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            const savedTime = parseFloat(saved);
-            if (!isNaN(savedTime) && savedTime > 0) {
-              player.setCurrentTime(savedTime).catch(() => {});
-            }
+          const savedTime = parseFloat(localStorage.getItem(storageKey) ?? '');
+          if (savedTime > 0) {
+            player.getDuration().then((duration) => {
+              if (savedTime < duration) {
+                player.setCurrentTime(savedTime).catch(() => {});
+              } else {
+                localStorage.removeItem(storageKey);
+              }
+            }).catch(() => {});
           }
         }
       }).catch((err: Error) => {
