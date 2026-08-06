@@ -1372,10 +1372,15 @@ def get_course_chapters(course_name=None):
 # ---------------------------------------------------------------------------
 
 @frappe.whitelist(allow_guest=True)
-def get_lesson_details(course=None, chapter_number=None, lesson_number=None):
+def get_lesson_details(course=None, chapter_number=None, lesson_number=None, lesson=None):
     """
-    Return details for a specific lesson identified by course,
-    chapter number, and lesson number.
+    Return details for a specific lesson.
+
+    Pass ``lesson`` (the Course Lesson name) whenever the caller has it —
+    ``Course Chapter.idx`` is **not** unique within a course, so addressing a
+    lesson by ``(chapter_number, lesson_number)`` can match a lesson in a
+    different chapter and serve the wrong content and quiz link. The
+    number-based lookup is kept for callers that only have positions.
 
     For guest users, only preview lessons return full content.
     Non-preview lesson content is redacted for guests.
@@ -1384,23 +1389,19 @@ def get_lesson_details(course=None, chapter_number=None, lesson_number=None):
         course (str): Course name/ID.
         chapter_number (int): 1-based chapter index.
         lesson_number (int): 1-based lesson index within the chapter.
+        lesson (str): Course Lesson name — preferred, unambiguous.
 
     Returns:
         dict: Lesson data including content (if permitted).
     """
     try:
-        if not course or chapter_number is None or lesson_number is None:
+        if not course or (not lesson and (chapter_number is None or lesson_number is None)):
             frappe.throw(
                 _("Course, chapter number, and lesson number are required."),
                 frappe.ValidationError,
             )
 
         course = _sanitize(course, 200)
-        chapter_number = cint(chapter_number)
-        lesson_number = cint(lesson_number)
-
-        if chapter_number < 1 or lesson_number < 1:
-            frappe.throw(_("Invalid chapter or lesson number."), frappe.ValidationError)
 
         # Verify course
         course_data = frappe.db.get_value(
@@ -1414,42 +1415,72 @@ def get_lesson_details(course=None, chapter_number=None, lesson_number=None):
         if _is_guest() and not cint(course_data.get("published")):
             frappe.throw(_("This course is not available."), frappe.PermissionError)
 
-        # Find chapter by number/idx
-        chapter = frappe.db.get_value(
-            "Course Chapter",
-            {"course": course, "idx": chapter_number},
-            ["name", "title", "idx"],
-            as_dict=True,
-        )
-        if not chapter:
-            frappe.throw(
-                _("Chapter {0} not found in course {1}.").format(chapter_number, course),
-                frappe.DoesNotExistError,
-            )
+        lesson_fields = [
+            "name",
+            "title",
+            "idx",
+            "body",
+            "content",
+            "youtube",
+            "quiz_id",
+            "include_in_preview",
+            "creation",
+            "modified",
+        ]
 
-        # Find lesson by number/idx within chapter
-        lesson = frappe.db.get_value(
-            "Course Lesson",
-            {"chapter": chapter["name"], "idx": lesson_number},
-            [
-                "name",
-                "title",
-                "idx",
-                "body",
-                "content",
-                "youtube",
-                "quiz_id",
-                "include_in_preview",
-                "creation",
-                "modified",
-            ],
-            as_dict=True,
-        )
-        if not lesson:
-            frappe.throw(
-                _("Lesson {0} not found in chapter {1}.").format(lesson_number, chapter_number),
-                frappe.DoesNotExistError,
+        if lesson:
+            # Unambiguous path: resolve the chapter from the lesson itself.
+            lesson = frappe.db.get_value(
+                "Course Lesson",
+                _sanitize(lesson, 200),
+                lesson_fields + ["chapter"],
+                as_dict=True,
             )
+            chapter = frappe.db.get_value(
+                "Course Chapter",
+                lesson.get("chapter") if lesson else None,
+                ["name", "title", "idx", "course"],
+                as_dict=True,
+            ) if lesson else None
+            if not lesson or not chapter or chapter.get("course") != course:
+                frappe.throw(
+                    _("Lesson not found in course {0}.").format(course),
+                    frappe.DoesNotExistError,
+                )
+            chapter_number = cint(chapter.get("idx"))
+            lesson_number = cint(lesson.get("idx"))
+        else:
+            chapter_number = cint(chapter_number)
+            lesson_number = cint(lesson_number)
+
+            if chapter_number < 1 or lesson_number < 1:
+                frappe.throw(_("Invalid chapter or lesson number."), frappe.ValidationError)
+
+            # Find chapter by number/idx
+            chapter = frappe.db.get_value(
+                "Course Chapter",
+                {"course": course, "idx": chapter_number},
+                ["name", "title", "idx"],
+                as_dict=True,
+            )
+            if not chapter:
+                frappe.throw(
+                    _("Chapter {0} not found in course {1}.").format(chapter_number, course),
+                    frappe.DoesNotExistError,
+                )
+
+            # Find lesson by number/idx within chapter
+            lesson = frappe.db.get_value(
+                "Course Lesson",
+                {"chapter": chapter["name"], "idx": lesson_number},
+                lesson_fields,
+                as_dict=True,
+            )
+            if not lesson:
+                frappe.throw(
+                    _("Lesson {0} not found in chapter {1}.").format(lesson_number, chapter_number),
+                    frappe.DoesNotExistError,
+                )
 
         # Frontend aliases
         lesson["lesson_number"] = lesson.get("idx") or 1
