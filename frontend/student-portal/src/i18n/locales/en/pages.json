@@ -24,7 +24,7 @@
     "sending": "Sending...",
     "resend_countdown": "Resend Verification Email ({{seconds}}s)",
     "back_to_login": "Back to Login",
-    "minimum_characters": "Minimum {{count}} characters",
+    "password_hint": "At least 8 characters, including an uppercase letter, a lowercase letter, a number and a symbol",
     "errors": {
       "name_required": "Please enter your full name.",
       "email_required": "Please enter your email address.",
