@@ -264,14 +264,24 @@ export const getCourseChapters = (courseName: string) =>
     })
     .then(unwrap);
 
+// `lesson` (the Course Lesson name) is what the backend resolves on — chapter
+// numbers are not unique within a course, so the positional pair can land on a
+// different chapter's lesson. The numbers stay for backwards compatibility with
+// a backend that predates the `lesson` argument.
 export const getLessonDetails = (
   course: string,
   chapterNumber: number,
-  lessonNumber: number
+  lessonNumber: number,
+  lesson?: string
 ) =>
   api
     .get('/api/method/lms.lms.api.get_lesson_details', {
-      params: { course, chapter_number: chapterNumber, lesson_number: lessonNumber },
+      params: {
+        course,
+        chapter_number: chapterNumber,
+        lesson_number: lessonNumber,
+        ...(lesson ? { lesson } : {}),
+      },
     })
     .then(unwrap);
 

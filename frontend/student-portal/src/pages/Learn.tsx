@@ -410,9 +410,14 @@ export default function Learn() {
     data: lessonDetailData,
     isLoading: lessonLoading,
   } = useQuery({
-    queryKey: ['lesson', courseId, currentLesson?.chapterNum, currentLesson?.lessonNum],
+    queryKey: ['lesson', courseId, currentLesson?.name],
     queryFn: () =>
-      getLessonDetails(courseId!, currentLesson!.chapterNum, currentLesson!.lessonNum),
+      getLessonDetails(
+        courseId!,
+        currentLesson!.chapterNum,
+        currentLesson!.lessonNum,
+        currentLesson!.name
+      ),
     enabled: !!courseId && !!currentLesson,
   });
 

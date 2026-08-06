@@ -3,9 +3,6 @@
 import frappe
 
 
-OMBRE_COURSE = "professional-certificate-in-ombre-brows-artistry"
-
-
 def chapter_index_changes(chapters):
     """Return the writes needed to make an ordered chapter list 1-based.
 
@@ -58,13 +55,21 @@ def reindex_course_chapters(course):
     return changes
 
 
-def apply_ombre_chapter_order():
-    """Idempotently repair the persisted ombre-course chapter numbering."""
-    changes = reindex_course_chapters(OMBRE_COURSE)
+def apply_chapter_order(course=None):
+    """Idempotently repair persisted chapter numbering.
+
+    Repairs every course when *course* is omitted. Duplicate indices are not
+    only a cosmetic outline problem: lookups keyed on ``(course, idx)`` match
+    an arbitrary one of the colliding chapters.
+    """
+    courses = [course] if course else frappe.get_all(
+        "LMS Course", pluck="name", limit_page_length=0
+    )
+    result = {}
+    for name in courses:
+        changes = reindex_course_chapters(name)
+        if changes:
+            result[name] = changes
     frappe.db.commit()
     frappe.clear_cache()
-    return {
-        "course": OMBRE_COURSE,
-        "updated": len(changes),
-        "changes": changes,
-    }
+    return {"courses": len(courses), "repaired": result}
