@@ -20,6 +20,7 @@ import {
 } from '@/api/client';
 import { vimeoService } from '@/api/vimeo';
 import type { Chapter, Lesson } from '@/types';
+import { lessonQuizLinkValue } from '@/utils/lessonQuizLink';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -655,7 +656,7 @@ function EditLessonModal({
                 title: title.trim(),
                 content,
                 youtube: youtube || undefined,
-                quiz_id: quizId || undefined,
+                quiz_id: lessonQuizLinkValue(quizId),
                 duration,
               })
             }
@@ -976,11 +977,13 @@ export default function CourseEditor() {
             course: courseName,
             idx: li + 1,
             duration: ls.duration || 0,
+            // Frappe treats an omitted Link field as unchanged. Send null so
+            // choosing "No quiz" actually removes the persisted association.
+            quiz_id: lessonQuizLinkValue(ls.quiz_id),
           };
-          // Optional fields — only include when set, to avoid Frappe
-          // rejecting empty strings on Link fields.
+          // Keep an empty video value omitted; quiz_id stays explicit above so
+          // cleared quiz links are persisted.
           if (ls.youtube) lessonData.youtube = ls.youtube;
-          if (ls.quiz_id) lessonData.quiz_id = ls.quiz_id;
           if (ls.name) {
             await updateLesson(ls.name, lessonData);
           } else {

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test:analytics": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/analyticsRevenue.test.ts",
+    "test:course-editor": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/lessonQuizLink.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {
