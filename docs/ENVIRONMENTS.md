@@ -129,26 +129,30 @@ Same two Vercel projects as prod:
 ## Prod SSH access
 
 The prod key pair (`deltaspmu-dev-key`, RSA) has no private key on this machine — it stayed
-behind in the account migration. Until a key is durably installed, use **EC2 Instance Connect**
-(ephemeral, 60-second window, nothing persisted on the server):
+behind in the account migration. Since **2026-08-06** the workstation key is installed
+durably instead, so plain SSH works:
+
+```bash
+ssh ubuntu@3.126.36.245
+```
+
+If that key is ever removed, fall back to **EC2 Instance Connect** (ephemeral, 60-second
+window, nothing persisted on the server) and reinstall it:
 
 ```bash
 aws ec2-instance-connect send-ssh-public-key \
   --instance-id i-0c4404a6aab59c80a --availability-zone eu-central-1a \
   --instance-os-user ubuntu --ssh-public-key file://~/.ssh/id_ed25519.pub
 ssh ubuntu@3.126.36.245   # within 60s
-```
 
-To make access durable (your call — run it yourself):
-
-```bash
-# inside that ssh session:
-echo "<your ~/.ssh/id_ed25519.pub line>" >> ~/.ssh/authorized_keys
+# then, to make it durable again (idempotent):
+KEY=$(cat ~/.ssh/id_ed25519.pub)
+ssh ubuntu@3.126.36.245 "grep -qxF '$KEY' ~/.ssh/authorized_keys || echo '$KEY' >> ~/.ssh/authorized_keys"
 ```
 
 Multi-command scripts against prod (e.g. `deploy-backend.sh prod`) open several SSH
-connections over >60s; either install the durable key first, or add a ControlMaster
-block to `~/.ssh/config` so one authenticated connection is reused:
+connections; the ControlMaster block below reuses one authenticated connection, which
+was essential during the EIC-only era and is now just a speedup:
 
 ```
 Host 3.126.36.245
