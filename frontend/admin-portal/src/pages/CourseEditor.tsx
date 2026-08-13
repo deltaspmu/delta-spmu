@@ -1001,10 +1001,10 @@ export default function CourseEditor() {
             // Frappe treats an omitted Link field as unchanged. Send null so
             // choosing "No quiz" actually removes the persisted association.
             quiz_id: lessonQuizLinkValue(ls.quiz_id),
+            // Same for the video: omitting it would leave the old value in
+            // place, so "Remove video" would silently do nothing.
+            youtube: ls.youtube || '',
           };
-          // Keep an empty video value omitted; quiz_id stays explicit above so
-          // cleared quiz links are persisted.
-          if (ls.youtube) lessonData.youtube = ls.youtube;
           if (ls.name) {
             await updateLesson(ls.name, lessonData);
           } else {
