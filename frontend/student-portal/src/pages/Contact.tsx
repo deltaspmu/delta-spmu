@@ -1,5 +1,4 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useTranslation } from 'react-i18next';
 import { submitContactForm } from '@/api/client';
 import {
   MapPin,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react';
 
 export default function Contact() {
-  const { t } = useTranslation(['common', 'pages', 'legal']);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

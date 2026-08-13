@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getQuiz, submitQuiz } from '@/api/client';
-import { useAuth } from '@/context/AuthContext';
 import type { Quiz as QuizType, QuizQuestion, QuizSubmission } from '@/types';
 import { cn } from '@/lib/utils';
 import {
@@ -269,10 +267,8 @@ function QuizSkeleton() {
 
 export default function Quiz() {
   const { quizId } = useParams<{ quizId: string }>();
-  const { t } = useTranslation(['common', 'pages']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   // =========================================================================
   // State

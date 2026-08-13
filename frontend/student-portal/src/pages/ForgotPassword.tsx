@@ -1,11 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { forgotPassword } from '@/api/client';
 
 export default function ForgotPassword() {
-  const { t } = useTranslation(['common', 'pages']);
 
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');

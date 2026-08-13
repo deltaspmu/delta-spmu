@@ -25,7 +25,7 @@ const STEPS = [
   },
 ];
 
-function StepCard({ step, index }) {
+function StepCard({ step }) {
   const cardRef = useRef(null);
 
   const reveal = {
@@ -146,8 +146,8 @@ export default function HowItWorks() {
 
         {/* ── Scrolling Right Column ── */}
         <div className="flex flex-col gap-8 md:col-span-7 lg:col-start-6">
-          {STEPS.map((step, i) => (
-            <StepCard key={step.number} step={step} index={i} />
+          {STEPS.map((step) => (
+            <StepCard key={step.number} step={step} />
           ))}
         </div>
       </div>

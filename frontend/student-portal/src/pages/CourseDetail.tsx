@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
@@ -291,10 +290,9 @@ function ReviewCard({ review }: { review: Review }) {
 
 export default function CourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { t } = useTranslation(['common', 'pages']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
   const [activeTab, setActiveTab] = useState<'description' | 'curriculum' | 'reviews'>(

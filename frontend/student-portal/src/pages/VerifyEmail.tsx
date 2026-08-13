@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { verifyEmail } from '@/api/client';
@@ -8,7 +7,6 @@ import { extractFrappeError } from '@/lib/errors';
 type Status = 'loading' | 'success' | 'error' | 'invalid';
 
 export default function VerifyEmail() {
-  const { t } = useTranslation(['common', 'pages']);
   const [searchParams] = useSearchParams();
   const key = searchParams.get('key');
 
