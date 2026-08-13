@@ -189,7 +189,7 @@ repeatedly.
 
 | Service | dev | staging | prod |
 |---|---|---|---|
-| Vimeo | shared token, tag `deltaspmu-lms-dev` | shared token, tag `deltaspmu-lms-staging` | tag `deltaspmu-lms` |
+| Vimeo | lower-env token (own account), tag `deltaspmu-lms-dev` | same lower-env token, tag `deltaspmu-lms-staging` | prod token (owns the course videos), tag `deltaspmu-lms` |
 | Chapa | — | TEST keys | live |
 | Resend | Mailpit (localhost:8025) | key, from `noreply-staging@` | live |
 | Telegram | — | staging bot + webhook | live bot |
@@ -197,11 +197,24 @@ repeatedly.
 
 Vimeo `vimeo_tag` (site_config) isolates each env's uploaded library. New uploads
 on staging/dev are tagged per-env and whitelisted to that env's domains by the
-upload code (`_get_tag()` in vimeo_api.py). NOTE: existing course lessons
-reference videos in PROD's Vimeo account; those won't play on staging/dev unless
-re-uploaded there (or the prod token adds staging domains to each video's embed
-whitelist) — expected with isolated libraries. Dev email goes to Mailpit
-(enable in `dev/docker-compose.yml`, UI at http://localhost:8025).
+upload code (`_get_tag()` in vimeo_api.py).
+
+Staging and dev share a token for a **different Vimeo account than prod's** —
+one that holds no videos. So (verified 2026-08-13, issue #25):
+
+- The staging/dev admin **video library is legitimately empty**, and always will
+  be until something is uploaded there. Prod's videos are invisible to it
+  (`vimeo_get_video` on a prod id returns 404) — not a tag-filter problem.
+- **Playback still works on every env.** All 21 videos referenced by course
+  lessons already whitelist `learn`, `staging-learn`, `staging-admin` and
+  `localhost` (a non-whitelisted referer gets 403 from `player.vimeo.com`, those
+  get 200), so no re-upload or whitelist backfill is needed.
+- To attach one of those videos to a lesson from staging/dev, paste its
+  `id/hash` (or share link) into the admin video picker — the library grid only
+  ever lists the current env's own uploads.
+
+Dev email goes to Mailpit (enable in `dev/docker-compose.yml`, UI at
+http://localhost:8025).
 
 ## Site-config behavioral parity (prod = source of truth)
 
