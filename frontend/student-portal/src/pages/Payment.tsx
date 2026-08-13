@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCourseDetail } from '@/api/client';
@@ -341,7 +340,6 @@ function VerificationOverlay({
 
 export default function Payment() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { t } = useTranslation(['common', 'pages']);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 

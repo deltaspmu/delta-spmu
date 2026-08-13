@@ -1,9 +1,7 @@
 import { useMemo, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { checkPaymentStatus, getCourseDetail } from '@/api/client';
-import { useAuth } from '@/context/AuthContext';
 import type { Course, PaymentTransaction } from '@/types';
 import {
   formatPrice,
@@ -24,8 +22,6 @@ const BUNDLE_ID = 'all-courses-bundle';
 // ---------------------------------------------------------------------------
 
 export default function PaymentSuccess() {
-  const { t } = useTranslation(['common', 'pages']);
-  const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
 
   const courseId = searchParams.get('course') || '';

@@ -8,8 +8,6 @@ import type { Course, Certificate, CourseProgress } from '@/types';
 import {
   getCourseImageUrl,
   formatPrice,
-  formatDuration,
-  cn,
 } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
 import {

@@ -8,11 +8,10 @@ import {
   formatDate,
   formatPrice,
   getPaymentMethodLabel,
-  getStatusColor,
   truncateText,
   cn,
 } from '@/lib/utils';
-import { Receipt, ChevronLeft, ChevronRight, X, Loader2, Download } from 'lucide-react';
+import { Receipt, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Constants

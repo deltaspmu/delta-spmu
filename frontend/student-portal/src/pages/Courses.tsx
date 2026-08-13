@@ -21,7 +21,6 @@ import {
   BookOpen,
   ChevronDown,
   Heart,
-  ChevronRight,
   GraduationCap,
   Users,
   Award,

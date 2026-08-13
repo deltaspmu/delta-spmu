@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Search, ChevronDown, Mail } from 'lucide-react';
 
@@ -148,7 +147,6 @@ function AccordionItem({
 /* ------------------------------------------------------------------ */
 
 export default function Help() {
-  const { t } = useTranslation(['common', 'pages', 'legal']);
   const [searchQuery, setSearchQuery] = useState('');
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
