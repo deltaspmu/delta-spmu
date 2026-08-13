@@ -21,6 +21,7 @@ import {
 import { vimeoService } from '@/api/vimeo';
 import type { Chapter, Lesson } from '@/types';
 import { lessonQuizLinkValue } from '@/utils/lessonQuizLink';
+import { parseVimeoRef } from '@/utils/vimeoRef';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -321,6 +322,7 @@ function VideoPickerModal({
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [manualRef, setManualRef] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['vimeo-videos', search, page],
@@ -329,6 +331,9 @@ function VideoPickerModal({
   });
 
   const videos = data?.data || [];
+  // Videos living outside this environment's Vimeo library (e.g. prod videos
+  // seen from staging/dev) never appear in the list, so allow pasting one.
+  const parsedRef = parseVimeoRef(manualRef);
 
   if (!open) return null;
 
@@ -349,6 +354,22 @@ function VideoPickerModal({
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
             />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              placeholder="…or paste a Vimeo link or ID (e.g. 1234567890/abc123def4)"
+              value={manualRef}
+              onChange={(e) => setManualRef(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <button
+              disabled={!parsedRef}
+              onClick={() => { onSelect(parsedRef!); setManualRef(''); onClose(); }}
+              className="px-4 py-2 text-sm rounded-lg bg-primary-dark text-white disabled:opacity-40"
+            >
+              Use
+            </button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
