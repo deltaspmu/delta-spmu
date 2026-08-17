@@ -1054,9 +1054,6 @@ def telebirr_notify():
     Returns:
         dict with code and message per Telebirr protocol.
     """
-    # Disable CSRF for webhook
-    frappe.flags.ignore_csrf = True
-
     try:
         payload = frappe.request.get_data(as_text=True)
         if not payload:
@@ -1156,8 +1153,6 @@ def chapa_webhook():
     Returns:
         dict with status and message.
     """
-    frappe.flags.ignore_csrf = True
-
     try:
         payload = frappe.request.get_data(as_text=True)
         if not payload:
@@ -1317,8 +1312,6 @@ def ethswitch_webhook():
     Returns:
         dict with status and message.
     """
-    frappe.flags.ignore_csrf = True
-
     try:
         payload = frappe.request.get_data(as_text=True)
         if not payload:

@@ -259,8 +259,6 @@ def _respond_xml(xml_text):
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def c2b():
     """Single inbound endpoint the CPS calls for all three C2B operations."""
-    frappe.flags.ignore_csrf = True
-
     from lms.lms.telebirr_c2b_xml import (
         parse_request, SoapParseError, build_query_error, build_confirmation_result,
     )
