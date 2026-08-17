@@ -329,8 +329,6 @@ def _consume_link_token(token, message):
 def webhook():
     """Telegram update receiver. ALWAYS returns 200 — Telegram redelivers on
     non-200, and a retry storm helps nobody. Errors are logged instead."""
-    frappe.flags.ignore_csrf = True
-
     if not is_enabled() or not _fields_ready():
         return "ok"
 

@@ -232,9 +232,8 @@ def configure_local_site() -> None:
     local_config = {
         "host_name": "http://lms.localhost:8000",
         "allow_cors": "*",
-        # Matches the currently documented dev/staging/prod behavior. Remove
-        # once every portal POST reliably supplies a valid Frappe CSRF token.
-        "ignore_csrf": 1,
+        # "None" deletes the key — CSRF verification stays ON everywhere.
+        "ignore_csrf": "None",
         "developer_mode": 1,
         "disable_scheduler": 1,
         "pause_scheduler": 1,
