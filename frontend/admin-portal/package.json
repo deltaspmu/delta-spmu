@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test:admin-access": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/adminAccess.test.ts",
     "test:analytics": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/analyticsRevenue.test.ts",
     "test:course-editor": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/lessonQuizLink.test.ts",
     "test:vimeo-ref": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/vimeoRef.test.ts",
