@@ -15,3 +15,9 @@ export function parseVimeoRef(input: string | null | undefined): string | null {
     text.match(new RegExp(`${id}/([0-9a-zA-Z]+)`))?.[1];
   return hash ? `${id}/${hash}` : id;
 }
+
+/** Convert Vimeo seconds to the whole minutes stored by Course Lesson. */
+export function vimeoDurationMinutes(seconds: number | null | undefined): number | null {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return null;
+  return Math.round(seconds / 60);
+}

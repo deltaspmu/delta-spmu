@@ -211,6 +211,13 @@ one that holds no videos. So (verified 2026-08-13, issue #25):
 - To attach one of those videos to a lesson from staging/dev, paste its
   `id/hash` (or share link) into the admin video picker — the library grid only
   ever lists the current env's own uploads.
+- Lesson `duration` values are stored in minutes. Selecting a video from the
+  current environment's library copies Vimeo's real duration into the lesson.
+  Prod can also repair existing video lessons with
+  `bench --site api.deltaspmu.com execute lms.lms.vimeo_api.backfill_lesson_durations`.
+  Staging keeps its existing synthetic duration seeds until its own Vimeo
+  account contains course videos; prod-owned IDs return 404 through staging's
+  isolated Vimeo token and are therefore skipped by the same backfill.
 
 Dev email goes to Mailpit (enable in `dev/docker-compose.yml`, UI at
 http://localhost:8025).

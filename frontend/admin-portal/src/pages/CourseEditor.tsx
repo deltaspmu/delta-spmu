@@ -21,7 +21,7 @@ import {
 import { vimeoService } from '@/api/vimeo';
 import type { Chapter, Lesson } from '@/types';
 import { lessonQuizLinkValue } from '@/utils/lessonQuizLink';
-import { parseVimeoRef } from '@/utils/vimeoRef';
+import { parseVimeoRef, vimeoDurationMinutes } from '@/utils/vimeoRef';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -318,7 +318,7 @@ function VideoPickerModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSelect: (videoRef: string) => void;
+  onSelect: (videoRef: string, durationSeconds?: number) => void;
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -390,7 +390,7 @@ function VideoPickerModal({
                 return (
                 <button
                   key={videoId}
-                  onClick={() => { onSelect(videoValue); onClose(); }}
+                  onClick={() => { onSelect(videoValue, v.duration); onClose(); }}
                   className="text-left border rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-dark transition-all"
                 >
                   <div className="aspect-video bg-gray-100">
@@ -692,8 +692,10 @@ function EditLessonModal({
       <VideoPickerModal
         open={showVideoPicker}
         onClose={() => setShowVideoPicker(false)}
-        onSelect={(ref) => {
+        onSelect={(ref, durationSeconds) => {
           setYoutube(ref);
+          const videoMinutes = vimeoDurationMinutes(durationSeconds);
+          if (videoMinutes !== null) setDuration(videoMinutes);
           setShowVideoPicker(false);
         }}
       />

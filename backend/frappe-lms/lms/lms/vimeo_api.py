@@ -171,6 +171,28 @@ def _extract_video_id(uri):
     return uri.strip("/").split("/")[-1]
 
 
+def _lesson_video_id(video_ref):
+    """Return the Vimeo ID from a Course Lesson ``youtube`` reference.
+
+    Lesson videos are stored as ``id`` or ``id/hash``. Invalid legacy values
+    are skipped by the duration backfill rather than sent to Vimeo.
+    """
+    video_id = str(video_ref or "").strip().split("/", 1)[0]
+    return video_id if video_id.isdigit() else None
+
+
+def _duration_minutes(seconds):
+    """Convert Vimeo's seconds to the whole minutes stored on lessons."""
+    try:
+        seconds = float(seconds)
+    except (TypeError, ValueError):
+        return None
+    if seconds < 0:
+        return None
+    # Round halves up, matching JavaScript Math.round in the course editor.
+    return int((seconds / 60) + 0.5)
+
+
 def _format_video(video):
     """Return a slim, frontend-friendly representation of a Vimeo video.
 
@@ -295,6 +317,84 @@ def vimeo_get_video(video_id):
     video_id = str(video_id).strip()
     result = _vimeo_request("GET", f"/videos/{video_id}")
     return _format_video(result)
+
+
+@frappe.whitelist()
+def backfill_lesson_durations():
+    """Populate video-bearing lesson durations from the current Vimeo account.
+
+    The operation is idempotent and intentionally leaves lessons without a
+    video unchanged. Vimeo failures are logged and skipped so one missing video
+    cannot prevent other lessons from being repaired.
+    """
+    _check_admin()
+
+    if not frappe.db.has_column("Course Lesson", "duration"):
+        frappe.throw(
+            "Course Lesson.duration is not available on this site.",
+            frappe.ValidationError,
+        )
+
+    lessons = frappe.get_all(
+        "Course Lesson",
+        fields=["name", "title", "youtube", "duration"],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    lessons = [lesson for lesson in lessons if str(lesson.get("youtube") or "").strip()]
+
+    updated = 0
+    unchanged = 0
+    errors = []
+    for lesson in lessons:
+        video_id = _lesson_video_id(lesson.get("youtube"))
+        if not video_id:
+            reason = "invalid Vimeo reference"
+            errors.append({"lesson": lesson.name, "reason": reason})
+            frappe.log_error(
+                title="Vimeo duration backfill skipped",
+                message=f"Lesson {lesson.name}: {reason} ({lesson.get('youtube')!r})",
+            )
+            continue
+
+        try:
+            video = _vimeo_request(
+                "GET",
+                f"/videos/{video_id}",
+                params={"fields": "duration"},
+            )
+            minutes = _duration_minutes((video or {}).get("duration"))
+            if minutes is None:
+                raise ValueError("Vimeo response did not contain a valid duration")
+        except Exception as exc:
+            errors.append({"lesson": lesson.name, "video_id": video_id, "reason": str(exc)})
+            frappe.log_error(
+                title="Vimeo duration backfill skipped",
+                message=f"Lesson {lesson.name}, video {video_id}: {exc}",
+            )
+            continue
+
+        if int(lesson.get("duration") or 0) == minutes:
+            unchanged += 1
+            continue
+
+        frappe.db.set_value(
+            "Course Lesson",
+            lesson.name,
+            "duration",
+            minutes,
+            update_modified=False,
+        )
+        updated += 1
+
+    frappe.db.commit()
+    return {
+        "processed": len(lessons),
+        "updated": updated,
+        "unchanged": unchanged,
+        "skipped": len(errors),
+        "errors": errors,
+    }
 
 
 @frappe.whitelist()
