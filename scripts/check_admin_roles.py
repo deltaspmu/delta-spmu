@@ -1,12 +1,19 @@
 exec("""
 import frappe
 
-for u in ('Administrator', 'administrator@deltaspmu.com'):
+users = {'Administrator'}
+users.update(frappe.get_all(
+    'Has Role',
+    filters={'role': 'System Manager', 'parenttype': 'User'},
+    pluck='parent',
+))
+
+for u in sorted(users):
     if not frappe.db.exists('User', u):
         print(f'{u!r}: does not exist')
         continue
     enabled = frappe.db.get_value('User', u, 'enabled')
-    roles = [r.role for r in frappe.get_doc('User', u).roles]
+    roles = frappe.get_roles(u)
     print(f'{u!r}:')
     print(f'  enabled: {enabled}')
     print(f'  roles:   {roles}')

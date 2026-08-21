@@ -1,7 +1,8 @@
 exec("""
+import os
 import frappe
 
-user = 'administrator@deltaspmu.com'
+user = os.environ.get('VERIFY_USER', 'Administrator').strip()
 print(f'Roles for {user!r}:')
 roles = frappe.get_roles(user)
 print(f'  count: {len(roles)}')

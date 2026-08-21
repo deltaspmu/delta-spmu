@@ -10,13 +10,12 @@ import type { User } from '../types';
 // One axios instance for the whole portal — it owns the CSRF token cache and
 // the 401/403 handling. A second instance here meant a second (stale) token.
 import api from '../api/client';
+import { hasAdminAccess } from '../utils/adminAccess';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'deltaspmu_admin_user';
-const ADMIN_ROLES = ['System Manager'];
-const ADMIN_USERS = ['Administrator', 'administrator@deltaspmu.com'];
 
 // ---------------------------------------------------------------------------
 // Context types
@@ -38,14 +37,6 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function isUserAdmin(user: User): boolean {
-  return (
-    ADMIN_USERS.includes(user.name) ||
-    ADMIN_USERS.includes(user.email) ||
-    user.roles.some((role) => ADMIN_ROLES.includes(role))
-  );
-}
-
 function persistUser(user: User | null) {
   if (user) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
@@ -73,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessDenied, setAccessDenied] = useState(false);
 
   const isAuthenticated = !!user;
-  const isAdmin = !!user && isUserAdmin(user);
+  const isAdmin = !!user && hasAdminAccess(user);
 
   // -------------------------------------------------------------------------
   // Refresh user
@@ -83,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.get('/api/method/lms.lms.api.get_user_info');
       const userData = res.data?.message as User | null;
       if (userData && userData.name && userData.name !== 'Guest') {
-        if (isUserAdmin(userData)) {
+        if (hasAdminAccess(userData)) {
           setUser(userData);
           persistUser(userData);
           setAccessDenied(false);
@@ -116,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = res.data?.message as User | null;
         if (!cancelled) {
           if (userData && userData.name && userData.name !== 'Guest') {
-            if (isUserAdmin(userData)) {
+            if (hasAdminAccess(userData)) {
               setUser(userData);
               persistUser(userData);
               setAccessDenied(false);

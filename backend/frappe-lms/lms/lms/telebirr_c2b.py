@@ -589,13 +589,17 @@ def _admin_recipients():
     managers = frappe.get_all(
         "Has Role", filters={"role": "System Manager", "parenttype": "User"}, pluck="parent")
     emails = []
-    for u in set(managers):
-        if u in ("Administrator", "Guest"):
+    # User.email is mutable metadata, so resolve it at send time instead of
+    # keeping an address in source. Administrator is added explicitly because
+    # the built-in account's effective roles are not guaranteed to be stored as
+    # Has Role child rows on every Frappe version.
+    for u in sorted(set(managers) | {"Administrator"}):
+        if u == "Guest":
             continue
         row = frappe.db.get_value("User", u, ["email", "enabled"], as_dict=True)
         if row and row.enabled and row.email:
             emails.append(row.email)
-    return emails or ["administrator@deltaspmu.com"]
+    return sorted(set(emails))
 
 
 # ---------------------------------------------------------------------------
