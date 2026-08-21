@@ -65,7 +65,6 @@ The process, for reference:
 - Web SG: close 8000 and restrict 22 (currently 0.0.0.0/0)
 - Decommission or start using the empty marketing S3 + CloudFront and assets bucket
 - Vendor the email Lambda handler source into the repo (currently placeholders everywhere)
-- **CSRF verification is disabled on ALL environments** (`ignore_csrf: 1`, inherited from prod where it was a cross-origin workaround). A malicious site could forge requests from a logged-in browser. Proper fix: make the admin portal attach valid tokens on every POST, verify on staging, then remove the flag everywhere.
 - `get_course_price` USD-conversion bug (float on dict) is fixed in the repo and deployed to staging+dev, but **prod still has it** — ships with the next `./scripts/deploy-backend.sh prod`.
 
 
@@ -129,26 +128,30 @@ Same two Vercel projects as prod:
 ## Prod SSH access
 
 The prod key pair (`deltaspmu-dev-key`, RSA) has no private key on this machine — it stayed
-behind in the account migration. Until a key is durably installed, use **EC2 Instance Connect**
-(ephemeral, 60-second window, nothing persisted on the server):
+behind in the account migration. Since **2026-08-06** the workstation key is installed
+durably instead, so plain SSH works:
+
+```bash
+ssh ubuntu@3.126.36.245
+```
+
+If that key is ever removed, fall back to **EC2 Instance Connect** (ephemeral, 60-second
+window, nothing persisted on the server) and reinstall it:
 
 ```bash
 aws ec2-instance-connect send-ssh-public-key \
   --instance-id i-0c4404a6aab59c80a --availability-zone eu-central-1a \
   --instance-os-user ubuntu --ssh-public-key file://~/.ssh/id_ed25519.pub
 ssh ubuntu@3.126.36.245   # within 60s
-```
 
-To make access durable (your call — run it yourself):
-
-```bash
-# inside that ssh session:
-echo "<your ~/.ssh/id_ed25519.pub line>" >> ~/.ssh/authorized_keys
+# then, to make it durable again (idempotent):
+KEY=$(cat ~/.ssh/id_ed25519.pub)
+ssh ubuntu@3.126.36.245 "grep -qxF '$KEY' ~/.ssh/authorized_keys || echo '$KEY' >> ~/.ssh/authorized_keys"
 ```
 
 Multi-command scripts against prod (e.g. `deploy-backend.sh prod`) open several SSH
-connections over >60s; either install the durable key first, or add a ControlMaster
-block to `~/.ssh/config` so one authenticated connection is reused:
+connections; the ControlMaster block below reuses one authenticated connection, which
+was essential during the EIC-only era and is now just a speedup:
 
 ```
 Host 3.126.36.245
@@ -185,7 +188,7 @@ repeatedly.
 
 | Service | dev | staging | prod |
 |---|---|---|---|
-| Vimeo | shared token, tag `deltaspmu-lms-dev` | shared token, tag `deltaspmu-lms-staging` | tag `deltaspmu-lms` |
+| Vimeo | lower-env token (own account), tag `deltaspmu-lms-dev` | same lower-env token, tag `deltaspmu-lms-staging` | prod token (owns the course videos), tag `deltaspmu-lms` |
 | Chapa | — | TEST keys | live |
 | Resend | Mailpit (localhost:8025) | key, from `noreply-staging@` | live |
 | Telegram | — | staging bot + webhook | live bot |
@@ -193,16 +196,36 @@ repeatedly.
 
 Vimeo `vimeo_tag` (site_config) isolates each env's uploaded library. New uploads
 on staging/dev are tagged per-env and whitelisted to that env's domains by the
-upload code (`_get_tag()` in vimeo_api.py). NOTE: existing course lessons
-reference videos in PROD's Vimeo account; those won't play on staging/dev unless
-re-uploaded there (or the prod token adds staging domains to each video's embed
-whitelist) — expected with isolated libraries. Dev email goes to Mailpit
-(enable in `dev/docker-compose.yml`, UI at http://localhost:8025).
+upload code (`_get_tag()` in vimeo_api.py).
+
+Staging and dev share a token for a **different Vimeo account than prod's** —
+one that holds no videos. So (verified 2026-08-13, issue #25):
+
+- The staging/dev admin **video library is legitimately empty**, and always will
+  be until something is uploaded there. Prod's videos are invisible to it
+  (`vimeo_get_video` on a prod id returns 404) — not a tag-filter problem.
+- **Playback still works on every env.** All 21 videos referenced by course
+  lessons already whitelist `learn`, `staging-learn`, `staging-admin` and
+  `localhost` (a non-whitelisted referer gets 403 from `player.vimeo.com`, those
+  get 200), so no re-upload or whitelist backfill is needed.
+- To attach one of those videos to a lesson from staging/dev, paste its
+  `id/hash` (or share link) into the admin video picker — the library grid only
+  ever lists the current env's own uploads.
+- Lesson `duration` values are stored in minutes. Selecting a video from the
+  current environment's library copies Vimeo's real duration into the lesson.
+  Prod can also repair existing video lessons with
+  `bench --site api.deltaspmu.com execute lms.lms.vimeo_api.backfill_lesson_durations`.
+  Staging keeps its existing synthetic duration seeds until its own Vimeo
+  account contains course videos; prod-owned IDs return 404 through staging's
+  isolated Vimeo token and are therefore skipped by the same backfill.
+
+Dev email goes to Mailpit (enable in `dev/docker-compose.yml`, UI at
+http://localhost:8025).
 
 ## Site-config behavioral parity (prod = source of truth)
 
-Applied to staging + dev (2026-07-12): `ignore_csrf: 1` (matches prod — see
-Known debt), `cors_allow_headers/methods`, `host_name`; staging additionally
+Applied to staging + dev (2026-07-12): `cors_allow_headers/methods`,
+`host_name`; staging additionally
 mirrors `cookie_secure`/`session_cookie_samesite`/`session_cookie_secure`
 (dev is plain http). Frappe core carries two patches replicated from prod:
 samesite-from-config and force-secure (`scripts/patch_frappe_*`).
@@ -212,6 +235,16 @@ cookie (`.deltaspmu.com`) puts staging and prod in one cookie namespace and
 merges the learn/admin sessions. Both portals proxy `/api/*` same-origin via
 Vercel rewrites, so host-only cookies work and keep every host isolated.
 Guard: `python3 scripts/check_cookie_scope.py`.
+
+**Never set `ignore_csrf` in site_config** (issue #27). It disables CSRF
+verification site-wide, so any site could forge POSTs from a logged-in browser.
+Removed from dev + staging 2026-08-17 (prod: `bench --site <site> set-config
+ignore_csrf None` + `bench restart`). Both portals fetch a token from
+`get_csrf_token` and re-prime it right after login — Frappe only enforces the
+check once the session holds a token. Guest webhooks (Chapa/telebirr/Telegram)
+are unaffected: a Guest session never holds one.
+Guard: `python3 scripts/check_csrf_enforced.py <api-base-url> <user> <password>`.
+
 The prod-only overlay modules (course_import_export, _cert_backfill,
 _migrate_doctypes) are now vendored in `backend/frappe-lms/lms/lms/`.
 

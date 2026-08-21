@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCertificates } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import type { Certificate } from '@/types';
-import { formatDate, cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import {
   GraduationCap,
   Award,

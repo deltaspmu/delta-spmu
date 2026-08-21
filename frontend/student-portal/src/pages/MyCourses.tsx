@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
 import { getEnrolledCourses, getCourseProgress, getCourseAccess } from '@/api/client';
 import type { Course, CourseProgress, CourseAccess } from '@/types';
 import { getCourseImageUrl, cn } from '@/lib/utils';
@@ -52,7 +51,6 @@ function CourseRowSkeleton() {
 
 export default function MyCourses() {
   const { t } = useTranslation(['common', 'pages']);
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('all');
 
   // Fetch enrolled courses

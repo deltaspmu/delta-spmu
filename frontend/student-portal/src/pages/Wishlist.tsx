@@ -10,7 +10,6 @@ import {
   getCourseImageUrl,
   formatPrice,
   formatDuration,
-  cn,
 } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
 import {
@@ -18,7 +17,6 @@ import {
   Star,
   Clock,
   BookOpen,
-  X,
   ShoppingCart,
 } from 'lucide-react';
 

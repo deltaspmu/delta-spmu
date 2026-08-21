@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:analytics": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/analyticsRevenue.test.ts",
     "test:course-editor": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/lessonQuizLink.test.ts",
+    "test:vimeo-ref": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/vimeoRef.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -41,7 +42,10 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.67.0",
     "vite": "^7.2.4"
   }
 }

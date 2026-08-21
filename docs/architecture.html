@@ -215,7 +215,8 @@ across 16 modules.</p>
       <code>get_list()</code> instead.</li>
   <li>Course price field is <code>course_price</code> (not <code>price</code>); default fallback applies.</li>
   <li><strong>CSRF</strong> is required on POST/PUT/DELETE; GET bypasses it — payment callbacks use GET intentionally.
-      (Note: <code>ignore_csrf</code> is currently enabled across envs — see §13.)</li>
+      Guest webhooks are unaffected: a Guest session never holds a CSRF token, and Frappe skips the
+      check when there is none to compare against.</li>
   <li>Sessions are cookie-based → the frontend must send credentials on every request.</li>
   <li>After adding <code>@frappe.whitelist()</code> methods, clear <code>.pyc</code> cache and
       <code>bench restart</code>.</li>

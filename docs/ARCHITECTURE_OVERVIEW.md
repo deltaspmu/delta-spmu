@@ -145,7 +145,8 @@ A forked Frappe LMS app with a custom Python overlay. Files deploy to
   callers. Use `frappe.db.get_value()` / `get_list()` instead.
 - Course price field is `course_price` (not `price`); a default fallback applies.
 - **CSRF** is required on POST/PUT/DELETE; GET bypasses it — payment callbacks use GET
-  intentionally. (Note: `ignore_csrf` is currently enabled across envs — documented debt.)
+  intentionally. Guest webhooks are unaffected: a Guest session never holds a CSRF token,
+  and Frappe skips the check when there is none to compare against.
 - Sessions are cookie-based → the frontend must send credentials on every request.
 - After adding `@frappe.whitelist()` methods, clear the `.pyc` cache and `bench restart`.
 - The **"all 5 courses" bundle** is a *virtual* product (no LMS Course row): `initiate_payment`

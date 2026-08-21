@@ -1,12 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { resetPassword } from '@/api/client';
 import { extractFrappeError } from '@/lib/errors';
 
 export default function ResetPassword() {
-  const { t } = useTranslation(['common', 'pages']);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const key = searchParams.get('key');

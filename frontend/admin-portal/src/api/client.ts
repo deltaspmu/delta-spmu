@@ -26,20 +26,21 @@ const api: AxiosInstance = axios.create({
 
 let cachedCSRFToken: string | null = null;
 
-async function getCSRFToken(): Promise<string> {
+async function getCSRFToken(): Promise<string | null> {
   if (!cachedCSRFToken) {
     const res = await axios.get(
       `${API_BASE_URL}/api/method/lms.lms.api.get_csrf_token`,
       { withCredentials: true },
     );
-    cachedCSRFToken = res.data.message;
+    // get_csrf_token returns {"csrf_token": "..."} → Frappe wraps it as
+    // { message: { csrf_token: "..." } }. Caching res.data.message itself
+    // sent the header as "[object Object]" and every POST 400'd once CSRF
+    // enforcement was on. Handle both shapes.
+    const message = res.data?.message as { csrf_token?: string } | string | undefined;
+    cachedCSRFToken =
+      (typeof message === 'string' ? message : message?.csrf_token) || null;
   }
-  return cachedCSRFToken!;
-}
-
-/** Reset the cached CSRF token (call after login / logout). */
-export function resetCSRFToken(): void {
-  cachedCSRFToken = null;
+  return cachedCSRFToken;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,14 +52,25 @@ api.interceptors.request.use(async (config) => {
   const method = config.method?.toLowerCase() || '';
   if (['post', 'put', 'patch', 'delete'].includes(method)) {
     const token = await getCSRFToken();
-    config.headers['X-Frappe-CSRF-Token'] = token;
+    if (token) config.headers['X-Frappe-CSRF-Token'] = token;
   }
   return config;
 });
 
+// Login/logout start a new session, so the cached token is dead. Priming a
+// fresh one immediately also makes Frappe *enforce* CSRF: it skips the check
+// while a session has no token of its own.
+const SESSION_CHANGE = /\/api\/method\/(login|logout)$/;
+
 // Handle 401 (session expired) and 403 (CSRF mismatch)
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (SESSION_CHANGE.test(response.config.url || '')) {
+      cachedCSRFToken = null;
+      void getCSRFToken();
+    }
+    return response;
+  },
   async (error) => {
     // 401 -- redirect to login
     if (error.response?.status === 401) {
@@ -122,7 +134,6 @@ function docResource(doctype: string, name: string) {
 
 export async function login(usr: string, pwd: string) {
   const res = await api.post('/api/method/login', { usr, pwd });
-  cachedCSRFToken = null; // new session
   return unwrap(res);
 }
 
@@ -136,7 +147,6 @@ export async function changeAdminPassword(new_password: string, confirm_password
 
 export async function logout() {
   const res = await api.post('/api/method/logout');
-  cachedCSRFToken = null;
   localStorage.removeItem('deltaspmu_admin_user');
   return unwrap(res);
 }

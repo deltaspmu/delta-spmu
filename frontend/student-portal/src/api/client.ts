@@ -17,30 +17,14 @@ const api: AxiosInstance = axios.create({
 // ---------------------------------------------------------------------------
 // CSRF interceptor — REQUIRED for POST/PUT/DELETE to Frappe
 //
-// Same-origin (dev via Vite proxy): the `csrf_token` cookie is readable from
-// document.cookie. Cross-origin (Vercel → api.deltaspmu.com in production):
-// the browser does not expose the cookie to JS, so we fall back to fetching
-// the token via the `get_csrf_token` API endpoint and caching it.
+// Frappe keeps the token in the session, not in a readable cookie, so the only
+// source is the `get_csrf_token` API endpoint. Cache it in memory.
 // ---------------------------------------------------------------------------
 let cachedCSRFToken: string | null = null;
 
-function readCSRFCookie(): string | null {
-  const raw = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith('csrf_token='))
-    ?.split('=')[1];
-  return raw ? decodeURIComponent(raw) : null;
-}
-
 async function ensureCSRFToken(): Promise<string | null> {
-  // 1. Cookie (same-origin)
-  const cookie = readCSRFCookie();
-  if (cookie) return cookie;
-
-  // 2. In-memory cache (cross-origin)
   if (cachedCSRFToken) return cachedCSRFToken;
 
-  // 3. Fetch from API
   try {
     const res = await api.get('/api/method/lms.lms.api.get_csrf_token');
     // get_csrf_token returns {"csrf_token": "..."}, which Frappe wraps as
@@ -66,11 +50,22 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Login/logout start a new session, so the cached token is dead. Priming a
+// fresh one immediately also makes Frappe *enforce* CSRF: it skips the check
+// while a session has no token of its own.
+const SESSION_CHANGE = /\/api\/method\/(login|logout)$/;
+
 // ---------------------------------------------------------------------------
 // Session expiry handler — redirect to login on 401
 // ---------------------------------------------------------------------------
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (SESSION_CHANGE.test(response.config.url || '')) {
+      cachedCSRFToken = null;
+      void ensureCSRFToken();
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       cachedCSRFToken = null;

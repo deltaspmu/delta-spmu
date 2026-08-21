@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
@@ -71,7 +70,6 @@ interface SidebarProps {
   chapters: Chapter[];
   progress: CourseProgress | null;
   currentLessonName: string | null;
-  courseId: string;
   onSelectLesson: (chapterNum: number, lessonNum: number, lessonName: string) => void;
   accessibleLessons: Set<string>;
 }
@@ -80,7 +78,6 @@ function CourseSidebar({
   chapters,
   progress,
   currentLessonName,
-  courseId,
   onSelectLesson,
   accessibleLessons,
 }: SidebarProps) {
@@ -287,12 +284,10 @@ export default function Learn() {
     courseId: string;
     lessonId?: string;
   }>();
-  const { t } = useTranslation(['common', 'pages']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [videoProgress, setVideoProgress] = useState(0);
   const [hasAutoCompleted, setHasAutoCompleted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -479,7 +474,6 @@ export default function Learn() {
   // the guard flag when the lesson changes.
   useEffect(() => {
     setHasAutoCompleted(false);
-    setVideoProgress(0);
   }, [lessonId]);
 
   // =========================================================================
@@ -494,10 +488,6 @@ export default function Learn() {
     },
     [courseId, navigate]
   );
-
-  const handleVideoProgress = useCallback((percent: number) => {
-    setVideoProgress(percent);
-  }, []);
 
   // Derived lesson media/content. Computed here (before the render guards) so
   // that the hooks below always run on every render — moving them after an
@@ -690,7 +680,6 @@ export default function Learn() {
                   videoId={videoData.id}
                   hash={videoData.hash}
                   lessonId={lessonId || undefined}
-                  onProgress={handleVideoProgress}
                   onComplete={() => {
                     if (
                       !hasQuiz &&
@@ -864,7 +853,6 @@ export default function Learn() {
                 chapters={chapters}
                 progress={progress}
                 currentLessonName={lessonId || null}
-                courseId={courseId!}
                 onSelectLesson={handleSelectLesson}
                 accessibleLessons={accessibleLessons}
               />

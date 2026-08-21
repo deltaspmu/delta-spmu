@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { cn, getCourseImageUrl, formatPrice } from '@/lib/utils';
+import { getCourseImageUrl, formatPrice } from '@/lib/utils';
 import type { Course } from '@/types';
 
 interface FeaturedCoursesRowProps {

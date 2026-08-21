@@ -6,73 +6,10 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import axios from 'axios';
 import type { User } from '../types';
-
-// ---------------------------------------------------------------------------
-// API instance
-// ---------------------------------------------------------------------------
-// Same-origin by default — Vercel rewrites /api/* to api.deltaspmu.com.
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-  timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// ---------------------------------------------------------------------------
-// Cross-origin CSRF token (cached)
-// ---------------------------------------------------------------------------
-let cachedToken: string | null = null;
-
-async function getCSRFToken(): Promise<string> {
-  if (!cachedToken) {
-    const response = await api.get('/api/method/lms.lms.api.get_csrf_token');
-    cachedToken = response.data.message;
-  }
-  return cachedToken!;
-}
-
-// CSRF interceptor — uses cached cross-origin token
-api.interceptors.request.use(async (config) => {
-  if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
-    try {
-      const token = await getCSRFToken();
-      config.headers['X-Frappe-CSRF-Token'] = token;
-    } catch {
-      // If token fetch fails, try cookie fallback
-      const cookieToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('csrf_token='))
-        ?.split('=')[1];
-      if (cookieToken) {
-        config.headers['X-Frappe-CSRF-Token'] = decodeURIComponent(cookieToken);
-      }
-    }
-  }
-  return config;
-});
-
-// Session expiry handler
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      cachedToken = null;
-      localStorage.removeItem(STORAGE_KEY);
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
-    }
-    // Reset CSRF cache on 403 (token may have expired)
-    if (error.response?.status === 403) {
-      cachedToken = null;
-    }
-    return Promise.reject(error);
-  }
-);
+// One axios instance for the whole portal — it owns the CSRF token cache and
+// the 401/403 handling. A second instance here meant a second (stale) token.
+import api from '../api/client';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -216,8 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   const login = useCallback(
     async (email: string, password: string) => {
-      // Reset cached CSRF token on new login
-      cachedToken = null;
       await api.post('/api/method/login', { usr: email, pwd: password });
       await refreshUser();
     },
@@ -231,7 +166,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.get('/api/method/logout');
     } finally {
-      cachedToken = null;
       setUser(null);
       persistUser(null);
       setAccessDenied(false);

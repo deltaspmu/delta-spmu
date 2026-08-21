@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   Award,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react';
 
 export default function About() {
-  const { t } = useTranslation(['common', 'pages', 'legal']);
 
   useEffect(() => {
     document.title = 'About — Delta SPMU Academy';
