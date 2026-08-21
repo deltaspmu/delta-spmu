@@ -149,8 +149,8 @@ A forked Frappe LMS app with a custom Python overlay. Files deploy to
   and Frappe skips the check when there is none to compare against.
 - Sessions are cookie-based → the frontend must send credentials on every request.
 - After adding `@frappe.whitelist()` methods, clear the `.pyc` cache and `bench restart`.
-- The **"all 5 courses" bundle** is a *virtual* product (no LMS Course row): `initiate_payment`
-  and `get_course_price` special-case `all-courses-bundle` at 20,000 ETB (per-course 12,500 ETB).
+- The historical `all-courses-bundle` is a *virtual* product (no LMS Course row), but it is
+  currently disabled (`BUNDLE_ENABLED = False`): the UI hides it and checkout rejects it.
 - Transaction IDs are prefixed `DS-`.
 
 ## 5. Data & Domain Model
@@ -169,9 +169,10 @@ tree, enrolment/access, assessment, and commerce.
 | Payment / Transaction | Gateway records, status, method; `DS-` prefixed ids |
 | User | Frappe User; disabled until email verification; roles gate portals |
 
-> **Content model note:** Course catalog and pricing are seeded/synced from prod and are not
-> uniform (flagship 17,000 ETB; others 12,500 ETB), which differs from the "each course
-> 12,500 ETB" baseline in project docs.
+> **Content model note:** The repository baseline contains four professional certificates.
+> Prices live on each `LMS Course` and are not uniform (the seed starts Ombré at 17,000 ETB
+> and the other three at 12,500 ETB). Production is authoritative after client edits;
+> `scripts/sync-prod-courses.sh` copies that course-only catalog to staging/dev without user PII.
 
 ## 6. Payments Architecture
 
@@ -191,7 +192,7 @@ Student → Payment page → initiate_payment (GET) ─┐
 - Only **Chapa** is fully wired (test keys live on staging); telebirr / EthSwitch are deferred;
   CBE is manual transfer verification.
 - A gateway rejection (e.g. reserved-domain email) surfaces as a payment error to the UI.
-- The bundle is virtual — no LMS Course row; priced in code.
+- The disabled bundle is virtual — no LMS Course row; its historical price remains in code.
 
 ## 7. Video Architecture
 

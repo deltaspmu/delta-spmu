@@ -116,15 +116,15 @@
         "title": "Studio & Business",
         "description": "Pricing, client retention, brand building"
       },
-      "teach_train": {
-        "title": "Teach & Train",
-        "description": "Open your own academy and license students"
+      "bridal_artistry": {
+        "title": "Bridal Artistry",
+        "description": "Skin prep, sculpting, eyes, brows, and camera-ready finishes"
       }
     },
     "instructor_image_alt": "Eden Kassahun, Founder & Lead Educator of Delta SPMU Academy",
     "meet_instructor": "Meet Your Instructor",
     "instructor_role": "Founder & Lead Educator, Delta SPMU Academy",
-    "instructor_bio": "As the founder and lead educator of Delta SPMU Academy, Eden guides students through the academy's signature curriculum with a deep passion for the craft of permanent makeup — from foundational hygiene and safety through advanced brow artistry and instructor-level training.",
+    "instructor_bio": "As the founder and lead educator of Delta SPMU Academy, Eden guides students through the academy's signature curriculum with a deep passion for the craft — from foundational hygiene and safety through professional brow, lip, and bridal artistry.",
     "cta_title": "Ready to begin your journey?",
     "cta_description": "Whether you're starting from scratch or refining a craft — there's a program ready for the next step.",
     "browse_programs": "Browse Programs"

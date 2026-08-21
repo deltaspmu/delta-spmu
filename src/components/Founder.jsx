@@ -125,9 +125,8 @@ export default function Founder() {
           >
             As the founder and lead educator of Delta SPMU Academy, Eden guides
             students through the academy&rsquo;s signature curriculum with a deep
-            passion for the craft of permanent makeup — from foundational hygiene
-            and safety through advanced brow artistry and instructor-level
-            training.
+            passion for the craft — from foundational hygiene and safety through
+            professional brow, lip, and bridal artistry.
           </motion.p>
 
           {/* Focus chips */}

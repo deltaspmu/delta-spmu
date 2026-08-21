@@ -220,9 +220,9 @@ across 16 modules.</p>
   <li>Sessions are cookie-based → the frontend must send credentials on every request.</li>
   <li>After adding <code>@frappe.whitelist()</code> methods, clear <code>.pyc</code> cache and
       <code>bench restart</code>.</li>
-  <li>The <strong>"all 5 courses" bundle</strong> is a <em>virtual</em> product (no LMS Course row):
-      <code>initiate_payment</code> and <code>get_course_price</code> special-case
-      <code>all-courses-bundle</code> at 20,000 ETB (per-course 12,500 ETB).</li>
+  <li>The historical <code>all-courses-bundle</code> is a <em>virtual</em> product (no LMS Course row),
+      but it is currently disabled (<code>BUNDLE_ENABLED = False</code>): the UI hides it and
+      checkout rejects it.</li>
   <li>Transaction IDs are prefixed <code>DS-</code>.</li>
 </ul>
 
@@ -240,9 +240,10 @@ tree, enrolment/access, assessment, and commerce.</p>
   <tr><td>Payment / Transaction</td><td>Gateway records, status, method; <code>DS-</code> prefixed ids</td></tr>
   <tr><td>User</td><td>Frappe User; disabled until email verification; roles gate portals</td></tr>
 </table>
-<div class="callout"><strong>Content model note:</strong> Course catalog and pricing are seeded/synced from prod
-and are not uniform (flagship 17,000 ETB; others 12,500 ETB), which differs from the "each course 12,500 ETB"
-baseline in project docs.</div>
+<div class="callout"><strong>Content model note:</strong> The repository baseline contains four professional
+certificates. Prices live on each <code>LMS Course</code> and are not uniform (the seed starts Ombré at
+17,000 ETB and the other three at 12,500 ETB). Production is authoritative after client edits;
+<code>scripts/sync-prod-courses.sh</code> copies that course-only catalog to staging/dev without user PII.</div>
 
 <h2 id="payments" class="page-break">6 · Payments architecture</h2>
 <p><code>payments_api.py</code> is the orchestrator; each gateway has its own module. Prices are computed
@@ -260,7 +261,7 @@ Student → Payment page → initiate_payment (GET) ─┐
   <li>Only <strong>Chapa</strong> is fully wired (test keys live on staging); telebirr / EthSwitch are
       deferred; CBE is manual transfer verification.</li>
   <li>Gateway rejects a request (e.g. reserved-domain email) → surfaces as a payment error to the UI.</li>
-  <li>The bundle is virtual — no LMS Course row; priced in code.</li>
+  <li>The disabled bundle is virtual — no LMS Course row; its historical price remains in code.</li>
 </ul>
 
 <h2 id="video">7 · Video architecture</h2>
