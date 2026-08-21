@@ -13,8 +13,10 @@ Delta SPMU Academy supports 4 payment methods for the Ethiopian market:
 
 ### Pricing
 
-- **Per course**: 5,000 ETB
-- **All 4 courses bundle**: 5,000 ETB (`BUNDLE_ID = "all-courses-bundle"`)
+- **Per course**: read from `LMS Course.course_price`; prices are not uniform.
+- **Bundle**: disabled (`BUNDLE_ENABLED = False`). The historical
+  `all-courses-bundle` identifier remains in code, but the UI hides it and
+  checkout rejects it.
 - **Access duration**: 30 days from purchase
 - **Transaction ID format**: `DS-{YYYYMMDDHHMMSS}-{6-char-hash}`
 

@@ -60,15 +60,20 @@ the terracotta accent for backward compatibility with existing components.
 > older gold-on-forest-green palette (`--color-primary` gold `#C9A96E`, `--color-dark`
 > forest green `#1A2F23`). They have **not** been migrated to the new palette yet.
 
-## 5 Courses
-1. Foundation Certification — No prior experience required
-2. Advanced Certification — Specialized techniques
-3. Master Artist Program — Highest level
-4. Instructor Licensing — Train to become an educator
-5. Professional Bridal Makeup — Bridal artistry track (separate from the SPMU progression)
+## Course Catalog
+The repository baseline is the four-course specialty catalog introduced in
+commit `91c2bbd`:
 
-Each course is **12,500 ETB**. The 4 SPMU courses (1–4) form a progressive tier
-system; Bridal Makeup (5) is a standalone track.
+1. Professional Certificate in Ombré Brows Artistry
+2. Professional Certificate in Bridal Makeup Artistry
+3. Professional Certificate in Nano Brows Artistry
+4. Professional Certificate in Lip Blush & Lip Neutralization
+
+Prices are **per-course**, stored in `LMS Course.course_price`, and are not
+uniform. The baseline seed uses 17,000 ETB for Ombré Brows and 12,500 ETB for
+the other three courses. Production course records are the commercial source
+of truth after client edits; sync course content to staging/dev with
+`./scripts/sync-prod-courses.sh`. Never normalize live prices from this file.
 
 ## Critical Frappe Backend Patterns
 
@@ -116,10 +121,11 @@ Split on `/` to get video ID and privacy hash.
 
 ### Transaction ID prefix: `DS-` (not `AT-`)
 
-### Bundle: "all 5 courses" (not 6)
-BUNDLE_ID = "all-courses-bundle", BUNDLE_PRICE = 20000 ETB (per-course = 12500 ETB).
-The bundle is a *virtual* product (no LMS Course row): `payments_api.initiate_payment`
-and `get_course_price` special-case `BUNDLE_ID` to charge/display BUNDLE_PRICE.
+### Course bundle is disabled
+`BUNDLE_ID = "all-courses-bundle"` remains as a historical virtual-product
+identifier, but `payments_api.BUNDLE_ENABLED = False`: the bundle is hidden and
+checkout rejects it while the four-course catalog and pricing are evolving.
+Do not describe or sell it as an active five-course offer.
 
 ### Vimeo tag is per-environment
 `vimeo_api._get_tag()` reads `vimeo_tag` from `site_config`, so uploads stay
