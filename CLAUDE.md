@@ -214,7 +214,10 @@ Use this complete lifecycle for each bug fix:
 ./scripts/deploy-marketing.sh prod      # legacy — see docs/PROD_INVENTORY.md
 ```
 
-## Admin Emails
-```
-['Administrator', 'administrator@deltaspmu.com']
-```
+## Admin Identity and Authorization
+
+- The built-in administrator's stable User name is `Administrator`.
+- Admin access is granted by the `System Manager` role, with the built-in
+  `Administrator` User as a fallback.
+- `User.email` is mutable account metadata (currently `admin@example.com` in
+  staging and production) and must never be used as an authorization gate.

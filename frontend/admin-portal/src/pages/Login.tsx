@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { login, getUserInfo } from '@/api/client';
 import { LogIn, AlertCircle } from 'lucide-react';
+import { hasAdminAccess } from '@/utils/adminAccess';
 
 const ADMIN_STORAGE_KEY = 'deltaspmu_admin_user';
 
@@ -14,10 +15,7 @@ export default function Login() {
     mutationFn: async () => {
       await login(email, password);
       const user = await getUserInfo();
-      if (
-        !user.roles?.includes('System Manager') &&
-        user.email !== 'administrator@deltaspmu.com'
-      ) {
+      if (!hasAdminAccess(user)) {
         throw new Error('Access denied. Only System Managers can access the admin portal.');
       }
       return user;
@@ -78,7 +76,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-dark focus:border-transparent"
-                placeholder="admin@deltaspmu.com or Administrator"
+                placeholder="Administrator or your System Manager email"
               />
             </div>
 

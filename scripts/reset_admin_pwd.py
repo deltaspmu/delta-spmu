@@ -1,20 +1,20 @@
 exec("""
+import os
 import frappe
 from frappe.utils.password import update_password
 
-PASSWORD = 'AdminDelta!2026'
+user = os.environ.get('ADMIN_USER', 'Administrator').strip()
+password = os.environ.get('ADMIN_PASSWORD', '')
 
-# Reset both admin-style accounts to the same password
-for u in ('Administrator', 'administrator@deltaspmu.com'):
-    if frappe.db.exists('User', u):
-        update_password(u, PASSWORD)
-        # Ensure enabled
-        frappe.db.set_value('User', u, 'enabled', 1)
-        print(f'  reset password for {u!r}')
-    else:
-        print(f'  skipped (not found): {u!r}')
+if not password:
+    raise RuntimeError('Set ADMIN_PASSWORD in the environment before running this script.')
+if not frappe.db.exists('User', user):
+    raise RuntimeError(f'User {user!r} does not exist.')
+if user != 'Administrator' and 'System Manager' not in frappe.get_roles(user):
+    raise RuntimeError(f'User {user!r} is not a System Manager.')
 
+update_password(user, password)
+frappe.db.set_value('User', user, 'enabled', 1)
 frappe.db.commit()
-print()
-print(f'Use either username with password: {PASSWORD}')
+print(f'Reset password for {user!r}.')
 """)

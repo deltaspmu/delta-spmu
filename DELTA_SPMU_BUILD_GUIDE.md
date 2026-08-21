@@ -1034,7 +1034,9 @@ Create the student portal at frontend/student-portal/. Set up:
 11. src/types/index.ts — All TypeScript interfaces (User, Course, Chapter, Lesson, Quiz, Certificate, PaymentInfo, etc.)
 
 Use "deltaspmu" namespace for all localStorage keys.
-Admin emails: ['Administrator', 'administrator@deltaspmu.com']
+Admin authorization: require the `System Manager` role, with the built-in
+`Administrator` User name as a fallback. Never authorize against `User.email`;
+it is mutable account metadata.
 ```
 
 ---

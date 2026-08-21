@@ -8,9 +8,9 @@ import React, {
 } from 'react';
 import api from '../api/client';
 import type { User } from '../types';
+import { hasAdminAccess } from '../utils/adminAccess';
 
 const STORAGE_KEY = 'deltaspmu_user';
-const ADMIN_USERS = ['Administrator', 'administrator@deltaspmu.com'];
 const PROD_ADMIN_PORTAL_URL = 'https://admin.deltaspmu.com';
 const STAGING_ADMIN_PORTAL_URL = 'https://staging-admin.deltaspmu.com';
 
@@ -59,11 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user;
-  const isAdmin =
-    !!user &&
-    (ADMIN_USERS.includes(user.name) ||
-      ADMIN_USERS.includes(user.email) ||
-      user.roles.includes('System Manager'));
+  const isAdmin = !!user && hasAdminAccess(user);
 
   // ---------------------------------------------------------------------------
   // Refresh the current user from the server
@@ -135,11 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const skipRedirect = import.meta.env.VITE_SKIP_ADMIN_REDIRECT === 'true';
     if (skipRedirect) return;
 
-    const isAdmin =
-      ADMIN_USERS.includes(user.name) ||
-      ADMIN_USERS.includes(user.email) ||
-      user.roles.includes('System Manager');
-    if (!isAdmin) return;
+    if (!hasAdminAccess(user)) return;
 
     const adminUrl = getAdminPortalUrl();
 
