@@ -18,6 +18,11 @@ import VideoWatermark from '@/components/VideoWatermark';
 import type { Course, Chapter, Lesson, CourseProgress } from '@/types';
 import { parseVimeoVideo, cn, formatDuration } from '@/lib/utils';
 import {
+  learnCoursePath,
+  learnLessonPath,
+  resolveLessonRouteId,
+} from '@/utils/learnRoutes';
+import {
   ArrowLeft,
   ChevronDown,
   ChevronLeft,
@@ -386,12 +391,16 @@ export default function Learn() {
 
     const firstIncomplete = flatLessons.find((l) => !completedSet.has(l.name));
     const target = firstIncomplete ?? flatLessons[0];
-    navigate(`/learn/${courseId}/${target.name}`, { replace: true });
+    navigate(learnLessonPath(courseId, target.name), { replace: true });
   }, [lessonId, flatLessons, completedSet, courseId, navigate]);
 
-  const currentIndex = useMemo(
-    () => flatLessons.findIndex((l) => l.name === lessonId),
+  const resolvedLessonId = useMemo(
+    () => resolveLessonRouteId(flatLessons.map((lesson) => lesson.name), lessonId || ''),
     [flatLessons, lessonId]
+  );
+  const currentIndex = useMemo(
+    () => flatLessons.findIndex((lesson) => lesson.name === resolvedLessonId),
+    [flatLessons, resolvedLessonId]
   );
   const currentLesson = currentIndex >= 0 ? flatLessons[currentIndex] : null;
   const prevLesson = currentIndex > 0 ? flatLessons[currentIndex - 1] : null;
@@ -399,6 +408,13 @@ export default function Learn() {
     currentIndex >= 0 && currentIndex < flatLessons.length - 1
       ? flatLessons[currentIndex + 1]
       : null;
+
+  // Canonicalize links produced before lesson path segments were encoded.
+  useEffect(() => {
+    if (courseId && lessonId && resolvedLessonId && lessonId !== resolvedLessonId) {
+      navigate(learnLessonPath(courseId, resolvedLessonId), { replace: true });
+    }
+  }, [courseId, lessonId, navigate, resolvedLessonId]);
 
   // Fetch detailed lesson data
   const {
@@ -420,9 +436,9 @@ export default function Learn() {
 
   // Check lesson access (sequential gating)
   const { data: lessonAccessData } = useQuery({
-    queryKey: ['lessonAccess', courseId, lessonId],
-    queryFn: () => checkLessonAccess(courseId!, lessonId!),
-    enabled: !!courseId && !!lessonId,
+    queryKey: ['lessonAccess', courseId, currentLesson?.name],
+    queryFn: () => checkLessonAccess(courseId!, currentLesson!.name),
+    enabled: !!courseId && !!currentLesson,
   });
 
   // Backend check_lesson_access returns { access, reason } (NOT has_access/message).
@@ -447,17 +463,17 @@ export default function Learn() {
 
   // Save current lesson position
   useEffect(() => {
-    if (courseId && lessonId) {
-      saveCurrentLesson(courseId, lessonId).catch(() => {});
+    if (courseId && currentLesson) {
+      saveCurrentLesson(courseId, currentLesson.name).catch(() => {});
     }
-  }, [courseId, lessonId]);
+  }, [courseId, currentLesson]);
 
   // =========================================================================
   // Mutations
   // =========================================================================
 
   const markCompleteMutation = useMutation({
-    mutationFn: () => markLessonComplete(courseId!, lessonId!),
+    mutationFn: () => markLessonComplete(courseId!, currentLesson!.name),
     onSuccess: () => {
       // The backend (`mark_lesson_complete`) issues the course certificate
       // itself once every lesson is complete, so there's nothing to do here
@@ -467,7 +483,9 @@ export default function Learn() {
     },
   });
 
-  const isCurrentLessonCompleted = lessonId ? completedSet.has(lessonId) : false;
+  const isCurrentLessonCompleted = currentLesson
+    ? completedSet.has(currentLesson.name)
+    : false;
 
   // Auto-completion is now driven by VimeoPlayer's onComplete callback
   // (fires once when watch fraction reaches completionThreshold). Reset
@@ -483,7 +501,7 @@ export default function Learn() {
   const handleSelectLesson = useCallback(
     (_chapterNum: number, _lessonNum: number, lessonName: string) => {
       if (courseId) {
-        navigate(`/learn/${courseId}/${lessonName}`);
+        navigate(learnLessonPath(courseId, lessonName));
       }
     },
     [courseId, navigate]
@@ -577,6 +595,28 @@ export default function Learn() {
     return <PageSkeleton />;
   }
 
+  if (!currentLesson) {
+    return (
+      <div className="min-h-screen bg-alabaster flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <AlertTriangle className="w-12 h-12 text-primary mx-auto mb-4" />
+          <h2 className="font-heading text-xl font-semibold text-dark mb-2">
+            Lesson not found
+          </h2>
+          <p className="text-gray-500 mb-6">
+            This lesson link is invalid or no longer available. Return to the course to continue.
+          </p>
+          <Link
+            to={`/course/${courseId}`}
+            className="px-5 py-2.5 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            Back to Course
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Sequential gating: lesson locked
   if (lessonAccess && !lessonAccess.access) {
     return (
@@ -590,7 +630,7 @@ export default function Learn() {
             {lessonAccess.reason || 'Complete the previous lesson to unlock this one.'}
           </p>
           <Link
-            to={`/learn/${courseId}`}
+            to={learnCoursePath(courseId!)}
             className="px-5 py-2.5 bg-dark text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
           >
             Back to Course
@@ -679,13 +719,13 @@ export default function Learn() {
                 <VimeoPlayer
                   videoId={videoData.id}
                   hash={videoData.hash}
-                  lessonId={lessonId || undefined}
+                  lessonId={currentLesson.name}
                   onComplete={() => {
                     if (
                       !hasQuiz &&
                       !hasAutoCompleted &&
                       !isCurrentLessonCompleted &&
-                      lessonId &&
+                      currentLesson &&
                       courseId
                     ) {
                       setHasAutoCompleted(true);
@@ -748,7 +788,7 @@ export default function Learn() {
               {/* Previous */}
               {prevLesson ? (
                 <Link
-                  to={`/learn/${courseId}/${prevLesson.name}`}
+                  to={learnLessonPath(courseId!, prevLesson.name)}
                   className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -802,7 +842,7 @@ export default function Learn() {
               {/* Next */}
               {nextLesson ? (
                 <Link
-                  to={`/learn/${courseId}/${nextLesson.name}`}
+                  to={learnLessonPath(courseId!, nextLesson.name)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-dark text-white rounded-lg text-sm font-medium hover:bg-dark/90 transition-colors"
                 >
                   <span className="hidden sm:inline">Next</span>
