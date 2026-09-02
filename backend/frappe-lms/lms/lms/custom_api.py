@@ -510,6 +510,10 @@ def mark_lesson_complete(course, lesson):
     if not _is_admin() and not _has_active_course_access(member, course):
         frappe.throw(_("Your access to this course is not active."), frappe.PermissionError)
 
+    all_ls = _all_lessons(course)
+    if lesson not in {row["lesson"] for row in all_ls}:
+        frappe.throw(_("Lesson not found in this course"), frappe.DoesNotExistError)
+
     existing = frappe.db.get_value("LMS Course Progress",
         {"course": course, "lesson": lesson, "member": member}, "name")
     if existing:
@@ -520,7 +524,6 @@ def mark_lesson_complete(course, lesson):
         d.insert(ignore_permissions=True)
     frappe.db.commit()
 
-    all_ls = _all_lessons(course)
     done = _completed_set(course, member)
     total = len(all_ls)
     done_count = sum(1 for l in all_ls if l["lesson"] in done)
