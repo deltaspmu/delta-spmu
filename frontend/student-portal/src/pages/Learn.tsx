@@ -17,7 +17,11 @@ import VimeoPlayer from '@/components/VimeoPlayer';
 import VideoWatermark from '@/components/VideoWatermark';
 import type { Course, Chapter, Lesson, CourseProgress } from '@/types';
 import { parseVimeoVideo, cn, formatDuration } from '@/lib/utils';
-import { learnCoursePath, learnLessonPath } from '@/utils/learnRoutes';
+import {
+  learnCoursePath,
+  learnLessonPath,
+  resolveLessonRouteId,
+} from '@/utils/learnRoutes';
 import {
   ArrowLeft,
   ChevronDown,
@@ -390,9 +394,13 @@ export default function Learn() {
     navigate(learnLessonPath(courseId, target.name), { replace: true });
   }, [lessonId, flatLessons, completedSet, courseId, navigate]);
 
-  const currentIndex = useMemo(
-    () => flatLessons.findIndex((l) => l.name === lessonId),
+  const resolvedLessonId = useMemo(
+    () => resolveLessonRouteId(flatLessons.map((lesson) => lesson.name), lessonId || ''),
     [flatLessons, lessonId]
+  );
+  const currentIndex = useMemo(
+    () => flatLessons.findIndex((lesson) => lesson.name === resolvedLessonId),
+    [flatLessons, resolvedLessonId]
   );
   const currentLesson = currentIndex >= 0 ? flatLessons[currentIndex] : null;
   const prevLesson = currentIndex > 0 ? flatLessons[currentIndex - 1] : null;
@@ -400,6 +408,13 @@ export default function Learn() {
     currentIndex >= 0 && currentIndex < flatLessons.length - 1
       ? flatLessons[currentIndex + 1]
       : null;
+
+  // Canonicalize links produced before lesson path segments were encoded.
+  useEffect(() => {
+    if (courseId && lessonId && resolvedLessonId && lessonId !== resolvedLessonId) {
+      navigate(learnLessonPath(courseId, resolvedLessonId), { replace: true });
+    }
+  }, [courseId, lessonId, navigate, resolvedLessonId]);
 
   // Fetch detailed lesson data
   const {
