@@ -165,11 +165,77 @@ export interface DailyRevenue {
   total_amount: number;
 }
 
+export interface RevenueBreakdown {
+  currency: string;
+  transaction_count: number;
+  total_amount: number;
+}
+
 export interface RevenueStats {
   total_revenue_etb: number;
   total_revenue_usd: number;
   transaction_counts: Record<string, number>;
   daily_revenue: DailyRevenue[];
+  // admin_get_revenue_stats has always returned these; nothing typed or
+  // rendered them until the acquisition dashboard needed the breakdowns.
+  revenue_by_method?: (RevenueBreakdown & { payment_method: string })[];
+  revenue_by_course?: (RevenueBreakdown & { course: string; course_title: string })[];
+  active_access_count?: number;
+  pending_verifications?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Marketing-site analytics (lms.lms.site_analytics.admin_get_site_analytics)
+// ---------------------------------------------------------------------------
+export interface TrafficDay {
+  date: string;
+  visitors: number;
+  sessions: number;
+  page_views: number;
+}
+
+export interface SiteFunnel {
+  visitors: number;
+  cta_visitors: number;
+  signups: number;
+  verified_signups: number;
+  checkouts_started: number;
+  checkouts_paid: number;
+  cta_rate: number;
+  verified_rate: number;
+  paid_rate: number;
+}
+
+export interface AbandonedCheckout {
+  transaction_id: string;
+  user: string;
+  course: string;
+  course_title: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  status: string;
+  creation: string;
+}
+
+export interface SiteAnalytics {
+  from_date: string;
+  to_date: string;
+  /** False until site_analytics.setup() has been run on this environment. */
+  collector_ready: boolean;
+  traffic: TrafficDay[];
+  sources: { source: string; visitors: number }[];
+  devices: { device: string; visitors: number }[];
+  cta_clicks: { label: string; clicks: number; visitors: number }[];
+  scroll_reach: { bucket: string; sessions: number }[];
+  contact_submits: number;
+  funnel: SiteFunnel;
+  abandoned: AbandonedCheckout[];
+  abandoned_count: number;
+  abandoned_value: number;
+  failed_count: number;
+  checkout_transactions: number;
+  paid_transactions: number;
 }
 
 // ---------------------------------------------------------------------------

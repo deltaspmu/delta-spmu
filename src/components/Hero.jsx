@@ -21,6 +21,7 @@ const NAV_LINKS = [
     label: "LMS Portal",
     href: config.studentPortalLive ? config.studentPortalUrl : "#programs",
     external: config.studentPortalLive,
+    cta: "nav-lms-portal",
   },
   { label: "Admissions", href: "#admissions" },
   { label: "FAQ", href: "#faq" },
@@ -150,6 +151,7 @@ export default function Hero() {
                     {...(link.external
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
+                    {...(link.cta ? { "data-cta": link.cta } : {})}
                     className={`font-body text-[13px] font-medium uppercase tracking-wide transition-colors duration-300 hover:text-terracotta ${
                       i === 0 ? "text-terracotta" : "text-charcoal/80"
                     }`}
@@ -163,6 +165,7 @@ export default function Hero() {
                   <li>
                     <a
                       href={config.loginUrl}
+                      data-cta="nav-signin"
                       className="inline-flex items-center gap-2 rounded-sm border border-terracotta px-5 py-2.5 font-body text-[12px] font-semibold uppercase tracking-wide text-terracotta transition-colors duration-300 hover:bg-terracotta hover:text-white"
                     >
                       Sign In
@@ -171,6 +174,7 @@ export default function Hero() {
                   <li>
                     <a
                       href={config.coursesUrl}
+                      data-cta="nav-enroll"
                       className="inline-flex items-center gap-2 rounded-sm bg-terracotta px-5 py-2.5 font-body text-[12px] font-semibold uppercase tracking-wide text-white transition-colors duration-300 hover:bg-terracotta-dark"
                     >
                       Enroll Now
@@ -218,6 +222,7 @@ export default function Hero() {
                     {...(link.external
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
+                    {...(link.cta ? { "data-cta": link.cta } : {})}
                     onClick={() => setMenuOpen(false)}
                     className="font-body text-sm uppercase tracking-wide text-charcoal/80 transition-colors duration-300 hover:text-terracotta"
                   >
@@ -230,6 +235,7 @@ export default function Hero() {
                   <li>
                     <a
                       href={config.loginUrl}
+                      data-cta="nav-signin-mobile"
                       onClick={() => setMenuOpen(false)}
                       className="font-body text-sm uppercase tracking-wide text-terracotta transition-colors duration-300 hover:text-charcoal"
                     >
@@ -239,6 +245,7 @@ export default function Hero() {
                   <li>
                     <a
                       href={config.signupUrl}
+                      data-cta="nav-signup-mobile"
                       onClick={() => setMenuOpen(false)}
                       className="font-body text-sm uppercase tracking-wide text-terracotta transition-colors duration-300 hover:text-charcoal"
                     >
@@ -248,6 +255,7 @@ export default function Hero() {
                   <li>
                     <a
                       href={config.coursesUrl}
+                      data-cta="nav-enroll-mobile"
                       onClick={() => setMenuOpen(false)}
                       className="mt-2 inline-flex items-center gap-2 rounded-sm bg-terracotta px-6 py-3 font-body text-sm font-semibold uppercase tracking-wide text-white transition-colors duration-300 hover:bg-terracotta-dark"
                     >
@@ -317,6 +325,7 @@ export default function Hero() {
           >
             <a
               href={config.studentPortalLive ? config.coursesUrl : "#programs"}
+              data-cta="hero-primary"
               className="group inline-flex items-center gap-2 bg-olive px-8 py-3.5 font-body text-[13px] font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-olive-dark hover:shadow-lg"
             >
               {config.studentPortalLive ? "Start Learning" : "Explore Programs"}
@@ -325,6 +334,7 @@ export default function Hero() {
 
             <a
               href={config.studentPortalLive ? "#programs" : "#admissions"}
+              data-cta="hero-secondary"
               className="group inline-flex items-center gap-2 border border-charcoal/25 px-8 py-3.5 font-body text-[13px] font-semibold uppercase tracking-wide text-charcoal transition-all duration-300 hover:border-charcoal hover:bg-charcoal hover:text-white"
             >
               {config.studentPortalLive ? "Explore Programs" : "Admissions"}
