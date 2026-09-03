@@ -89,6 +89,7 @@ export default function FooterCTA() {
           >
             <a
               href="#admissions"
+              data-cta="footer-apply"
               className="group mt-10 inline-flex items-center gap-3 bg-nude px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-white transition-all duration-300 hover:bg-terracotta-dark hover:shadow-[0_20px_60px_rgba(192,112,60,0.3)]"
             >
               Apply for Enrollment
@@ -141,17 +142,17 @@ export default function FooterCTA() {
                 {config.studentPortalLive && (
                   <>
                     <li>
-                      <a href={config.coursesUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                      <a href={config.coursesUrl} data-cta="footer-courses" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
                         Browse Courses
                       </a>
                     </li>
                     <li>
-                      <a href={config.signupUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                      <a href={config.signupUrl} data-cta="footer-signup" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
                         Create Account
                       </a>
                     </li>
                     <li>
-                      <a href={config.loginUrl} className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
+                      <a href={config.loginUrl} data-cta="footer-signin" className="font-body text-[13px] text-white/30 transition-colors hover:text-nude">
                         Student Login
                       </a>
                     </li>
