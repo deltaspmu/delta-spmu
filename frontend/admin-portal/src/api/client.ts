@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
-import type { RevenueStats } from '@/types';
+import type { RevenueStats, SiteAnalytics } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -521,6 +521,13 @@ export async function uploadFile(
 
 export async function getAnalyticsSummary() {
   return call('lms.lms.custom_api.get_analytics_summary');
+}
+
+export async function getSiteAnalytics(params?: {
+  from_date?: string;
+  to_date?: string;
+}): Promise<SiteAnalytics> {
+  return call('lms.lms.site_analytics.admin_get_site_analytics', params);
 }
 
 export async function getStudentProgressReport(course: string) {

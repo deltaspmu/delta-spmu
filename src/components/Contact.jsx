@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Clock, Send } from "lucide-react";
+import { submitContactForm } from "../lib/api";
+import { track } from "../lib/track";
+
+// The backend maps these keys to email subject labels; anything else is
+// relabelled "Website Contact Form" server-side, so keep them in sync with
+// CONTACT_SUBJECTS in lms/lms/api.py.
+const SUBJECTS = [
+  { value: "general", label: "General Inquiry" },
+  { value: "courses", label: "Course Information" },
+  { value: "technical", label: "Technical Support" },
+  { value: "payment", label: "Payment Issue" },
+];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -51,16 +63,41 @@ export default function Contact() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     setFormState((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 4000);
-    setFormState({ name: "", email: "", phone: "", subject: "", message: "" });
+    if (sending) return;
+    setSending(true);
+    setError(null);
+
+    // The endpoint takes no phone parameter, so carry it in the body rather
+    // than losing the one field most Addis enquiries actually reply on.
+    const message = formState.phone
+      ? `${formState.message}\n\nPhone: ${formState.phone}`
+      : formState.message;
+
+    try {
+      await submitContactForm({
+        name: formState.name,
+        email: formState.email,
+        subject: formState.subject,
+        message,
+      });
+      track("contact_submit", formState.subject);
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 6000);
+      setFormState({ name: "", email: "", phone: "", subject: "", message: "" });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
   };
 
   const inputClasses =
@@ -235,16 +272,21 @@ export default function Contact() {
                   >
                     Subject
                   </label>
-                  <input
+                  <select
                     id="contact-subject"
-                    type="text"
                     name="subject"
                     value={formState.subject}
                     onChange={handleChange}
-                    placeholder="How can we help?"
                     required
-                    className={inputClasses}
-                  />
+                    className={`${inputClasses} cursor-pointer`}
+                  >
+                    <option value="">How can we help?</option>
+                    {SUBJECTS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -270,11 +312,23 @@ export default function Contact() {
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
                 <button
                   type="submit"
-                  className="group inline-flex items-center gap-3 bg-charcoal px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-alabaster transition-all duration-300 hover:bg-nude-dark hover:text-white"
+                  disabled={sending}
+                  className="group inline-flex items-center gap-3 bg-charcoal px-10 py-4 font-body text-[13px] font-semibold uppercase tracking-wide text-alabaster transition-all duration-300 hover:bg-nude-dark hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Send Message
+                  {sending ? "Sending..." : "Send Message"}
                   <Send className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={1.5} />
                 </button>
+
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    role="alert"
+                    className="font-body text-sm text-red-700"
+                  >
+                    {error}
+                  </motion.p>
+                )}
 
                 {submitted && (
                   <motion.p

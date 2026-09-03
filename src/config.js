@@ -10,12 +10,20 @@ const studentPortalUrl =
   import.meta.env.VITE_STUDENT_PORTAL_URL || 'https://learn.deltaspmu.com';
 const adminPortalUrl =
   import.meta.env.VITE_ADMIN_PORTAL_URL || 'https://admin.deltaspmu.com';
-const apiUrl = import.meta.env.VITE_API_URL || 'https://api.deltaspmu.com';
+// Same-origin by default: vercel.json rewrites /api → the environment's Frappe
+// host, which keeps the browser on one origin and avoids CORS entirely (the
+// student and admin portals resolve their API the same way).
+const apiUrl = import.meta.env.VITE_API_URL ?? '';
 
 const config = {
   // Portal toggle — defaults to true. Set VITE_STUDENT_PORTAL_LIVE=false on
   // the marketing Vercel project to hide portal links if the portal is down.
   studentPortalLive: import.meta.env.VITE_STUDENT_PORTAL_LIVE !== 'false',
+
+  // Analytics is opt-in per environment. Default OFF so preview deployments —
+  // which resolve the /api rewrite to the PRODUCTION backend — never pollute
+  // real traffic numbers. Set VITE_ANALYTICS=true on the live projects only.
+  analyticsEnabled: import.meta.env.VITE_ANALYTICS === 'true',
 
   // URLs
   studentPortalUrl,

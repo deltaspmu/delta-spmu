@@ -196,6 +196,7 @@ export default function Admissions() {
         >
           <a
             href={config.studentPortalLive ? config.signupUrl : "#contact"}
+            data-cta="admissions-apply"
             className="inline-block font-body text-xs tracking-[0.25em] uppercase px-10 py-4 border border-charcoal/15 text-charcoal hover:bg-charcoal hover:text-alabaster transition-all duration-500"
           >
             Apply Now

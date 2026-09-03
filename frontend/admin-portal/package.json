@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:admin-access": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/adminAccess.test.ts",
     "test:analytics": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/analyticsRevenue.test.ts",
+    "test:site-analytics": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/siteAnalytics.test.ts",
     "test:course-editor": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/lessonQuizLink.test.ts",
     "test:vimeo-ref": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/vimeoRef.test.ts",
     "lint": "eslint ."
