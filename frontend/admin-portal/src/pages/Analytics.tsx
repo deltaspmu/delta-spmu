@@ -83,9 +83,13 @@ function DailyBars({ data }: { data: { date: string; value: number }[] }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
     <>
+      {/* Bars are capped so a range with only a day or two reads as a chart
+          rather than one slab filling the card — the state every environment
+          is in for its first week of collection. Over ~30 days the cap never
+          binds and they spread as before. */}
       <div className="flex items-end gap-1" style={{ height: 160 }}>
         {data.map((d) => (
-          <div key={d.date} className="group relative flex-1">
+          <div key={d.date} className="group relative max-w-[44px] flex-1">
             <div
               className="w-full rounded-t bg-dark transition-all hover:bg-dark/80"
               style={{ height: `${(d.value / max) * 140}px` }}
@@ -98,7 +102,9 @@ function DailyBars({ data }: { data: { date: string; value: number }[] }) {
       </div>
       <div className="mt-2 flex justify-between text-xs text-gray-400">
         <span>{data[0]?.date}</span>
-        <span>{data[data.length - 1]?.date}</span>
+        {/* A single day is its own start and end; printing it at both edges
+            reads as a range that isn't one. */}
+        {data.length > 1 && <span>{data[data.length - 1]?.date}</span>}
       </div>
     </>
   );
