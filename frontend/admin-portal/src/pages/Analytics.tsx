@@ -5,6 +5,7 @@ import { getAnalyticsSummary, getRevenueStats, getSiteAnalytics } from '@/api/cl
 import type { AnalyticsData, RevenueStats, SiteAnalytics } from '@/types';
 import { getEtbDailyRevenue, getTotalRevenueEtb } from '@/utils/revenueStats';
 import { funnelSteps } from '@/utils/siteFunnel';
+import { CategoryBars, TrendArea } from '@/components/charts';
 import {
   BarChart3,
   Users,
@@ -36,77 +37,29 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: typeof Users; label
   );
 }
 
-function HorizontalBar({ label, value, max }: { label: string; value: number; max: number }) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <span className="truncate text-gray-700">{label}</span>
-        <span className="font-medium text-gray-900">{value}</span>
-      </div>
-      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-        <div className="h-full rounded-full bg-dark transition-all" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
-/** A labelled list panel that degrades to a message instead of an empty box. */
+/** A labelled chart panel that degrades to a message instead of an empty box. */
 function BarPanel({
   title,
   rows,
   empty,
+  valueLabel = 'Value',
+  formatValue,
 }: {
   title: string;
   rows: { label: string; value: number }[];
   empty: string;
+  valueLabel?: string;
+  formatValue?: (n: number) => string;
 }) {
-  const max = Math.max(...rows.map((r) => r.value), 1);
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-gray-500">{empty}</p>
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => (
-            <HorizontalBar key={r.label} label={r.label} value={r.value} max={max} />
-          ))}
-        </div>
+        <CategoryBars rows={rows} label={valueLabel} formatValue={formatValue} />
       )}
     </div>
-  );
-}
-
-/** Daily bars — the same hand-rolled chart the learning tab has always used. */
-function DailyBars({ data }: { data: { date: string; value: number }[] }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <>
-      {/* Bars are capped so a range with only a day or two reads as a chart
-          rather than one slab filling the card — the state every environment
-          is in for its first week of collection. Over ~30 days the cap never
-          binds and they spread as before. */}
-      <div className="flex items-end gap-1" style={{ height: 160 }}>
-        {data.map((d) => (
-          <div key={d.date} className="group relative max-w-[44px] flex-1">
-            <div
-              className="w-full rounded-t bg-dark transition-all hover:bg-dark/80"
-              style={{ height: `${(d.value / max) * 140}px` }}
-            />
-            <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
-              {d.date}: {d.value}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-xs text-gray-400">
-        <span>{data[0]?.date}</span>
-        {/* A single day is its own start and end; printing it at both edges
-            reads as a range that isn't one. */}
-        {data.length > 1 && <span>{data[data.length - 1]?.date}</span>}
-      </div>
-    </>
   );
 }
 
@@ -169,28 +122,35 @@ function Acquisition({ data }: { data: SiteAnalytics }) {
         {traffic.length === 0 ? (
           <p className="text-sm text-gray-500">No visits recorded in this range yet.</p>
         ) : (
-          <DailyBars data={traffic.map((d) => ({ date: d.date, value: d.visitors }))} />
+          <TrendArea
+            label="Visitors"
+            data={traffic.map((d) => ({ date: d.date, value: d.visitors }))}
+          />
         )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <BarPanel
           title="Traffic sources"
+          valueLabel="Visitors"
           rows={data.sources?.map((s) => ({ label: s.source, value: s.visitors })) ?? []}
           empty="No traffic recorded yet."
         />
         <BarPanel
           title="Devices"
+          valueLabel="Visitors"
           rows={data.devices?.map((d) => ({ label: d.device, value: d.visitors })) ?? []}
           empty="No traffic recorded yet."
         />
         <BarPanel
           title="Call-to-action clicks"
+          valueLabel="Clicks"
           rows={data.cta_clicks?.map((c) => ({ label: c.label, value: c.clicks })) ?? []}
           empty="No CTA clicks recorded yet."
         />
         <BarPanel
           title="How far visitors scroll"
+          valueLabel="Sessions"
           rows={
             data.scroll_reach?.map((s) => ({
               // Labels arrive as "3-programs" so they sort in page order.
@@ -286,35 +246,27 @@ function Learning({ analytics, revenue }: { analytics?: AnalyticsData; revenue?:
       <div className="grid gap-6 lg:grid-cols-2">
         <BarPanel
           title="Top Courses by Enrollment"
+          valueLabel="Enrollments"
           rows={topCourses.slice(0, 8).map((c) => ({ label: c.title, value: c.enrollments }))}
           empty="No enrollment data yet."
         />
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Award className="h-5 w-5 text-dark" />
-            <h2 className="text-lg font-semibold text-gray-900">Completion Rates</h2>
-          </div>
-          {completionByCourse.length === 0 ? (
-            <p className="text-sm text-gray-500">No completion data yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {completionByCourse.map((c) => (
-                <HorizontalBar
-                  key={c.course}
-                  label={c.title}
-                  value={Math.round(c.completion_rate)}
-                  max={100}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <BarPanel
+          title="Completion Rates"
+          valueLabel="Completion"
+          formatValue={(n) => `${n}%`}
+          rows={completionByCourse.map((c) => ({
+            label: c.title,
+            value: Math.round(c.completion_rate),
+          }))}
+          empty="No completion data yet."
+        />
       </div>
 
       {analytics?.enrollment_activity && analytics.enrollment_activity.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Daily Enrollments</h2>
-          <DailyBars
+          <TrendArea
+            label="New enrollments"
             data={analytics.enrollment_activity.map((d) => ({
               date: d.date,
               value: d.new_enrollments,
@@ -371,6 +323,8 @@ function Learning({ analytics, revenue }: { analytics?: AnalyticsData; revenue?:
       <div className="grid gap-6 lg:grid-cols-2">
         <BarPanel
           title="Revenue by Payment Method"
+          valueLabel="Revenue"
+          formatValue={(n) => `ETB ${n.toLocaleString()}`}
           rows={
             revenue?.revenue_by_method
               ?.filter((r) => r.currency === 'ETB')
@@ -380,6 +334,8 @@ function Learning({ analytics, revenue }: { analytics?: AnalyticsData; revenue?:
         />
         <BarPanel
           title="Revenue by Course"
+          valueLabel="Revenue"
+          formatValue={(n) => `ETB ${n.toLocaleString()}`}
           rows={
             revenue?.revenue_by_course
               ?.filter((r) => r.currency === 'ETB')
