@@ -58,6 +58,23 @@ PAYMENT_TRANSACTION_FIELDS = [
     _f("completed_at", "Datetime"),
     _f("error_message", "Small Text"),
     _f("ethswitch_order_id", "Data"),
+    _f("bundle", "Link", options="Course Bundle"),
+    _f("bundle_courses_snapshot", "Long Text"),
+]
+
+COURSE_BUNDLE_COURSE_FIELDS = [
+    _f("course", "Link", options="LMS Course"),
+]
+
+COURSE_BUNDLE_FIELDS = [
+    _f("title", "Data"),
+    _f("description", "Text Editor"),
+    _f("image", "Attach Image"),
+    _f("price", "Currency"),
+    _f("currency", "Select", options="ETB\nUSD", default="ETB"),
+    _f("discount_percentage", "Percent"),
+    _f("published", "Check"),
+    _f("courses", "Table", options="Course Bundle Course"),
 ]
 
 COURSE_ACCESS_FIELDS = [
@@ -81,7 +98,7 @@ def _module():
     return "LMS" if frappe.db.exists("Module Def", "LMS") else "Custom"
 
 
-def _ensure(name, fields, is_submittable=0, autoname=None):
+def _ensure(name, fields, is_submittable=0, autoname=None, istable=0):
     if frappe.db.exists("DocType", name):
         return "EXISTS " + name
     naming_rule = ""
@@ -95,6 +112,7 @@ def _ensure(name, fields, is_submittable=0, autoname=None):
         "module": _module(),
         "custom": 1,
         "is_submittable": is_submittable,
+        "istable": istable,
         "naming_rule": naming_rule,
         "autoname": autoname,
         "track_changes": 1,
@@ -111,6 +129,8 @@ def _ensure(name, fields, is_submittable=0, autoname=None):
 
 def run():
     results = [
+        _ensure("Course Bundle Course", COURSE_BUNDLE_COURSE_FIELDS, autoname="hash", istable=1),
+        _ensure("Course Bundle", COURSE_BUNDLE_FIELDS, autoname="hash"),
         _ensure("Payment Transaction", PAYMENT_TRANSACTION_FIELDS, is_submittable=0, autoname="hash"),
         _ensure("Course Access", COURSE_ACCESS_FIELDS, is_submittable=1, autoname="format:CA-{user}-{course}"),
     ]

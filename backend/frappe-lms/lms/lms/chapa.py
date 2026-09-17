@@ -168,7 +168,9 @@ def initialize_transaction(transaction_doc, currency="ETB"):
         dict with ``checkout_url`` and ``tx_ref``.
     """
     txn = frappe.get_doc("Payment Transaction", transaction_doc)
-    course = frappe.get_doc("LMS Course", txn.course) if txn.course and txn.course != BUNDLE_ID else None
+    # Managed bundles use a virtual product identifier (bundle:<id>), so they
+    # do not have an LMS Course document to fetch.
+    course = frappe.get_doc("LMS Course", txn.course) if txn.course and not txn.bundle and txn.course != BUNDLE_ID else None
     student = frappe.get_doc("User", txn.user)
 
     callback_url = _get_config("chapa_callback_url")
@@ -201,7 +203,7 @@ def initialize_transaction(transaction_doc, currency="ETB"):
             # Chapa caps customization.title at 16 chars — keep it short.
             "title": "Delta SPMU",
             "description": _chapa_description(
-                course.title if course else "All Courses Bundle"
+                course.title if course else (txn.course_title or "Course Bundle")
             ),
             "logo": (frappe.conf.get("portal_url") or "https://learn.deltaspmu.com").rstrip("/") + "/assets/logo.png",
         },

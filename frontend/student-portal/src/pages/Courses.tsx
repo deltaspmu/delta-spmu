@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getCourses, getCategories } from '@/api/client';
+import { getCourses, getCategories, getPublicBundles } from '@/api/client';
 import { useWishlist } from '@/hooks/useWishlist';
-import type { Course } from '@/types';
+import type { Course, CourseBundle } from '@/types';
 import {
   getCourseImageUrl,
   formatPrice,
@@ -26,6 +26,7 @@ import {
   Award,
   ShieldCheck,
   ArrowRight,
+  Package,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,13 @@ function SkeletonCard() {
 
 interface CourseCardProps {
   course: Course;
+}
+
+function BundleCard({ bundle }: { bundle: CourseBundle }) {
+  return <Link to={`/bundle/${bundle.name}`} className="group bg-dark rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 flex flex-col text-white">
+    <div className="relative aspect-video overflow-hidden bg-primary/20">{bundle.image ? <img src={bundle.image} alt="" className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform" /> : <Package className="absolute inset-0 m-auto w-12 h-12 text-primary" />}<span className="absolute top-3 left-3 bg-primary text-dark text-xs font-bold px-2.5 py-1 rounded-full">Bundle · {bundle.course_count} courses</span></div>
+    <div className="p-4 flex-1 flex flex-col"><h3 className="font-heading font-semibold text-base">{bundle.title}</h3><p className="text-sm text-white/70 line-clamp-2 mt-1">{bundle.description}</p><div className="flex-1" /><div className="pt-3 mt-3 border-t border-white/15 flex items-baseline gap-2"><span className="font-heading font-bold text-primary">{formatPrice(bundle.price, bundle.currency)}</span>{bundle.original_price && <span className="text-xs text-white/50 line-through">{formatPrice(bundle.original_price, bundle.currency)}</span>}</div></div>
+  </Link>;
 }
 
 function CourseCard({ course }: CourseCardProps) {
@@ -269,6 +277,8 @@ export default function Courses() {
     queryFn: () => getCategories(),
     staleTime: 10 * 60 * 1000,
   });
+  const { data: bundlesData } = useQuery({ queryKey: ['public-bundles'], queryFn: getPublicBundles, staleTime: 5 * 60 * 1000 });
+  const bundles = (bundlesData || []) as CourseBundle[];
 
   // Parse response - handle both paginated and array responses
   const courses: Course[] = useMemo(() => {
@@ -383,6 +393,9 @@ export default function Courses() {
       </div>
 
       <div id="courses-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {bundles.length > 0 && (
+          <section className="mb-10"><div className="flex items-end justify-between mb-4"><div><p className="text-primary text-xs tracking-widest uppercase font-semibold">Save with a bundle</p><h2 className="font-heading text-2xl font-bold text-dark mt-1">Complete your learning path</h2></div></div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{bundles.map(bundle => <BundleCard key={bundle.name} bundle={bundle} />)}</div></section>
+        )}
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           {/* Search */}

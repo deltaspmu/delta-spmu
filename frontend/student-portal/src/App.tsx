@@ -38,6 +38,7 @@ const Verify = lazy(() => import('./pages/VerifyEmail'));
 
 const Courses = lazy(() => import('./pages/Courses'));
 const CourseDetail = lazy(() => import('./pages/CourseDetail'));
+const BundleDetail = lazy(() => import('./pages/BundleDetail'));
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const MyCourses = lazy(() => import('./pages/MyCourses'));
@@ -198,6 +199,7 @@ export default function App() {
                     {/* Public content routes */}
                     <Route path="/courses" element={<Courses />} />
                     <Route path="/course/:courseId" element={<CourseDetail />} />
+                    <Route path="/bundle/:bundleId" element={<BundleDetail />} />
 
                     {/* Protected routes */}
                     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
