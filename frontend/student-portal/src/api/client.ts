@@ -252,6 +252,19 @@ export const getCourseDetail = (courseName: string) =>
     })
     .then(unwrap);
 
+export const getPublicBundles = () =>
+  api.get('/api/method/lms.lms.bundle_api.get_public_bundles').then(unwrap);
+
+export const getBundleDetail = (bundleName: string) =>
+  api.get('/api/method/lms.lms.bundle_api.get_bundle_detail', {
+    params: { bundle_name: bundleName },
+  }).then(unwrap);
+
+export const getBundlesForCourse = (courseName: string) =>
+  api.get('/api/method/lms.lms.bundle_api.get_bundles_for_course', {
+    params: { course_name: courseName },
+  }).then(unwrap);
+
 export const getCourseChapters = (courseName: string) =>
   api
     .get('/api/method/lms.lms.api.get_course_chapters', {

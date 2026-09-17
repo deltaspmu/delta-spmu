@@ -47,6 +47,20 @@ export interface Course {
   modified: string;
 }
 
+export interface CourseBundle {
+  name: string;
+  title: string;
+  description: string;
+  image: string | null;
+  price: number;
+  currency: string;
+  discount_percentage: number;
+  original_price: number | null;
+  published: number;
+  course_count: number;
+  courses: { name: string; title: string; image: string | null; published?: number }[];
+}
+
 // ---------------------------------------------------------------------------
 // Chapter & Lesson
 // ---------------------------------------------------------------------------

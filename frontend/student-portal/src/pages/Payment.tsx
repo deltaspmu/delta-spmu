@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getCourseDetail } from '@/api/client';
+import { getBundleDetail, getCourseDetail } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import { useCoursePrice } from '@/hooks/useCoursePrice';
 import { usePayment } from '@/hooks/usePayment';
 import type { Course } from '@/types';
+import type { CourseBundle } from '@/types';
 import {
   formatPrice,
   getPaymentMethodLabel,
@@ -79,6 +80,7 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
 ];
 
 const BUNDLE_ID = 'all-courses-bundle';
+const BUNDLE_PREFIX = 'bundle:';
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -343,7 +345,8 @@ export default function Payment() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  const isBundle = courseId === BUNDLE_ID;
+  const isBundle = courseId === BUNDLE_ID || !!courseId?.startsWith(BUNDLE_PREFIX);
+  const bundleId = courseId?.startsWith(BUNDLE_PREFIX) ? courseId.slice(BUNDLE_PREFIX.length) : '';
 
   // State
   const [selectedMethod, setSelectedMethod] = useState<string>('');
@@ -373,6 +376,12 @@ export default function Payment() {
     enabled: !!courseId && !isBundle,
   });
 
+  const { data: bundleData, isLoading: bundleLoading } = useQuery({
+    queryKey: ['bundle', bundleId],
+    queryFn: () => getBundleDetail(bundleId),
+    enabled: !!bundleId,
+  });
+
   const course = courseData as Course | undefined;
 
   // Redirect to login if not authenticated
@@ -396,21 +405,19 @@ export default function Payment() {
   // ---------------------------------------------------------------------------
 
   const courseTitle = useMemo(() => {
-    if (isBundle) return 'All Courses Bundle';
+    if (isBundle) return (bundleData as CourseBundle | undefined)?.title || 'Course Bundle';
     return course?.title || 'Course';
-  }, [isBundle, course]);
+  }, [isBundle, course, bundleData]);
 
   const courseImage = useMemo(() => {
-    if (isBundle) return '/placeholder-course.svg';
+    if (isBundle) return (bundleData as CourseBundle | undefined)?.image || '/placeholder-course.svg';
     return course ? getCourseImageUrl(course) : '/placeholder-course.svg';
-  }, [isBundle, course]);
+  }, [isBundle, course, bundleData]);
 
   const displayCurrency =
     selectedMethod === 'chapa_international' ? currency : 'ETB';
 
-  const finalAmount = isBundle
-    ? priceInfo.bundle_price
-    : priceInfo.final_price;
+  const finalAmount = priceInfo.final_price;
 
   const showCurrencyToggle = selectedMethod === 'chapa_international';
 
@@ -461,7 +468,7 @@ export default function Payment() {
   // Loading state
   // ---------------------------------------------------------------------------
 
-  if (courseLoading || (priceLoading && !selectedMethod)) {
+  if (courseLoading || bundleLoading || (priceLoading && !selectedMethod)) {
     return <PageSkeleton />;
   }
 

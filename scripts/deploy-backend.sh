@@ -32,6 +32,11 @@ ssh ${EC2_HOST} "
   echo OK
 "
 
+# Keep custom DocTypes and payment fields in sync with the deployed API. Both
+# helpers are idempotent, so this is safe on every staging/prod deployment.
+echo "  Applying LMS custom schema..."
+ssh ${EC2_HOST} "sudo -u frappe bash -lc 'cd ${BENCH_DIR} && ${BENCH_BIN} --site ${FRAPPE_SITE} execute lms.lms._migrate_doctypes.run && ${BENCH_BIN} --site ${FRAPPE_SITE} execute lms.lms.payments_api.setup_payment_transaction_fields'"
+
 # Restart Frappe with whichever process model actually runs on the host.
 if ssh ${EC2_HOST} "sudo supervisorctl status 2>/dev/null | grep -q '^deltaspmu'"; then
   echo "  supervisord detected — restarting managed services..."
