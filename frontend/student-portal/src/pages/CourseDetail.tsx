@@ -6,13 +6,14 @@ import {
   getCourseDetail,
   getCourseChapters,
   getCourseReviews,
+  getBundlesForCourse,
   submitReview,
 } from '@/api/client';
 import { useCourseAccess } from '@/hooks/useCourseAccess';
 import { useCoursePrice } from '@/hooks/useCoursePrice';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useAuth } from '@/context/AuthContext';
-import type { Course, Chapter, Review } from '@/types';
+import type { Course, Chapter, Review, CourseBundle } from '@/types';
 import {
   getCourseImageUrl,
   formatPrice,
@@ -332,6 +333,13 @@ export default function CourseDetail() {
     useCourseAccess(courseId || '');
 
   const { priceInfo, isLoading: priceLoading } = useCoursePrice(courseId || '');
+  const { data: relatedBundlesData } = useQuery({
+    queryKey: ['course-bundles', courseId],
+    queryFn: () => getBundlesForCourse(courseId!),
+    enabled: !!courseId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const relatedBundles = (relatedBundlesData || []) as CourseBundle[];
 
   // Parse data
   const course = courseData as Course | undefined;
@@ -791,29 +799,29 @@ export default function CourseDetail() {
                 )}
               </div>
 
-              {/* Bundle offer */}
-              {priceInfo.bundle_available && !hasAccess && (
-                <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/20">
+              {/* Bundle upgrade offers for bundles that include this course. */}
+              {!hasAccess && relatedBundles.map((bundle) => (
+                <div key={bundle.name} className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Award className="w-5 h-5 text-primary" />
                     <h3 className="font-heading font-semibold text-dark text-sm">
-                      Bundle Offer
+                      {bundle.title}
                     </h3>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">
-                    Get all courses for{' '}
+                    Get {bundle.course_count} courses for{' '}
                     <span className="font-bold text-dark">
-                      {formatPrice(priceInfo.bundle_price, priceInfo.currency)}
+                      {formatPrice(bundle.price, bundle.currency)}
                     </span>
                   </p>
                   <button
-                    onClick={() => navigate('/payment/all-courses-bundle')}
+                    onClick={() => navigate(`/bundle/${bundle.name}`)}
                     className="w-full py-2.5 bg-dark text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                   >
-                    Buy Bundle
+                    View Bundle
                   </button>
                 </div>
-              )}
+              ))}
 
               {/* Course includes */}
               <div className="bg-white rounded-xl p-5 border border-gray-100">

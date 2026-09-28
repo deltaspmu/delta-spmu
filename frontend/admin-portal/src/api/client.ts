@@ -175,6 +175,25 @@ export async function getCourses(params?: Record<string, any>) {
   return unwrap(res);
 }
 
+// ---------------------------------------------------------------------------
+// Course bundles
+// ---------------------------------------------------------------------------
+export async function getCourseBundles() {
+  return call('lms.lms.bundle_api.admin_get_bundles');
+}
+
+export async function createCourseBundle(data: Record<string, any>) {
+  return call('lms.lms.bundle_api.admin_create_bundle', data);
+}
+
+export async function updateCourseBundle(name: string, data: Record<string, any>) {
+  return call('lms.lms.bundle_api.admin_update_bundle', { name, ...data });
+}
+
+export async function deleteCourseBundle(name: string) {
+  return call('lms.lms.bundle_api.admin_delete_bundle', { name });
+}
+
 export async function getCourseDetail(name: string) {
   const res = await api.get(docResource('LMS Course', name));
   return unwrap(res);

@@ -16,6 +16,7 @@ import { CheckCircle, BookOpen, LayoutDashboard, Loader2 } from 'lucide-react';
 // ---------------------------------------------------------------------------
 
 const BUNDLE_ID = 'all-courses-bundle';
+const BUNDLE_PREFIX = 'bundle:';
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -26,7 +27,7 @@ export default function PaymentSuccess() {
 
   const courseId = searchParams.get('course') || '';
   const transactionId = searchParams.get('transaction') || '';
-  const isBundle = courseId === BUNDLE_ID;
+  const isBundle = courseId === BUNDLE_ID || courseId.startsWith(BUNDLE_PREFIX);
 
   // Entrance animation state
   const [visible, setVisible] = useState(false);
@@ -62,7 +63,7 @@ export default function PaymentSuccess() {
   // ---------------------------------------------------------------------------
 
   const courseTitle = useMemo(() => {
-    if (isBundle) return 'All Courses Bundle';
+    if (isBundle) return transaction?.course_title || 'Course Bundle';
     if (transaction?.course_title) return transaction.course_title;
     if (course?.title) return course.title;
     return 'Course';

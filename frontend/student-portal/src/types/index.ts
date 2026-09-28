@@ -129,6 +129,20 @@ export interface PaymentInfo {
   bundle_price: number;
 }
 
+export interface CourseBundle {
+  name: string;
+  title: string;
+  description: string;
+  image: string | null;
+  price: number;
+  currency: string;
+  discount_percentage: number;
+  original_price: number | null;
+  published: number;
+  course_count: number;
+  courses: Pick<Course, 'name' | 'title' | 'image' | 'short_introduction' | 'course_price' | 'currency'>[];
+}
+
 export interface PaymentTransaction {
   name: string;
   transaction_id: string;

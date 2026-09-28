@@ -26,6 +26,7 @@ BUNDLE_PRICE = 20000
 # to True and set a sensible BUNDLE_PRICE once all courses are live.
 BUNDLE_ENABLED = False
 TRANSACTION_PREFIX = "DS"
+BUNDLE_PRODUCT_PREFIX = "bundle:"
 
 # ---------------------------------------------------------------------------
 # Helper utilities (not whitelisted)
@@ -38,6 +39,22 @@ def _generate_transaction_id():
     raw = f"{timestamp_part}-{time.time()}-{frappe.generate_hash(length=12)}"
     hash_part = hashlib.sha256(raw.encode()).hexdigest()[:6].upper()
     return f"{TRANSACTION_PREFIX}-{timestamp_part}-{hash_part}"
+
+
+def _get_bundle_offer(product):
+    """Resolve a public bundle product such as ``bundle:abc123``."""
+    if not isinstance(product, str) or not product.startswith(BUNDLE_PRODUCT_PREFIX):
+        return None
+    bundle_name = product[len(BUNDLE_PRODUCT_PREFIX):]
+    if not frappe.db.exists("Course Bundle", {"name": bundle_name, "published": 1}):
+        frappe.throw(_("This bundle is not available."))
+    from lms.lms.bundle_api import get_bundle_courses
+    bundle = frappe.db.get_value(
+        "Course Bundle", bundle_name,
+        ["name", "title", "price", "currency", "discount_percentage"], as_dict=True,
+    )
+    bundle.courses = get_bundle_courses(bundle_name)
+    return bundle
 
 
 def _check_transaction_expiry(transaction):
@@ -180,7 +197,7 @@ def _send_payment_confirmation(user, course, transaction):
     """
     from lms.lms.email_templates import payment_success
 
-    course_title = frappe.db.get_value("LMS Course", course, "title") or course
+    course_title = transaction.get("course_title") or frappe.db.get_value("LMS Course", course, "title") or course
     student_name = frappe.db.get_value("User", user, "full_name") or user
     subject = _("Payment Confirmed – {0}").format(course_title)
 
@@ -220,7 +237,7 @@ def _process_successful_payment(transaction_name):
     tx = frappe.db.get_value(
         "Payment Transaction",
         transaction_name,
-        ["name", "user", "course", "transaction_id", "amount", "currency", "status"],
+        ["name", "user", "course", "bundle", "bundle_courses_snapshot", "course_title", "transaction_id", "amount", "currency", "status"],
         as_dict=True,
     )
 
@@ -245,8 +262,20 @@ def _process_successful_payment(transaction_name):
         },
     )
 
-    # Grant access
-    _create_course_access(tx.user, tx.course, transaction_name)
+    # Bundle membership is captured at checkout so later admin edits do not
+    # silently alter a paid student's entitlement.
+    if tx.bundle:
+        try:
+            courses = json.loads(tx.bundle_courses_snapshot or "[]")
+        except (TypeError, ValueError):
+            courses = []
+        if not courses:
+            frappe.log_error(title="Bundle payment has no course snapshot", message=tx.name)
+            return False
+        for course_name in courses:
+            _create_course_access(tx.user, course_name, transaction_name)
+    else:
+        _create_course_access(tx.user, tx.course, transaction_name)
 
     # Notify learner
     _send_payment_confirmation(
@@ -256,6 +285,7 @@ def _process_successful_payment(transaction_name):
             "transaction_id": tx.transaction_id,
             "amount": tx.amount,
             "currency": tx.currency,
+            "course_title": tx.course_title,
         },
     )
 
@@ -291,6 +321,34 @@ def get_course_price(course, currency="ETB"):
     """
     if not course:
         frappe.throw(_("Course is required."), frappe.MandatoryError)
+
+    bundle = _get_bundle_offer(course)
+    if bundle:
+        sale_price = float(bundle.price or 0)
+        discount_percent = float(bundle.discount_percentage or 0)
+        original_price = (
+            round(sale_price / (1 - discount_percent / 100), 2)
+            if 0 < discount_percent < 100 else sale_price
+        )
+        if currency and currency.upper() == "USD" and (bundle.currency or "ETB") == "ETB":
+            try:
+                from lms.lms.exchange_rate import get_exchange_rate
+                rate = get_exchange_rate(from_currency="ETB", to_currency="USD")
+            except Exception:
+                rate = frappe.db.get_single_value("Payment Settings", "etb_to_usd_rate") or 0.018
+            rate = float(rate.get("rate") if isinstance(rate, dict) else rate)
+            sale_price, original_price, currency = round(sale_price * rate, 2), round(original_price * rate, 2), "USD"
+        else:
+            currency = bundle.currency or "ETB"
+        return {
+            "original_price": original_price,
+            "discount_percent": discount_percent,
+            "discount_amount": round(original_price - sale_price, 2),
+            "final_price": sale_price,
+            "currency": currency,
+            "bundle_available": False,
+            "bundle_price": sale_price,
+        }
 
     # The bundle is a virtual product (no LMS Course row of its own), so price
     # it directly from BUNDLE_PRICE rather than looking it up as a course.
@@ -435,14 +493,14 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     if not course:
         frappe.throw(_("Course is required."), frappe.MandatoryError)
 
-    # The bundle ("all-courses-bundle") is a virtual product with no LMS Course
-    # row, so skip the course-existence check for it.
-    is_bundle = course == BUNDLE_ID
+    # Bundles are virtual products with no LMS Course row.
+    bundle = _get_bundle_offer(course)
+    is_bundle = bool(bundle) or course == BUNDLE_ID
     if not is_bundle and not frappe.db.exists("LMS Course", course):
         frappe.throw(_("Course {0} not found.").format(course), frappe.DoesNotExistError)
 
     # The course bundle is currently disabled (see BUNDLE_ENABLED).
-    if is_bundle and not BUNDLE_ENABLED:
+    if course == BUNDLE_ID and not BUNDLE_ENABLED:
         frappe.throw(_("The course bundle is not available at the moment."))
 
     # Coming-soon courses (upcoming=1) appear in the catalogue but cannot be
@@ -497,7 +555,10 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             )
 
     # --- Resolve price ---
-    if is_bundle:
+    if bundle:
+        amount = float(bundle.price or 0)
+        bundle_currency = bundle.currency or "ETB"
+    elif is_bundle:
         amount = float(BUNDLE_PRICE)
     else:
         # The stored course_price is the post-discount price actually charged;
@@ -511,7 +572,20 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     if payment_method in ("telebirr", "telebirr_c2b"):
         currency = "ETB"
 
-    if currency and currency.upper() == "USD":
+    if bundle:
+        # The storefront can request USD for the international Chapa method.
+        # Convert an ETB-configured bundle exactly as individual courses do.
+        if currency and currency.upper() == "USD" and bundle_currency == "ETB":
+            try:
+                from lms.lms.exchange_rate import get_exchange_rate
+                rate = get_exchange_rate(from_currency="ETB", to_currency="USD")
+            except Exception:
+                rate = frappe.db.get_single_value("Payment Settings", "etb_to_usd_rate") or 0.018
+            rate = float(rate.get("rate") if isinstance(rate, dict) else rate)
+            amount, currency = round(amount * rate, 2), "USD"
+        else:
+            currency = bundle_currency
+    elif currency and currency.upper() == "USD":
         try:
             from lms.lms.exchange_rate import get_exchange_rate
             rate = get_exchange_rate(from_currency="ETB", to_currency="USD")
@@ -526,7 +600,7 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
     transaction_id = _generate_transaction_id()
     expiry_time = datetime.now() + timedelta(minutes=30)
 
-    course_title = "All Courses Bundle" if is_bundle else (
+    course_title = (bundle.title if bundle else "All Courses Bundle") if is_bundle else (
         frappe.db.get_value("LMS Course", course, "title") or course
     )
 
@@ -536,6 +610,8 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             "transaction_id": transaction_id,
             "user": user,
             "course": course,
+            "bundle": bundle.name if bundle else None,
+            "bundle_courses_snapshot": json.dumps(bundle.courses) if bundle else None,
             "course_title": course_title,
             "amount": amount,
             # legacy mandatory columns from the fork's doctype
@@ -548,6 +624,11 @@ def initiate_payment(course, payment_method, phone=None, currency="ETB"):
             "expiry_time": expiry_time,
         }
     )
+    # ``course`` is retained as the historic product identifier used by every
+    # provider callback.  It is a virtual value for bundles, so bypass Link
+    # validation while the real bundle link + course snapshot remain intact.
+    if bundle:
+        tx_doc.flags.ignore_links = True
     tx_doc.insert(ignore_permissions=True)
     frappe.db.commit()
 
@@ -1781,6 +1862,10 @@ def setup_payment_transaction_fields():
              "insert_after": "expiry_time"},
             {"fieldname": "provider_reference", "label": "Provider Reference", "fieldtype": "Data",
              "insert_after": "user_reference"},
+            {"fieldname": "bundle", "label": "Course Bundle", "fieldtype": "Link",
+             "options": "Course Bundle", "insert_after": "course"},
+            {"fieldname": "bundle_courses_snapshot", "label": "Bundle Course Snapshot", "fieldtype": "Long Text",
+             "read_only": 1, "insert_after": "bundle"},
         ],
     }, ignore_validate=True)
     frappe.db.commit()

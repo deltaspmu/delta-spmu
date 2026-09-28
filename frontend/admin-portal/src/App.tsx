@@ -19,6 +19,7 @@ import {
 import {
   LayoutDashboard,
   BookOpen,
+  Package,
   FolderTree,
   Video,
   Users,
@@ -61,6 +62,8 @@ const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), 'dashboard');
 const CourseList = lazyWithRetry(() => import('./pages/CourseList'), 'course-list');
 const CourseForm = lazyWithRetry(() => import('./pages/CourseForm'), 'course-form');
 const CourseEdit = lazyWithRetry(() => import('./pages/CourseEdit'), 'course-edit');
+const BundleList = lazyWithRetry(() => import('./pages/BundleList'), 'bundle-list');
+const BundleForm = lazyWithRetry(() => import('./pages/BundleForm'), 'bundle-form');
 const Categories = lazyWithRetry(() => import('./pages/Categories'), 'categories');
 const Videos = lazyWithRetry(() => import('./pages/Videos'), 'videos');
 const UserList = lazyWithRetry(() => import('./pages/UserList'), 'user-list');
@@ -92,6 +95,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { label: 'Courses', path: '/courses', icon: BookOpen },
+  { label: 'Bundles', path: '/bundles', icon: Package },
   { label: 'Categories', path: '/categories', icon: FolderTree },
   { label: 'Videos', path: '/videos', icon: Video },
   { label: 'Users', path: '/users', icon: Users },
@@ -492,6 +496,9 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/bundles" element={<ProtectedRoute><AdminLayout><BundleList /></AdminLayout></ProtectedRoute>} />
+                <Route path="/bundles/new" element={<ProtectedRoute><AdminLayout><BundleForm /></AdminLayout></ProtectedRoute>} />
+                <Route path="/bundles/:id" element={<ProtectedRoute><AdminLayout><BundleForm /></AdminLayout></ProtectedRoute>} />
                 <Route
                   path="/categories"
                   element={
