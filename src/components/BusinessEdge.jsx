@@ -45,7 +45,6 @@ export default function BusinessEdge() {
   });
 
   const imageScale = useTransform(scrollYProgress, [0, 0.5], [1.15, 1]);
-  const imageClip = useTransform(scrollYProgress, [0.05, 0.4], [100, 0]);
   const textY = useTransform(scrollYProgress, [0, 1], [80, -40]);
 
   return (
@@ -97,36 +96,21 @@ export default function BusinessEdge() {
 
         {/* Split editorial layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-          {/* Left — Image reveal */}
-          <div className="relative h-[50vh] md:h-[75vh] lg:h-auto overflow-hidden">
-            <motion.div
-              ref={imageRef}
-              className="absolute inset-0"
-              style={{
-                scale: imageScale,
-                clipPath: imageClip.get
-                  ? undefined
-                  : "inset(0% 0 0 0)",
-              }}
-            >
-              <motion.div
-                className="absolute inset-0"
-                initial={{ clipPath: "inset(100% 0 0 0)" }}
-                whileInView={{ clipPath: "inset(0% 0 0 0)" }}
-                viewport={{ once: true, amount: 0.1 }}
-                transition={{
-                  duration: 1.4,
-                  ease: [0.65, 0, 0.35, 1],
-                }}
-              >
-                <motion.img
-                  src="/images/business.jpg"
-                  alt="Business education and ethical practice at Delta SPMU Academy"
-                  className="w-full h-full object-cover"
-                  style={{ scale: imageScale }}
-                />
-              </motion.div>
-            </motion.div>
+          {/* Left — Image */}
+          <div
+            ref={imageRef}
+            className="relative h-[50vh] md:h-[75vh] lg:h-auto lg:min-h-[560px] overflow-hidden"
+          >
+            <motion.img
+              src="/images/business.jpg"
+              alt="Business education and ethical practice at Delta SPMU Academy"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ scale: imageScale }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ duration: 1.2, ease: [0.65, 0, 0.35, 1] }}
+            />
 
             {/* Image overlay gradient */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent to-alabaster/20 pointer-events-none" />
