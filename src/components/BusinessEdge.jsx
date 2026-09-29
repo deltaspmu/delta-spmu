@@ -120,7 +120,7 @@ export default function BusinessEdge() {
                 }}
               >
                 <motion.img
-                  src="/images/business.png"
+                  src="/images/business.jpg"
                   alt="Business education and ethical practice at Delta SPMU Academy"
                   className="w-full h-full object-cover"
                   style={{ scale: imageScale }}
